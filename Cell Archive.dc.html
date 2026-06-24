@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<template id="__bundler_thumbnail" data-bg-color="#f1e9e2">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#f1e9e2"/>
+    <path d="M460 300h90l40 40h150a20 20 0 0 1 20 20v160a20 20 0 0 1-20 20H460a20 20 0 0 1-20-20V320a20 20 0 0 1 20-20z" fill="none" stroke="#9a5638" stroke-width="14"/>
+    <circle cx="540" cy="470" r="16" fill="#9a5638"/>
+    <circle cx="600" cy="500" r="16" fill="#9a5638"/>
+    <circle cx="660" cy="455" r="16" fill="#9a5638"/>
+  </svg>
+</template>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'IBM Plex Sans',system-ui,sans-serif;background:oklch(0.965 0.008 75);color:oklch(0.30 0.02 60);-webkit-font-smoothing:antialiased}
+  input,button,select,textarea{font-family:inherit;color:inherit}
+  ::placeholder{color:oklch(0.70 0.015 70)}
+  @keyframes drawerIn{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes popIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div style="--accent: {{ accentVar }}; --accent-soft: {{ accentSoftVar }}; min-height:100vh">
+
+  <!-- ============ SCREEN 1 — LOGIN ============ -->
+  <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg, oklch(0.97 0.012 80), oklch(0.94 0.014 70))">
+      <div style="width:392px;background:oklch(0.995 0.004 75);border:1px solid oklch(0.88 0.012 70);border-radius:16px;padding:40px 36px;box-shadow:0 18px 50px -18px rgba(80,52,24,0.35)">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent,oklch(0.56 0.10 45))">Biology Dept · {{ appTitle }}</div>
+        <h1 style="font-family:'Newsreader',serif;font-weight:500;font-size:34px;margin:14px 0 26px;letter-spacing:-0.01em">Account</h1>
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div>
+            <label style="font-size:13px;font-weight:500;color:oklch(0.45 0.02 60)">Username</label>
+            <input placeholder="your.name" style="width:100%;margin-top:7px;padding:11px 13px;border:1px solid oklch(0.86 0.012 70);border-radius:9px;font-size:15px;background:#fff;outline:none">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:500;color:oklch(0.45 0.02 60)">Password</label>
+            <input type="password" placeholder="••••••••" style="width:100%;margin-top:7px;padding:11px 13px;border:1px solid oklch(0.86 0.012 70);border-radius:9px;font-size:15px;background:#fff;outline:none">
+          </div>
+          <button onClick="{{ login }}" style="margin-top:6px;width:100%;padding:13px;background:var(--accent,oklch(0.56 0.10 45));color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:600;cursor:pointer;letter-spacing:0.01em">Log in</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ APP SHELL (screens 3,4,5,8 + raw/help) ============ -->
+  <sc-if value="{{ isApp }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height:100vh;display:flex;flex-direction:column">
+
+      <!-- topbar -->
+      <div style="height:60px;flex:none;display:flex;align-items:center;gap:16px;padding:0 20px;border-bottom:1px solid oklch(0.88 0.012 70);background:oklch(0.99 0.005 75);position:sticky;top:0;z-index:20">
+        <button onClick="{{ toggleMenu }}" aria-label="Menu" style="width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:1px solid oklch(0.88 0.012 70);background:#fff;border-radius:9px;cursor:pointer">
+          <svg width="18" height="18" viewBox="0 0 24 24" stroke="oklch(0.36 0.02 60)" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div style="font-family:'Newsreader',serif;font-size:20px;font-weight:500;letter-spacing:-0.01em">{{ appTitle }}</div>
+        <sc-if value="{{ prototypeBadge }}" hint-placeholder-val="{{ true }}">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--accent,oklch(0.56 0.10 45));border:1px solid var(--accent,oklch(0.56 0.10 45));padding:3px 7px;border-radius:5px">Prototype</span>
+        </sc-if>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:oklch(0.48 0.02 60)">
+          <span>researcher@stolaf.edu</span>
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--accent-soft,oklch(0.945 0.018 60));color:var(--accent,oklch(0.56 0.10 45));display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px">R</div>
+        </div>
+      </div>
+
+      <!-- subheader: breadcrumb / title + primary action -->
+      <div style="height:52px;flex:none;display:flex;align-items:center;gap:12px;padding:0 24px;border-bottom:1px solid oklch(0.90 0.01 72);background:oklch(0.965 0.008 75)">
+        <sc-if value="{{ canBack }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ back }}" style="display:flex;align-items:center;gap:6px;border:1px solid oklch(0.88 0.012 70);background:#fff;border-radius:8px;padding:6px 11px;cursor:pointer;font-size:13px;color:oklch(0.40 0.02 60)">
+            <svg width="15" height="15" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+        </sc-if>
+
+        <sc-if value="{{ folderScreen }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:8px;font-size:14px">
+            <span onClick="{{ onCrumbExperiments }}" style="cursor:pointer;color:oklch(0.48 0.02 60)">Experiments</span>
+            <sc-if value="{{ showCrumbExp }}" hint-placeholder-val="{{ false }}">
+              <span style="color:oklch(0.74 0.01 70)">/</span>
+              <span onClick="{{ onCrumbExp }}" style="cursor:pointer;color:oklch(0.48 0.02 60)">{{ crumbExpName }}</span>
+            </sc-if>
+            <sc-if value="{{ showCrumbCond }}" hint-placeholder-val="{{ false }}">
+              <span style="color:oklch(0.74 0.01 70)">/</span>
+              <span style="color:oklch(0.30 0.02 60);font-weight:600">{{ crumbCondName }}</span>
+            </sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ plainHeader }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:15px;font-weight:600;color:oklch(0.30 0.02 60)">{{ headerTitle }}</div>
+        </sc-if>
+
+        <div style="flex:1"></div>
+
+        <sc-if value="{{ showExperiments }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ openAddExp }}" style="display:flex;align-items:center;gap:7px;background:var(--accent,oklch(0.56 0.10 45));color:#fff;border:none;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13.5px;font-weight:600">
+            <svg width="15" height="15" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add experiment
+          </button>
+        </sc-if>
+        <sc-if value="{{ showConditions }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ openAddSlide }}" style="display:flex;align-items:center;gap:7px;background:var(--accent,oklch(0.56 0.10 45));color:#fff;border:none;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13.5px;font-weight:600">
+            <svg width="15" height="15" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New slide
+          </button>
+        </sc-if>
+        <sc-if value="{{ showCells }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ enterAddPhotos }}" style="display:flex;align-items:center;gap:7px;background:var(--accent,oklch(0.56 0.10 45));color:#fff;border:none;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13.5px;font-weight:600">
+            <svg width="15" height="15" viewBox="0 0 24 24" stroke="#fff" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Add photos
+          </button>
+        </sc-if>
+      </div>
+
+      <!-- body -->
+      <div style="flex:1;display:flex;min-height:0">
+
+        <!-- SCREEN 3 — EXPERIMENTS -->
+        <sc-if value="{{ showExperiments }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;padding:28px 32px;overflow:auto">
+            <h2 style="font-family:'Newsreader',serif;font-weight:500;font-size:26px;margin:0 0 4px">Experiments</h2>
+            <p style="margin:0 0 22px;font-size:13.5px;color:oklch(0.52 0.02 60)">Single-click a folder to view details · double-click to open.</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px">
+              <sc-for list="{{ expCards }}" as="exp" hint-placeholder-count="3">
+                <div style="{{ exp.cardStyle }}" onClick="{{ exp.onSelect }}" onDoubleClick="{{ exp.onOpen }}">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent,oklch(0.56 0.10 45))" stroke-width="1.5"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h8a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z"/></svg>
+                  <div style="font-family:'Newsreader',serif;font-size:18px;font-weight:500">{{ exp.name }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:oklch(0.50 0.02 60)">{{ exp.metaLine }}</div>
+                  <div style="font-size:12px;color:oklch(0.60 0.015 70)">{{ exp.date }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <aside style="width:322px;flex:none;border-left:1px solid oklch(0.88 0.012 70);background:oklch(0.99 0.005 75);overflow:auto">
+            <sc-if value="{{ hasSelExp }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:26px 24px">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;color:oklch(0.58 0.02 60)">Experiment</div>
+                <h3 style="font-family:'Newsreader',serif;font-weight:500;font-size:23px;margin:8px 0 20px">{{ selExpName }}</h3>
+                <div style="display:flex;flex-direction:column;gap:16px">
+                  <div><div style="font-size:11.5px;color:oklch(0.55 0.02 60);margin-bottom:3px">Date</div><div style="font-size:14.5px">{{ selExpDate }}</div></div>
+                  <div><div style="font-size:11.5px;color:oklch(0.55 0.02 60);margin-bottom:3px">Dye</div><div style="font-size:14.5px">{{ selExpDye }}</div></div>
+                  <div><div style="font-size:11.5px;color:oklch(0.55 0.02 60);margin-bottom:3px">Conditions</div><div style="font-size:14.5px">{{ selExpCondCount }}</div></div>
+                  <div><div style="font-size:11.5px;color:oklch(0.55 0.02 60);margin-bottom:3px">Notes</div><div style="font-size:14px;line-height:1.5;color:oklch(0.40 0.02 60)">{{ selExpNotes }}</div></div>
+                </div>
+                <button onClick="{{ onOpenSelExp }}" style="margin-top:26px;width:100%;padding:11px;background:#fff;border:1px solid var(--accent,oklch(0.56 0.10 45));color:var(--accent,oklch(0.56 0.10 45));border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Open experiment</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ noSelExp }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:40px 24px;text-align:center;color:oklch(0.62 0.015 70);font-size:13.5px">Select an experiment to see its details.</div>
+            </sc-if>
+          </aside>
+        </sc-if>
+
+        <!-- SCREEN 4 — CONDITIONS (slides) -->
+        <sc-if value="{{ showConditions }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;padding:28px 32px;overflow:auto">
+            <h2 style="font-family:'Newsreader',serif;font-weight:500;font-size:26px;margin:0 0 4px">{{ crumbExpName }}</h2>
+            <p style="margin:0 0 22px;font-size:13.5px;color:oklch(0.52 0.02 60)">Conditions in this experiment. Open one to see its cells.</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px">
+              <sc-for list="{{ condCards }}" as="cond" hint-placeholder-count="3">
+                <div style="{{ cond.cardStyle }}" onClick="{{ cond.onSelect }}" onDoubleClick="{{ cond.onOpen }}">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent,oklch(0.56 0.10 45))" stroke-width="1.5"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h8a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z"/></svg>
+                  <div style="font-family:'Newsreader',serif;font-size:18px;font-weight:500">{{ cond.name }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:oklch(0.50 0.02 60)">{{ cond.metaLine }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <aside style="width:322px;flex:none;border-left:1px solid oklch(0.88 0.012 70);background:oklch(0.99 0.005 75);overflow:auto">
+            <div style="padding:24px 22px">
+              <sc-if value="{{ hasSelCond }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-bottom:24px">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;color:oklch(0.58 0.02 60)">Condition</div>
+                  <h3 style="font-family:'Newsreader',serif;font-weight:500;font-size:21px;margin:8px 0 16px">{{ selCondName }}</h3>
+                  <div style="display:flex;flex-direction:column;gap:13px">
+                    <div><div style="font-size:11.5px;color:oklch(0.55 0.02 60);margin-bottom:2px">Dye</div><div style="font-size:14px">{{ selCondDye }}</div></div>
+                    <div><div style="font-size:11.5px;color:oklch(0.55 0.02 60);margin-bottom:2px">Starvation length</div><div style="font-size:14px">{{ selCondStarve }}</div></div>
+                    <div><div style="font-size:11.5px;color:oklch(0.55 0.02 60);margin-bottom:2px">Cells</div><div style="font-size:14px">{{ selCondCellCount }}</div></div>
+                  </div>
+                </div>
+              </sc-if>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;color:oklch(0.58 0.02 60);margin-bottom:6px">Condition averages</div>
+              <div style="font-size:11.5px;color:oklch(0.58 0.02 60);margin-bottom:18px">Auto-generated · lipid droplets / cell</div>
+              <sc-if value="{{ hasMini }}" hint-placeholder-val="{{ false }}">
+                <div style="position:relative;height:188px;margin:0 0 64px 40px;border-left:1.5px solid oklch(0.80 0.015 70);border-bottom:1.5px solid oklch(0.80 0.015 70)">
+                  <sc-for list="{{ miniTicks }}" as="t" hint-placeholder-count="5">
+                    <div style="{{ t.lineStyle }}"></div>
+                    <div style="{{ t.labelStyle }}">{{ t.val }}</div>
+                  </sc-for>
+                  <sc-for list="{{ miniSeries }}" as="series" hint-placeholder-count="3">
+                    <div style="{{ series.colStyle }}">
+                      <div style="{{ series.meanStyle }}"></div>
+                      <sc-for list="{{ series.points }}" as="p" hint-placeholder-count="3">
+                        <div style="{{ p.dotStyle }}" title="{{ p.label }}"></div>
+                      </sc-for>
+                      <div style="{{ series.miniLabelStyle }}">{{ series.shortLabel }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ noMini }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:13px;color:oklch(0.62 0.015 70)">No cell data yet.</div>
+              </sc-if>
+            </div>
+          </aside>
+        </sc-if>
+
+        <!-- SCREEN 5 — CELLS -->
+        <sc-if value="{{ showCells }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;padding:28px 32px;overflow:auto">
+            <h2 style="font-family:'Newsreader',serif;font-weight:500;font-size:26px;margin:0 0 4px">{{ crumbCondName }}</h2>
+            <p style="margin:0 0 22px;font-size:13.5px;color:oklch(0.52 0.02 60)">Cells in this condition. Click a cell to see its hand counts.</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:18px">
+              <sc-for list="{{ cellCards }}" as="cell" hint-placeholder-count="4">
+                <div style="{{ cell.cardStyle }}" onClick="{{ cell.onSelect }}">
+                  <div style="height:96px;border-radius:7px;background-color:#0b1310;background-image:radial-gradient(circle at 28% 36%, rgba(126,224,150,0.55), transparent 13%),radial-gradient(circle at 62% 58%, rgba(120,214,150,0.5), transparent 15%),radial-gradient(circle at 44% 74%, rgba(150,230,170,0.45), transparent 11%),radial-gradient(circle at 78% 30%, rgba(110,205,140,0.4), transparent 12%)"></div>
+                  <div style="font-size:14.5px;font-weight:600">{{ cell.name }}</div>
+                  <div style="{{ cell.tagStyle }}">{{ cell.tag }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <aside style="width:322px;flex:none;border-left:1px solid oklch(0.88 0.012 70);background:oklch(0.99 0.005 75);overflow:auto;display:flex;flex-direction:column">
+            <sc-if value="{{ hasSelCell }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;padding:26px 24px">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;color:oklch(0.58 0.02 60)">Cell</div>
+                <h3 style="font-family:'Newsreader',serif;font-weight:500;font-size:23px;margin:8px 0 20px">{{ selCellName }}</h3>
+                <div style="background:var(--accent-soft,oklch(0.945 0.018 60));border-radius:11px;padding:18px;text-align:center;margin-bottom:22px">
+                  <div style="font-size:11.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent,oklch(0.56 0.10 45))">Average hand count</div>
+                  <div style="font-family:'Newsreader',serif;font-size:42px;font-weight:500;color:oklch(0.30 0.02 60);margin-top:4px">{{ selCellAvg }}</div>
+                </div>
+                <div style="font-size:11.5px;color:oklch(0.55 0.02 60);margin-bottom:8px">Hand counts</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <sc-for list="{{ cellCounts }}" as="c" hint-placeholder-count="3">
+                    <div style="{{ c.rowStyle }}">
+                      <span style="font-size:13.5px;color:oklch(0.48 0.02 60)">{{ c.label }}</span>
+                      <span style="font-size:14.5px;font-weight:600;font-family:'IBM Plex Mono',monospace">{{ c.val }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <sc-if value="{{ selCellNeeds }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:18px 24px;border-top:1px solid oklch(0.88 0.012 70)">
+                  <button onClick="{{ onCountSel }}" style="width:100%;padding:13px;background:var(--accent,oklch(0.56 0.10 45));color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:600;cursor:pointer">Count</button>
+                </div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ noSelCell }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:40px 24px;text-align:center;color:oklch(0.62 0.015 70);font-size:13.5px">Select a cell to see its hand counts.</div>
+            </sc-if>
+          </aside>
+        </sc-if>
+
+        <!-- SCREEN 8 — GRAPH -->
+        <sc-if value="{{ showGraph }}" hint-placeholder-val="{{ false }}">
+          <aside style="width:312px;flex:none;border-right:1px solid oklch(0.88 0.012 70);background:oklch(0.99 0.005 75);padding:24px 22px;display:flex;flex-direction:column;gap:18px;overflow:auto">
+            <div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;color:oklch(0.58 0.02 60);margin-bottom:14px">Add data</div>
+              <label style="font-size:12.5px;color:oklch(0.48 0.02 60)">Experiment</label>
+              <select value="{{ graphExpId }}" onChange="{{ setGraphExp }}" style="width:100%;margin:6px 0 14px;padding:9px 10px;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:13.5px;background:#fff">
+                <option value="">Choose experiment…</option>
+                <sc-for list="{{ expOptions }}" as="o" hint-placeholder-count="3">
+                  <option value="{{ o.id }}">{{ o.name }}</option>
+                </sc-for>
+              </select>
+              <label style="font-size:12.5px;color:oklch(0.48 0.02 60)">Condition</label>
+              <select value="{{ graphCondId }}" onChange="{{ setGraphCond }}" style="width:100%;margin:6px 0 16px;padding:9px 10px;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:13.5px;background:#fff">
+                <option value="">Choose condition…</option>
+                <sc-for list="{{ condOptions }}" as="o" hint-placeholder-count="2">
+                  <option value="{{ o.id }}">{{ o.name }}</option>
+                </sc-for>
+              </select>
+              <button onClick="{{ addGraph }}" style="{{ addGraphStyle }}">Add to graph</button>
+            </div>
+            <div style="border-top:1px solid oklch(0.90 0.01 72);padding-top:16px;flex:1">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;color:oklch(0.58 0.02 60);margin-bottom:12px">Selected ({{ graphCount }})</div>
+              <sc-for list="{{ graphSelections }}" as="sel" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid oklch(0.89 0.012 70);border-radius:8px;background:#fff;margin-bottom:8px">
+                  <span style="flex:1;font-size:12.5px;line-height:1.3">{{ sel.name }}</span>
+                  <button onClick="{{ sel.onRemove }}" aria-label="Remove" style="flex:none;width:24px;height:24px;border:none;background:oklch(0.95 0.008 70);border-radius:6px;cursor:pointer;color:oklch(0.5 0.02 60);font-size:15px;line-height:1">×</button>
+                </div>
+              </sc-for>
+              <sc-if value="{{ noGraphSel }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:13px;color:oklch(0.62 0.015 70);line-height:1.5">No folders selected yet. Pick an experiment and condition, then add it.</div>
+              </sc-if>
+            </div>
+          </aside>
+          <div style="flex:1;padding:30px 36px;overflow:auto;display:flex;flex-direction:column">
+            <h2 style="font-family:'Newsreader',serif;font-weight:500;font-size:24px;margin:0 0 2px">Lipid droplet counts by condition</h2>
+            <p style="margin:0 0 8px;font-size:13px;color:oklch(0.52 0.02 60)">Each dot is one cell's average · bar marks the condition mean.</p>
+            <sc-if value="{{ hasGraph }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:1;display:flex;align-items:stretch;min-height:440px;padding:24px 0 0">
+                <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-size:12px;color:oklch(0.5 0.02 60);text-align:center;padding-right:6px">Lipid droplets / cell</div>
+                <div style="position:relative;flex:1;margin:8px 0 72px 48px;border-left:1.6px solid oklch(0.78 0.015 70);border-bottom:1.6px solid oklch(0.78 0.015 70)">
+                  <sc-for list="{{ graphTicks }}" as="t" hint-placeholder-count="5">
+                    <div style="{{ t.lineStyle }}"></div>
+                    <div style="{{ t.labelStyle }}">{{ t.val }}</div>
+                  </sc-for>
+                  <sc-for list="{{ graphSeries }}" as="series" hint-placeholder-count="2">
+                    <div style="{{ series.colStyle }}">
+                      <div style="{{ series.meanStyle }}"></div>
+                      <div style="{{ series.meanLabelStyle }}">{{ series.meanLabel }}</div>
+                      <sc-for list="{{ series.points }}" as="p" hint-placeholder-count="3">
+                        <div style="{{ p.dotStyle }}" title="{{ p.label }}"></div>
+                      </sc-for>
+                      <div style="{{ series.labelStyle }}">
+                        <div style="font-weight:600;font-size:12px">{{ series.shortLabel }}</div>
+                        <div style="font-size:10.5px;color:oklch(0.55 0.02 60)">{{ series.expName }}</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ noGraph }}" hint-placeholder-val="{{ true }}">
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;border:1.5px dashed oklch(0.85 0.012 70);border-radius:14px;margin-top:18px;color:oklch(0.58 0.015 70);font-size:14.5px">Add a condition from the left to plot it.</div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- RAW DATA -->
+        <sc-if value="{{ showRaw }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;padding:28px 32px;overflow:auto">
+            <h2 style="font-family:'Newsreader',serif;font-weight:500;font-size:26px;margin:0 0 4px">Raw data</h2>
+            <p style="margin:0 0 22px;font-size:13.5px;color:oklch(0.52 0.02 60)">Every cell with its three hand counts and average.</p>
+            <div style="border:1px solid oklch(0.88 0.012 70);border-radius:12px;overflow:hidden;background:#fff">
+              <div style="display:grid;grid-template-columns:1.4fr 1.2fr 0.9fr 0.7fr 0.7fr 0.7fr 0.8fr;padding:12px 16px;background:oklch(0.96 0.008 72);font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:oklch(0.5 0.02 60);border-bottom:1px solid oklch(0.90 0.01 72)">
+                <span>Experiment</span><span>Condition</span><span>Cell</span><span>Count 1</span><span>Count 2</span><span>Count 3</span><span>Average</span>
+              </div>
+              <sc-for list="{{ rawRows }}" as="r" hint-placeholder-count="8">
+                <div style="{{ r.rowStyle }}">
+                  <span>{{ r.exp }}</span><span>{{ r.cond }}</span><span style="font-weight:600">{{ r.cell }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace">{{ r.c1 }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace">{{ r.c2 }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace">{{ r.c3 }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--accent,oklch(0.56 0.10 45))">{{ r.avg }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- HELP -->
+        <sc-if value="{{ showHelp }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;padding:28px 32px;overflow:auto">
+            <h2 style="font-family:'Newsreader',serif;font-weight:500;font-size:26px;margin:0 0 22px">Help</h2>
+            <div style="max-width:680px;display:flex;flex-direction:column;gap:18px">
+              <sc-for list="{{ helpItems }}" as="h" hint-placeholder-count="4">
+                <div style="border:1px solid oklch(0.89 0.012 70);border-radius:12px;padding:18px 20px;background:#fff">
+                  <div style="font-weight:600;font-size:15px;margin-bottom:5px">{{ h.title }}</div>
+                  <div style="font-size:13.5px;line-height:1.55;color:oklch(0.46 0.02 60)">{{ h.body }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+
+    <!-- slide-out menu -->
+    <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeMenu }}" style="position:fixed;inset:0;background:rgba(46,30,16,0.30);z-index:40"></div>
+      <div style="position:fixed;top:0;left:0;width:264px;height:100vh;background:oklch(0.995 0.004 75);border-right:1px solid oklch(0.88 0.012 70);z-index:41;padding:20px 14px;box-shadow:8px 0 30px -12px rgba(60,40,20,0.3)">
+        <div style="padding:6px 10px 18px;font-family:'Newsreader',serif;font-size:19px;font-weight:500">{{ appTitle }}</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <button onClick="{{ goExperiments }}" style="{{ mExpStyle }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h8a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z"/></svg>
+            Experiments
+          </button>
+          <button onClick="{{ goGraph }}" style="{{ mGraphStyle }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 3v18h18"/><circle cx="9" cy="13" r="1.4"/><circle cx="14" cy="9" r="1.4"/><circle cx="18" cy="14" r="1.4"/></svg>
+            Graph
+          </button>
+          <button onClick="{{ goRaw }}" style="{{ mRawStyle }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="4" x2="9" y2="20"/></svg>
+            Raw data
+          </button>
+          <button onClick="{{ goHelp }}" style="{{ mHelpStyle }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+            Help
+          </button>
+        </div>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <!-- ============ SCREEN 6 — ADD PHOTOS ============ -->
+  <sc-if value="{{ isAddPhotos }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height:100vh;display:flex;flex-direction:column;background:oklch(0.94 0.01 72)">
+      <div style="height:60px;flex:none;display:flex;align-items:center;gap:14px;padding:0 22px;background:oklch(0.99 0.005 75);border-bottom:1px solid oklch(0.88 0.012 70)">
+        <div style="font-family:'Newsreader',serif;font-size:19px;font-weight:500">Add photos · {{ addPhotosCondName }}</div>
+        <span style="font-size:13px;color:oklch(0.52 0.02 60)">Click each cell in the image. Drag to move, drag the corner to resize.</span>
+        <div style="flex:1"></div>
+        <button onClick="{{ cancelAddPhotos }}" style="padding:9px 15px;background:#fff;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:13.5px;cursor:pointer">Cancel</button>
+        <button onClick="{{ confirmCells }}" style="padding:9px 16px;background:var(--accent,oklch(0.56 0.10 45));color:#fff;border:none;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer">Create {{ totalBoxes }} cells</button>
+      </div>
+      <div style="flex:1;display:flex;min-height:0">
+        <div style="width:150px;flex:none;border-right:1px solid oklch(0.88 0.012 70);background:oklch(0.99 0.005 75);padding:16px 12px;overflow:auto">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:oklch(0.55 0.02 60);margin-bottom:12px">Batch · .tif</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ tifThumbs }}" as="t" hint-placeholder-count="3">
+              <div onClick="{{ t.onPick }}" style="{{ t.style }}">
+                <div style="height:64px;border-radius:5px;background-color:#0b1310;background-image:radial-gradient(circle at 30% 40%, rgba(126,224,150,0.5), transparent 16%),radial-gradient(circle at 66% 62%, rgba(120,214,150,0.45), transparent 18%)"></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;margin-top:6px;display:flex;justify-content:space-between"><span>{{ t.name }}</span><span style="color:var(--accent,oklch(0.56 0.10 45))">{{ t.count }}</span></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:30px">
+          <div onClick="{{ addBox }}" style="position:relative;width:680px;height:480px;max-width:100%;border-radius:10px;cursor:crosshair;background-color:#0a120f;background-image:radial-gradient(circle at 24% 30%, rgba(126,224,150,0.6), transparent 9%),radial-gradient(circle at 58% 44%, rgba(120,214,150,0.55), transparent 11%),radial-gradient(circle at 40% 68%, rgba(150,230,170,0.5), transparent 8%),radial-gradient(circle at 76% 64%, rgba(110,205,140,0.5), transparent 10%),radial-gradient(circle at 82% 26%, rgba(120,214,150,0.45), transparent 9%),radial-gradient(circle at 18% 78%, rgba(126,224,150,0.45), transparent 7%);box-shadow:0 12px 40px -16px rgba(0,0,0,0.5);overflow:hidden">
+            <sc-for list="{{ curBoxes }}" as="b" hint-placeholder-count="0">
+              <div style="{{ b.boxStyle }}" onPointerDown="{{ b.onDrag }}">
+                <div style="{{ b.numStyle }}">{{ b.num }}</div>
+                <div onClick="{{ b.onRemove }}" style="position:absolute;top:-9px;right:-9px;width:18px;height:18px;border-radius:50%;background:#fff;color:oklch(0.45 0.1 30);border:1px solid oklch(0.85 0.02 40);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;cursor:pointer">×</div>
+                <div onPointerDown="{{ b.onResize }}" style="position:absolute;right:-5px;bottom:-5px;width:13px;height:13px;background:var(--accent,oklch(0.56 0.10 45));border:2px solid #fff;border-radius:3px;cursor:nwse-resize"></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ SCREEN 7 — COUNT ============ -->
+  <sc-if value="{{ isCount }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height:100vh;display:flex;flex-direction:column;background:oklch(0.22 0.012 60)">
+      <div style="height:60px;flex:none;display:flex;align-items:center;gap:14px;padding:0 22px;background:oklch(0.28 0.014 60);border-bottom:1px solid oklch(0.34 0.012 60);color:oklch(0.94 0.006 70)">
+        <div style="font-family:'Newsreader',serif;font-size:19px;font-weight:500">Count droplets · {{ countCellName }}</div>
+        <span style="font-size:13px;color:oklch(0.72 0.01 70)">Click each lipid droplet to mark it. Click a marker to remove it.</span>
+        <div style="flex:1"></div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;background:oklch(0.34 0.014 60);padding:7px 14px;border-radius:8px">Total: {{ markerTotal }}</div>
+        <button onClick="{{ cancelCount }}" style="padding:9px 15px;background:transparent;border:1px solid oklch(0.45 0.01 70);color:oklch(0.9 0.006 70);border-radius:8px;font-size:13.5px;cursor:pointer">Cancel</button>
+        <button onClick="{{ doneCount }}" style="padding:9px 18px;background:var(--accent,oklch(0.56 0.10 45));color:#fff;border:none;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer">Done</button>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:30px">
+        <div onClick="{{ addMarker }}" style="position:relative;width:760px;height:520px;max-width:100%;border-radius:10px;cursor:crosshair;background-color:#070d0a;background-image:radial-gradient(circle at 22% 28%, rgba(150,240,170,0.85), transparent 4%),radial-gradient(circle at 30% 50%, rgba(150,240,170,0.8), transparent 3.5%),radial-gradient(circle at 44% 33%, rgba(150,240,170,0.8), transparent 3%),radial-gradient(circle at 55% 60%, rgba(150,240,170,0.85), transparent 4%),radial-gradient(circle at 66% 40%, rgba(150,240,170,0.8), transparent 3.5%),radial-gradient(circle at 72% 66%, rgba(150,240,170,0.8), transparent 3%),radial-gradient(circle at 38% 72%, rgba(150,240,170,0.85), transparent 3.5%),radial-gradient(circle at 80% 30%, rgba(150,240,170,0.8), transparent 3%),radial-gradient(circle at 50% 78%, rgba(150,240,170,0.8), transparent 3.5%),radial-gradient(circle at 18% 62%, rgba(150,240,170,0.8), transparent 3%);box-shadow:0 16px 50px -18px rgba(0,0,0,0.7);overflow:hidden">
+          <div style="position:absolute;top:10px;left:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(180,255,200,0.55)">processed · BODIPY · click to mark</div>
+          <sc-for list="{{ markerViews }}" as="m" hint-placeholder-count="0">
+            <div style="{{ m.style }}" onClick="{{ m.onRemove }}">{{ m.num }}</div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ MODALS ============ -->
+  <sc-if value="{{ modalAddExp }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(46,30,16,0.34);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px">
+      <div onClick="{{ stop }}" style="width:440px;background:oklch(0.995 0.004 75);border-radius:15px;padding:28px;box-shadow:0 24px 60px -20px rgba(60,40,20,0.45)">
+        <h3 style="font-family:'Newsreader',serif;font-weight:500;font-size:22px;margin:0 0 20px">New experiment</h3>
+        <div style="display:flex;flex-direction:column;gap:15px">
+          <div><label style="font-size:12.5px;color:oklch(0.48 0.02 60)">Name</label><input ref="{{ rExpName }}" placeholder="Experiment 2" style="width:100%;margin-top:6px;padding:10px 12px;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:14px;background:#fff;outline:none"></div>
+          <div><label style="font-size:12.5px;color:oklch(0.48 0.02 60)">Date</label><input ref="{{ rExpDate }}" type="date" style="width:100%;margin-top:6px;padding:10px 12px;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:14px;background:#fff;outline:none"></div>
+          <div><label style="font-size:12.5px;color:oklch(0.48 0.02 60)">Dye</label><input ref="{{ rExpDye }}" placeholder="BODIPY" style="width:100%;margin-top:6px;padding:10px 12px;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:14px;background:#fff;outline:none"></div>
+          <div><label style="font-size:12.5px;color:oklch(0.48 0.02 60)">Notes</label><textarea ref="{{ rExpNotes }}" rows="3" placeholder="Additional notes…" style="width:100%;margin-top:6px;padding:10px 12px;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:14px;background:#fff;outline:none;resize:vertical"></textarea></div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px">
+          <button onClick="{{ closeModal }}" style="padding:10px 16px;background:#fff;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:14px;cursor:pointer">Cancel</button>
+          <button onClick="{{ saveExp }}" style="padding:10px 18px;background:var(--accent,oklch(0.56 0.10 45));color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Create folder</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ modalAddSlide }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(46,30,16,0.34);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px">
+      <div onClick="{{ stop }}" style="width:440px;background:oklch(0.995 0.004 75);border-radius:15px;padding:28px;box-shadow:0 24px 60px -20px rgba(60,40,20,0.45)">
+        <h3 style="font-family:'Newsreader',serif;font-weight:500;font-size:22px;margin:0 0 20px">New slide / condition</h3>
+        <div style="display:flex;flex-direction:column;gap:15px">
+          <div><label style="font-size:12.5px;color:oklch(0.48 0.02 60)">Name</label><input ref="{{ rSlName }}" placeholder="6 Hr Starved" style="width:100%;margin-top:6px;padding:10px 12px;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:14px;background:#fff;outline:none"></div>
+          <div><label style="font-size:12.5px;color:oklch(0.48 0.02 60)">Dye</label><input ref="{{ rSlDye }}" placeholder="BODIPY" style="width:100%;margin-top:6px;padding:10px 12px;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:14px;background:#fff;outline:none"></div>
+          <div><label style="font-size:12.5px;color:oklch(0.48 0.02 60)">Starvation length</label><input ref="{{ rSlStarve }}" placeholder="6 Hr" style="width:100%;margin-top:6px;padding:10px 12px;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:14px;background:#fff;outline:none"></div>
+          <div><label style="font-size:12.5px;color:oklch(0.48 0.02 60)">Notes</label><textarea ref="{{ rSlNotes }}" rows="2" placeholder="Additional notes…" style="width:100%;margin-top:6px;padding:10px 12px;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:14px;background:#fff;outline:none;resize:vertical"></textarea></div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px">
+          <button onClick="{{ closeModal }}" style="padding:10px 16px;background:#fff;border:1px solid oklch(0.86 0.012 70);border-radius:8px;font-size:14px;cursor:pointer">Cancel</button>
+          <button onClick="{{ saveSlide }}" style="padding:10px 18px;background:var(--accent,oklch(0.56 0.10 45));color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Create folder</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;paper&quot;,&quot;sage&quot;],&quot;default&quot;:&quot;paper&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;appTitle&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Cell Archive&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;prototypeBadge&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this._uid = 3000;
+    this.rExpName = React.createRef();
+    this.rExpDate = React.createRef();
+    this.rExpDye = React.createRef();
+    this.rExpNotes = React.createRef();
+    this.rSlName = React.createRef();
+    this.rSlDye = React.createRef();
+    this.rSlStarve = React.createRef();
+    this.rSlNotes = React.createRef();
+  }
+
+  state = {
+    screen: 'login',
+    menuOpen: false,
+    modal: null,
+    selExpId: null, selCondId: null, selCellId: null,
+    navExpId: null, navCondId: null,
+    countCellId: null, markers: [],
+    activeTif: 0, tifBoxes: {},
+    graphExpId: '', graphCondId: '', graphSel: [],
+    experiments: [
+      { id:'e1', name:'Experiment 1', date:'2026-03-14', dye:'BODIPY',
+        notes:'Lipid droplet quantification in hepatocytes under serum starvation.',
+        conditions:[
+          { id:'c1', name:'Fed (0 Hr)', dye:'BODIPY', starvation:'0 Hr', cells:[
+            {id:'k1', name:'Cell 1', counts:[60,58,62]},
+            {id:'k2', name:'Cell 2', counts:[55,57,54]},
+            {id:'k3', name:'Cell 3', counts:[63,61]},
+          ]},
+          { id:'c2', name:'3 Hr Starved', dye:'BODIPY', starvation:'3 Hr', cells:[
+            {id:'k4', name:'Cell 1', counts:[150,148,153]},
+            {id:'k5', name:'Cell 2', counts:[132,140]},
+            {id:'k6', name:'Cell 3', counts:[118,122,120]},
+            {id:'k7', name:'Cell 4', counts:[145,149,144]},
+          ]},
+          { id:'c3', name:'6 Hr Starved', dye:'BODIPY', starvation:'6 Hr', cells:[
+            {id:'k8', name:'Cell 1', counts:[205,210,208]},
+            {id:'k9', name:'Cell 2', counts:[198,201]},
+            {id:'k10', name:'Cell 3', counts:[220,217,224]},
+          ]},
+        ]},
+      { id:'e2', name:'Oleic Acid Loading', date:'2026-04-02', dye:'Nile Red',
+        notes:'Lipid accumulation following oleic acid treatment in fibroblasts.',
+        conditions:[
+          { id:'c4', name:'Control', dye:'Nile Red', starvation:'0 Hr', cells:[
+            {id:'k11', name:'Cell 1', counts:[40,42,39]},
+            {id:'k12', name:'Cell 2', counts:[44,41,43]},
+          ]},
+          { id:'c5', name:'200 µM OA', dye:'Nile Red', starvation:'0 Hr', cells:[
+            {id:'k13', name:'Cell 1', counts:[180,176,184]},
+            {id:'k14', name:'Cell 2', counts:[171,169]},
+          ]},
+        ]},
+      { id:'e3', name:'Rapamycin Treatment', date:'2026-05-19', dye:'BODIPY',
+        notes:'Autophagy induction via mTOR inhibition.',
+        conditions:[
+          { id:'c6', name:'Vehicle', dye:'BODIPY', starvation:'3 Hr', cells:[
+            {id:'k15', name:'Cell 1', counts:[150,152,148]},
+          ]},
+          { id:'c7', name:'Rapamycin', dye:'BODIPY', starvation:'3 Hr', cells:[
+            {id:'k16', name:'Cell 1', counts:[95,98]},
+          ]},
+        ]},
+    ],
+  };
+
+  uid(p){ this._uid++; return (p||'id') + this._uid; }
+  exp(id){ return this.state.experiments.find(e => e.id === id); }
+  avgNum(c){ if(!c || !c.length) return null; return c.reduce((a,b)=>a+b,0)/c.length; }
+  avgDisp(c){ const v = this.avgNum(c); return v==null ? '—' : String(Math.round(v*10)/10); }
+  niceMax(m){ if(m<=0) return 50; return Math.ceil((m*1.12)/50)*50; }
+
+  // ---- navigation ----
+  login = () => this.setState({ screen:'experiments', menuOpen:false });
+  toggleMenu = () => this.setState(s => ({ menuOpen: !s.menuOpen }));
+  closeMenu = () => this.setState({ menuOpen:false });
+  go = (screen) => this.setState({ screen, menuOpen:false });
+  goExperiments = () => this.go('experiments');
+  goGraph = () => this.go('graph');
+  goRaw = () => this.go('raw');
+  goHelp = () => this.go('help');
+  back = () => this.setState(s => ({ screen: s.screen==='cells' ? 'conditions' : 'experiments', selCellId:null }));
+  stop = (e) => { if(e) e.stopPropagation(); };
+
+  selectExp = (id) => this.setState({ selExpId:id });
+  openExp = (id) => this.setState({ navExpId:id, selCondId:null, screen:'conditions' });
+  selectCond = (id) => this.setState({ selCondId:id });
+  openCond = (id) => this.setState({ navCondId:id, selCellId:null, screen:'cells' });
+  selectCell = (id) => this.setState({ selCellId:id });
+
+  openModal = (m) => this.setState({ modal:m });
+  closeModal = () => this.setState({ modal:null });
+  openAddExp = () => this.openModal('exp');
+  openAddSlide = () => this.openModal('slide');
+
+  saveExp = () => {
+    const g = r => (r.current ? r.current.value.trim() : '');
+    const e = { id:this.uid('e'), name:g(this.rExpName)||('Experiment '+(this.state.experiments.length+1)),
+      date:g(this.rExpDate)||new Date().toISOString().slice(0,10), dye:g(this.rExpDye)||'—',
+      notes:g(this.rExpNotes)||'No notes.', conditions:[] };
+    this.setState(s => ({ experiments:[...s.experiments, e], modal:null, selExpId:e.id }));
+  };
+  saveSlide = () => {
+    const g = r => (r.current ? r.current.value.trim() : '');
+    const c = { id:this.uid('c'), name:g(this.rSlName)||'New condition', dye:g(this.rSlDye)||'—',
+      starvation:g(this.rSlStarve)||'—', notes:g(this.rSlNotes)||'', cells:[] };
+    this.setState(s => ({ experiments:s.experiments.map(e => e.id!==s.navExpId ? e : {...e, conditions:[...e.conditions, c]}), modal:null, selCondId:c.id }));
+  };
+
+  // ---- add photos ----
+  enterAddPhotos = () => this.setState({ screen:'addPhotos', activeTif:0, tifBoxes:{} });
+  cancelAddPhotos = () => this.setState({ screen:'cells', tifBoxes:{}, activeTif:0 });
+  pickTif = (i) => this.setState({ activeTif:i });
+  addBox = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const w=72, h=72;
+    const x = Math.max(0, Math.min(e.clientX - r.left - w/2, r.width - w));
+    const y = Math.max(0, Math.min(e.clientY - r.top - h/2, r.height - h));
+    const box = { id:this.uid('b'), x, y, w, h };
+    this.setState(s => { const t={...s.tifBoxes}; t[s.activeTif]=[...(t[s.activeTif]||[]), box]; return { tifBoxes:t }; });
+  };
+  updateBox = (tif, id, patch) => this.setState(s => { const t={...s.tifBoxes}; t[tif]=(t[tif]||[]).map(b => b.id===id ? {...b, ...patch} : b); return { tifBoxes:t }; });
+  removeBox = (tif, id, e) => { if(e) e.stopPropagation(); this.setState(s => { const t={...s.tifBoxes}; t[tif]=(t[tif]||[]).filter(b => b.id!==id); return { tifBoxes:t }; }); };
+  boxDrag = (tif, id, e) => {
+    e.preventDefault(); e.stopPropagation();
+    const arr = this.state.tifBoxes[tif]||[]; const b = arr.find(x=>x.id===id); if(!b) return;
+    const cont = e.currentTarget.parentElement.getBoundingClientRect();
+    const sx=e.clientX, sy=e.clientY, ox=b.x, oy=b.y;
+    const mv = ev => this.updateBox(tif, id, { x:Math.max(0,Math.min(ox+ev.clientX-sx, cont.width-b.w)), y:Math.max(0,Math.min(oy+ev.clientY-sy, cont.height-b.h)) });
+    const up = () => { window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); };
+    window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
+  };
+  boxResize = (tif, id, e) => {
+    e.preventDefault(); e.stopPropagation();
+    const arr = this.state.tifBoxes[tif]||[]; const b = arr.find(x=>x.id===id); if(!b) return;
+    const sx=e.clientX, sy=e.clientY, ow=b.w, oh=b.h;
+    const mv = ev => this.updateBox(tif, id, { w:Math.max(28, ow+ev.clientX-sx), h:Math.max(28, oh+ev.clientY-sy) });
+    const up = () => { window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); };
+    window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
+  };
+  confirmCells = () => {
+    const total = Object.values(this.state.tifBoxes).reduce((a,b)=>a+b.length, 0);
+    if(total === 0){ this.setState({ screen:'cells' }); return; }
+    this.setState(s => {
+      const experiments = s.experiments.map(e => e.id!==s.navExpId ? e : {...e, conditions:e.conditions.map(c => {
+        if(c.id!==s.navCondId) return c;
+        const base = c.cells.length; const add=[];
+        for(let i=0;i<total;i++) add.push({ id:this.uid('k'), name:'Cell '+(base+i+1), counts:[] });
+        return {...c, cells:[...c.cells, ...add]};
+      })});
+      return { experiments, screen:'cells', tifBoxes:{}, activeTif:0 };
+    });
+  };
+
+  // ---- count ----
+  enterCount = (id) => this.setState({ screen:'count', countCellId:id, markers:[] });
+  addMarker = (e) => { const r = e.currentTarget.getBoundingClientRect(); this.setState(s => ({ markers:[...s.markers, { id:this.uid('m'), x:e.clientX-r.left, y:e.clientY-r.top }] })); };
+  removeMarker = (id, e) => { if(e) e.stopPropagation(); this.setState(s => ({ markers:s.markers.filter(m => m.id!==id) })); };
+  cancelCount = () => this.setState({ screen:'cells', markers:[], countCellId:null });
+  doneCount = () => {
+    this.setState(s => {
+      const total = s.markers.length;
+      const experiments = s.experiments.map(e => e.id!==s.navExpId ? e : {...e, conditions:e.conditions.map(c => c.id!==s.navCondId ? c : {...c, cells:c.cells.map(k => k.id!==s.countCellId ? k : {...k, counts:[...k.counts, total]})})});
+      return { experiments, screen:'cells', markers:[], countCellId:null };
+    });
+  };
+
+  // ---- graph ----
+  setGraphExp = (e) => this.setState({ graphExpId:e.target.value, graphCondId:'' });
+  setGraphCond = (e) => this.setState({ graphCondId:e.target.value });
+  addGraph = () => {
+    const { graphExpId, graphCondId, graphSel } = this.state;
+    if(!graphExpId || !graphCondId) return;
+    if(graphSel.some(x => x.expId===graphExpId && x.condId===graphCondId)) return;
+    this.setState({ graphSel:[...graphSel, { expId:graphExpId, condId:graphCondId }] });
+  };
+  removeGraph = (idx) => this.setState(s => ({ graphSel:s.graphSel.filter((_,i)=>i!==idx) }));
+
+  buildSeries(sels, mini){
+    const ACC = 'var(--accent,oklch(0.56 0.10 45))';
+    let max = 10;
+    const raw = sels.map(sel => {
+      const e = this.exp(sel.expId);
+      const c = e && e.conditions.find(x => x.id===sel.condId);
+      const pts = (c ? c.cells : []).map(k => this.avgNum(k.counts)).filter(v => v!=null);
+      pts.forEach(v => { if(v>max) max=v; });
+      return { e, c, pts };
+    });
+    const yMax = this.niceMax(max);
+    const n = raw.length;
+    const dot = mini ? 9 : 12;
+    const series = raw.map((r, i) => {
+      const left = n ? ((i+0.5)/n*100) : 50;
+      const mean = r.pts.length ? r.pts.reduce((a,b)=>a+b,0)/r.pts.length : null;
+      const points = r.pts.map((v, j) => {
+        const off = (j - (r.pts.length-1)/2) * (mini ? 9 : 13);
+        return { label:(r.c?r.c.name:'')+': '+(Math.round(v*10)/10),
+          dotStyle:{ position:'absolute', bottom:(v/yMax*100)+'%', left:'50%', marginLeft:off+'px',
+            width:dot+'px', height:dot+'px', borderRadius:'50%', background:ACC, opacity:0.78,
+            transform:'translate(-50%,50%)', border:'1.5px solid oklch(0.99 0.005 75)', boxShadow:'0 1px 2px rgba(0,0,0,0.15)' } };
+      });
+      return {
+        key:'s'+i,
+        label:(r.e?r.e.name:'')+' · '+(r.c?r.c.name:''),
+        shortLabel:(r.c?r.c.name:''),
+        expName:(r.e?r.e.name:''),
+        colStyle:{ position:'absolute', left:left+'%', top:0, bottom:0, width:0 },
+        meanStyle: mean==null ? {display:'none'} : { position:'absolute', bottom:(mean/yMax*100)+'%', left:(mini?'-22px':'-34px'), width:(mini?'44px':'68px'), height:(mini?'2px':'3px'), background:ACC, transform:'translateY(50%)', borderRadius:'2px' },
+        meanLabel: mean==null ? '' : ('x̄ '+(Math.round(mean*10)/10)),
+        meanLabelStyle: mean==null ? {display:'none'} : { position:'absolute', bottom:(mean/yMax*100)+'%', left:'40px', transform:'translateY(50%)', fontSize:'11px', fontFamily:"'IBM Plex Mono',monospace", color:ACC, whiteSpace:'nowrap' },
+        labelStyle:{ position:'absolute', bottom:'-50px', left:'-70px', width:'140px', textAlign:'center', lineHeight:1.25 },
+        miniLabelStyle:{ position:'absolute', bottom:'-30px', left:'-46px', width:'92px', textAlign:'center', fontSize:'10.5px', lineHeight:1.2, color:'oklch(0.5 0.02 60)' },
+        points,
+      };
+    });
+    const yTicks = [0,0.25,0.5,0.75,1].map(f => ({
+      val: Math.round(yMax*f), pct:f*100,
+      lineStyle:{ position:'absolute', left:0, right:0, bottom:(f*100)+'%', borderTop:'1px dashed oklch(0.88 0.012 70)' },
+      labelStyle:{ position:'absolute', left:(mini?'-34px':'-40px'), bottom:(f*100)+'%', transform:'translateY(50%)', fontSize:'10.5px', fontFamily:"'IBM Plex Mono',monospace", color:'oklch(0.55 0.02 60)' },
+    }));
+    return { series, yTicks, has: series.length>0 };
+  }
+
+  folderStyle(sel){
+    return { display:'flex', flexDirection:'column', gap:'9px', padding:'16px', borderRadius:'11px', border:'1px solid',
+      borderColor: sel ? 'var(--accent,oklch(0.56 0.10 45))' : 'oklch(0.88 0.012 70)',
+      background: sel ? 'var(--accent-soft,oklch(0.945 0.018 60))' : 'oklch(0.995 0.004 75)',
+      cursor:'pointer', userSelect:'none', boxShadow: sel ? '0 2px 10px rgba(120,70,30,0.12)' : '0 1px 2px rgba(60,40,20,0.04)', transition:'all .12s' };
+  }
+  cellStyle(sel){
+    return { display:'flex', flexDirection:'column', gap:'10px', padding:'12px', borderRadius:'11px', border:'1px solid',
+      borderColor: sel ? 'var(--accent,oklch(0.56 0.10 45))' : 'oklch(0.88 0.012 70)',
+      background: sel ? 'var(--accent-soft,oklch(0.945 0.018 60))' : 'oklch(0.995 0.004 75)',
+      cursor:'pointer', userSelect:'none', boxShadow: sel ? '0 2px 10px rgba(120,70,30,0.12)' : '0 1px 2px rgba(60,40,20,0.04)', transition:'all .12s' };
+  }
+  menuStyle(active){
+    return { display:'flex', alignItems:'center', gap:'12px', width:'100%', padding:'11px 12px', border:'none',
+      background: active ? 'var(--accent-soft,oklch(0.945 0.018 60))' : 'transparent',
+      color: active ? 'var(--accent,oklch(0.56 0.10 45))' : 'oklch(0.36 0.02 60)',
+      borderRadius:'9px', cursor:'pointer', fontSize:'14.5px', fontWeight: active ? 600 : 500, textAlign:'left' };
+  }
+
+  renderVals(){
+    const s = this.state, P = this.props;
+    const theme = P.theme || 'paper';
+    const accentVar = theme==='sage' ? 'oklch(0.52 0.05 145)' : 'oklch(0.56 0.10 45)';
+    const accentSoftVar = theme==='sage' ? 'oklch(0.94 0.015 145)' : 'oklch(0.945 0.018 60)';
+    const appTitle = P.appTitle || 'Cell Archive';
+    const prototypeBadge = P.prototypeBadge !== false;
+
+    const screen = s.screen;
+    const navExp = this.exp(s.navExpId);
+    const navCond = navExp && navExp.conditions.find(c => c.id===s.navCondId);
+    const selExp = this.exp(s.selExpId);
+    const selCond = navExp && navExp.conditions.find(c => c.id===s.selCondId);
+    const selCell = navCond && navCond.cells.find(k => k.id===s.selCellId);
+    const countCell = navCond && navCond.cells.find(k => k.id===s.countCellId);
+
+    const showExperiments = screen==='experiments';
+    const showConditions = screen==='conditions';
+    const showCells = screen==='cells';
+    const showGraph = screen==='graph';
+    const showRaw = screen==='raw';
+    const showHelp = screen==='help';
+    const folderScreen = showExperiments || showConditions || showCells;
+
+    // cards
+    const expCards = s.experiments.map(e => ({
+      id:e.id, name:e.name, date:e.date,
+      metaLine: e.dye + ' · ' + e.conditions.length + ' condition' + (e.conditions.length===1?'':'s'),
+      cardStyle: this.folderStyle(e.id===s.selExpId),
+      onSelect: () => this.selectExp(e.id),
+      onOpen: () => this.openExp(e.id),
+    }));
+    const condCards = (navExp ? navExp.conditions : []).map(c => ({
+      id:c.id, name:c.name,
+      metaLine: c.starvation + ' · ' + c.cells.length + ' cell' + (c.cells.length===1?'':'s'),
+      cardStyle: this.folderStyle(c.id===s.selCondId),
+      onSelect: () => this.selectCond(c.id),
+      onOpen: () => this.openCond(c.id),
+    }));
+    const cellCards = (navCond ? navCond.cells : []).map(k => {
+      const need = k.counts.length < 3;
+      return { id:k.id, name:k.name,
+        tag: need ? (k.counts.length + '/3 counts') : (this.avgDisp(k.counts) + ' avg'),
+        tagStyle: { alignSelf:'flex-start', fontSize:'11px', fontFamily:"'IBM Plex Mono',monospace", padding:'3px 8px', borderRadius:'5px',
+          color: need ? 'oklch(0.48 0.10 55)' : 'var(--accent,oklch(0.56 0.10 45))',
+          background: need ? 'oklch(0.93 0.04 70)' : 'var(--accent-soft,oklch(0.945 0.018 60))' },
+        cardStyle: this.cellStyle(k.id===s.selCellId),
+        onSelect: () => this.selectCell(k.id),
+      };
+    });
+
+    // sel panels
+    const cellCounts = selCell ? [0,1,2].map(i => ({
+      label:'Count '+(i+1), val: selCell.counts[i]!=null ? String(selCell.counts[i]) : '—',
+      rowStyle:{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 12px', borderRadius:'8px',
+        background: selCell.counts[i]!=null ? '#fff' : 'oklch(0.96 0.008 70)',
+        border:'1px solid oklch(0.90 0.01 72)' },
+    })) : [];
+
+    // graph
+    const expOptions = s.experiments.map(e => ({ id:e.id, name:e.name }));
+    const gExp = this.exp(s.graphExpId);
+    const condOptions = (gExp ? gExp.conditions : []).map(c => ({ id:c.id, name:c.name }));
+    const graphSelections = s.graphSel.map((sel, i) => {
+      const e = this.exp(sel.expId); const c = e && e.conditions.find(x => x.id===sel.condId);
+      return { key:i+'-'+sel.condId, name:(e?e.name:'') + ' · ' + (c?c.name:''), onRemove:() => this.removeGraph(i) };
+    });
+    const G = this.buildSeries(s.graphSel, false);
+    const miniSels = navExp ? navExp.conditions.map(c => ({ expId:navExp.id, condId:c.id })) : [];
+    const M = this.buildSeries(miniSels, true);
+    const canAddGraph = !!(s.graphExpId && s.graphCondId);
+
+    // tifs / boxes
+    const tifs = [{name:'fov_001.tif'},{name:'fov_002.tif'},{name:'fov_003.tif'}];
+    const tifThumbs = tifs.map((t, i) => ({
+      name:t.name, count:(s.tifBoxes[i]||[]).length, onPick:() => this.pickTif(i),
+      style:{ cursor:'pointer', padding:'7px', borderRadius:'8px', border:'1px solid', userSelect:'none',
+        borderColor: i===s.activeTif ? 'var(--accent,oklch(0.56 0.10 45))' : 'oklch(0.89 0.012 70)',
+        background: i===s.activeTif ? 'var(--accent-soft,oklch(0.945 0.018 60))' : '#fff' },
+    }));
+    const curBoxes = (s.tifBoxes[s.activeTif]||[]).map((b, idx) => ({
+      id:b.id, num:idx+1,
+      boxStyle:{ position:'absolute', left:b.x+'px', top:b.y+'px', width:b.w+'px', height:b.h+'px',
+        border:'2px solid var(--accent,oklch(0.56 0.10 45))', background:'color-mix(in oklab, var(--accent,oklch(0.56 0.10 45)) 16%, transparent)',
+        boxSizing:'border-box', cursor:'move', touchAction:'none' },
+      numStyle:{ position:'absolute', top:'-1px', left:'-1px', background:'var(--accent,oklch(0.56 0.10 45))', color:'#fff',
+        fontSize:'10px', fontFamily:"'IBM Plex Mono',monospace", padding:'1px 5px', borderRadius:'0 0 5px 0' },
+      onDrag:(e) => this.boxDrag(s.activeTif, b.id, e),
+      onResize:(e) => this.boxResize(s.activeTif, b.id, e),
+      onRemove:(e) => this.removeBox(s.activeTif, b.id, e),
+    }));
+    const totalBoxes = Object.values(s.tifBoxes).reduce((a,b)=>a+b.length, 0);
+
+    // markers
+    const markerViews = s.markers.map((m, i) => ({
+      id:m.id, num:i+1,
+      style:{ position:'absolute', left:m.x+'px', top:m.y+'px', transform:'translate(-50%,-50%)', width:'26px', height:'26px',
+        borderRadius:'50%', background:'var(--accent,oklch(0.56 0.10 45))', color:'#fff', display:'flex', alignItems:'center',
+        justifyContent:'center', fontSize:'12px', fontWeight:600, cursor:'pointer', border:'2px solid rgba(255,255,255,0.9)', boxShadow:'0 1px 5px rgba(0,0,0,0.4)' },
+      onRemove:(e) => this.removeMarker(m.id, e),
+    }));
+
+    // raw rows
+    const rawRows = [];
+    s.experiments.forEach(e => e.conditions.forEach(c => c.cells.forEach((k, i) => {
+      rawRows.push({ key:k.id, exp:e.name, cond:c.name, cell:k.name,
+        c1:k.counts[0]!=null?k.counts[0]:'—', c2:k.counts[1]!=null?k.counts[1]:'—', c3:k.counts[2]!=null?k.counts[2]:'—',
+        avg:this.avgDisp(k.counts),
+        rowStyle:{ display:'grid', gridTemplateColumns:'1.4fr 1.2fr 0.9fr 0.7fr 0.7fr 0.7fr 0.8fr', padding:'12px 16px', fontSize:'13.5px',
+          alignItems:'center', borderTop: (rawRows.length===0?'none':'1px solid oklch(0.93 0.008 72)') } });
+    })));
+
+    const helpItems = [
+      { title:'Experiments & folders', body:'The main page lists experiments as folders. Single-click a folder to preview its details on the right; double-click to open it. Use “Add experiment” to create a new folder with a name, date, dye, and notes.' },
+      { title:'Conditions (slides)', body:'Inside an experiment you’ll find conditions — each holds the cells for one starvation length. The right panel shows metadata and an auto-generated chart of condition averages. “New slide” adds a condition.' },
+      { title:'Cells & hand counts', body:'Inside a condition, each cell shows its average hand count and the three individual counts. If a cell has fewer than three counts, a “Count” button appears so you can add another.' },
+      { title:'Adding photos', body:'“Add photos” takes a batch of .tif images. Click each cell in an image to place a box; drag to move it or drag the corner to resize. Confirming creates one cell folder per box.' },
+      { title:'Counting droplets', body:'The Count tool overlays the processed image. Click each lipid droplet to drop a numbered marker; click a marker to remove it. “Done” saves the total as a new hand count.' },
+      { title:'Graph builder', body:'The Graph page lets you pick any experiment + condition and add it to a scatter plot. Each dot is one cell’s average; the bar marks the condition mean.' },
+    ];
+
+    return {
+      accentVar, accentSoftVar, appTitle, prototypeBadge,
+      isLogin: screen==='login',
+      isApp: screen!=='login' && screen!=='addPhotos' && screen!=='count',
+      isAddPhotos: screen==='addPhotos',
+      isCount: screen==='count',
+      menuOpen: s.menuOpen,
+      // screen flags
+      showExperiments, showConditions, showCells, showGraph, showRaw, showHelp, folderScreen,
+      plainHeader: showGraph || showRaw || showHelp,
+      headerTitle: showGraph ? 'Graph builder' : showRaw ? 'Raw data' : showHelp ? 'Help' : '',
+      canBack: showConditions || showCells,
+      showCrumbExp: (showConditions || showCells) && !!navExp,
+      showCrumbCond: showCells && !!navCond,
+      crumbExpName: navExp ? navExp.name : '',
+      crumbCondName: navCond ? navCond.name : '',
+      // menu styles
+      mExpStyle: this.menuStyle(folderScreen),
+      mGraphStyle: this.menuStyle(showGraph),
+      mRawStyle: this.menuStyle(showRaw),
+      mHelpStyle: this.menuStyle(showHelp),
+      // cards
+      expCards, condCards, cellCards,
+      // exp panel
+      hasSelExp: !!selExp, noSelExp: !selExp,
+      selExpName: selExp ? selExp.name : '',
+      selExpDate: selExp ? selExp.date : '',
+      selExpDye: selExp ? selExp.dye : '',
+      selExpNotes: selExp ? selExp.notes : '',
+      selExpCondCount: selExp ? String(selExp.conditions.length) : '',
+      onOpenSelExp: () => selExp && this.openExp(selExp.id),
+      // cond panel
+      hasSelCond: !!selCond,
+      selCondName: selCond ? selCond.name : '',
+      selCondDye: selCond ? selCond.dye : '',
+      selCondStarve: selCond ? selCond.starvation : '',
+      selCondCellCount: selCond ? String(selCond.cells.length) : '',
+      hasMini: M.has, noMini: !M.has,
+      miniSeries: M.series, miniTicks: M.yTicks,
+      // cell panel
+      hasSelCell: !!selCell, noSelCell: !selCell,
+      selCellName: selCell ? selCell.name : '',
+      selCellAvg: selCell ? this.avgDisp(selCell.counts) : '—',
+      selCellNeeds: selCell ? selCell.counts.length < 3 : false,
+      cellCounts,
+      onCountSel: () => selCell && this.enterCount(selCell.id),
+      // graph
+      graphExpId: s.graphExpId, graphCondId: s.graphCondId,
+      expOptions, condOptions, graphSelections,
+      graphCount: s.graphSel.length,
+      noGraphSel: s.graphSel.length===0,
+      addGraphStyle: { width:'100%', padding:'10px', border:'none', borderRadius:'8px', fontSize:'13.5px', fontWeight:600,
+        cursor: canAddGraph ? 'pointer' : 'not-allowed',
+        background: canAddGraph ? 'var(--accent,oklch(0.56 0.10 45))' : 'oklch(0.90 0.01 72)',
+        color: canAddGraph ? '#fff' : 'oklch(0.62 0.015 70)' },
+      hasGraph: s.graphSel.length>0, noGraph: s.graphSel.length===0,
+      graphSeries: G.series, graphTicks: G.yTicks,
+      // add photos
+      addPhotosCondName: navCond ? navCond.name : '',
+      tifThumbs, curBoxes, totalBoxes,
+      // count
+      countCellName: countCell ? countCell.name : '',
+      markerViews, markerTotal: s.markers.length,
+      // raw / help
+      rawRows, helpItems,
+      // modals
+      modalAddExp: s.modal==='exp', modalAddSlide: s.modal==='slide',
+      // refs
+      rExpName:this.rExpName, rExpDate:this.rExpDate, rExpDye:this.rExpDye, rExpNotes:this.rExpNotes,
+      rSlName:this.rSlName, rSlDye:this.rSlDye, rSlStarve:this.rSlStarve, rSlNotes:this.rSlNotes,
+      // handlers
+      login:this.login, toggleMenu:this.toggleMenu, closeMenu:this.closeMenu,
+      goExperiments:this.goExperiments, goGraph:this.goGraph, goRaw:this.goRaw, goHelp:this.goHelp,
+      back:this.back, stop:this.stop,
+      onCrumbExperiments:this.goExperiments, onCrumbExp:() => navExp && this.openExp(navExp.id),
+      openAddExp:this.openAddExp, openAddSlide:this.openAddSlide, closeModal:this.closeModal,
+      saveExp:this.saveExp, saveSlide:this.saveSlide,
+      enterAddPhotos:this.enterAddPhotos, addBox:this.addBox, confirmCells:this.confirmCells, cancelAddPhotos:this.cancelAddPhotos,
+      addMarker:this.addMarker, doneCount:this.doneCount, cancelCount:this.cancelCount,
+      setGraphExp:this.setGraphExp, setGraphCond:this.setGraphCond, addGraph:this.addGraph,
+    };
+  }
+}
+</script>
+</body>
+</html>
