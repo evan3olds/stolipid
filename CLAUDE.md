@@ -44,6 +44,8 @@ A Python web API deployed on [Render](https://render.com) handles work the brows
 - Upload rendered PNG to Supabase Storage bucket `cell-images`; write `image_url` back to `cells`
 - Compute ICC per condition with `pingouin`; write result to `conditions.icc`
 
+Render communicates with Supabase **directly server-to-server** using the Supabase service role key — it does not route writes through the GitHub Pages frontend. The frontend is only responsible for POSTing the `.tif` file to Render; all subsequent database and storage writes happen on the Render side.
+
 > **Render free tier cold starts:** The Render service spins down after inactivity. The first API call after idle may take 30–60 seconds. The frontend should show a loading state during image upload rather than assuming a fast response.
 
 ---

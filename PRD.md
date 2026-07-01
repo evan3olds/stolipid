@@ -176,9 +176,11 @@ Python handles the computationally intensive work that the browser cannot do nat
 
 - **TIFF loading:** Use `tifffile` or `Pillow` to read raw `.tif` fluorescence microscopy files
 - **Image pre-processing:** Normalize contrast, apply false-color LUT (e.g., green channel for BODIPY), and export as PNG or JPEG for display in the browser
-- **Upload pipeline:** The Render API accepts `.tif` file uploads, processes them, uploads the rendered PNG to Supabase Storage, and writes the cell/image metadata to the database
-- **ICC calculation:** The `pingouin` library computes the Intraclass Correlation Coefficient for each condition and writes the result back to Supabase
-- **Invocation:** The frontend POSTs to the Render API endpoint; no local script execution is required from the researcher's machine
+- **Upload pipeline:** The Render API accepts `.tif` file uploads, processes them, uploads the rendered PNG to Supabase Storage, and writes the cell/image metadata to the database — all directly via the Supabase API using the service role key
+- **ICC calculation:** The `pingouin` library computes the Intraclass Correlation Coefficient for each condition and writes the result back to Supabase directly via the Supabase API
+- **Invocation:** The frontend POSTs the `.tif` file to the Render API endpoint; all subsequent Supabase writes (storage upload, `image_url`, `icc`) are performed server-to-server by Render, not routed through the GitHub Pages frontend
+
+> **Supabase access on Render:** Render uses the Supabase service role key (stored as a Render environment variable) to bypass Row-Level Security for its writes. The GitHub Pages frontend uses only the anon/public key with RLS enforced.
 
 ### 8.3 Database — Supabase
 

@@ -7,19 +7,17 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 1 — Foundation
 
-- [ ] Set up Supabase project: create `experiments`, `conditions`, `cells`, `counts` tables with correct schema and foreign keys
-- [ ] Configure Supabase Auth (email/password)
-- [ ] Write Row-Level Security (RLS) policies so researchers only read/write their own data
-- [ ] Create Supabase Storage buckets: `cell-images` (required) and `raw-tifs` (optional)
-- [ ] Scaffold project file structure: `index.html`, `style.css`, `app.js`, load Supabase JS client via CDN
-- [ ] Implement theming tokens (Paper theme: background, accent, IBM Plex Sans/Mono, Newsreader)
+> Supabase setup (tables, auth, RLS, storage) is handled in the Render/Python repo — Render is the sole service that talks to Supabase directly.
+
+- [x] Scaffold project file structure: `index.html`, `style.css`, `app.js` with Render API client (`api()` fetch helper)
+- [x] Implement theming tokens (Paper theme: background, accent, IBM Plex Sans/Mono, Newsreader)
 
 ---
 
 ## Phase 2 — Auth
 
-- [ ] Build Login screen (username/password fields, "Log in" button, "Biology Dept · Cell Archive" monospace header)
-- [ ] Wire login to Supabase Auth; store JWT in `localStorage`; route to Experiments screen on success
+- [x] Build Login screen (username/password fields, "Log in" button, "Biology Dept · Cell Archive" monospace header)
+- [x] Wire login to Render `/auth/login`; store JWT in `localStorage`; route to Experiments screen on success
 
 ---
 
@@ -102,6 +100,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 ## Phase 11 — Python API (Render)
 
 - [ ] Set up Python web API project (e.g., FastAPI) and deploy to Render
+- [ ] Endpoint: `POST /auth/login` — accept `{ username, password }`, validate against Supabase Auth, return `{ token }`
 - [ ] Endpoint: accept `.tif` upload, load with `tifffile` or `Pillow`, normalize contrast, apply green false-color LUT (BODIPY channel), export as PNG
 - [ ] Upload rendered PNG to Supabase Storage (`cell-images` bucket) and write `image_url` to `cells` table
 - [ ] Endpoint: compute ICC per condition with `pingouin`; write result back to `conditions.icc` column

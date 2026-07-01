@@ -1,0 +1,125 @@
+/* Paper theme tokens */
+:root {
+  --bg:           oklch(0.965 0.008 75);
+  --accent:       oklch(0.56 0.10 45);
+  --font-body:    'IBM Plex Sans', sans-serif;
+  --font-mono:    'IBM Plex Mono', monospace;
+  --font-heading: 'Newsreader', serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  font-family: var(--font-body);
+  color: oklch(0.2 0.02 75);
+  min-height: 100dvh;
+}
+
+#app {
+  min-height: 100dvh;
+}
+
+/* Login screen */
+.login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 1.5rem;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 22rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.login-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: oklch(0.45 0.03 75);
+  text-align: center;
+}
+
+.login-title {
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.login-field label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: oklch(0.35 0.02 75);
+}
+
+.login-field input {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid oklch(0.85 0.01 75);
+  border-radius: 0.375rem;
+  background: oklch(1 0 0);
+  color: inherit;
+}
+
+.login-field input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.login-submit {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.625rem 0.75rem;
+  border: none;
+  border-radius: 0.375rem;
+  background: var(--accent);
+  color: oklch(0.98 0.005 75);
+  cursor: pointer;
+}
+
+.login-submit:hover {
+  filter: brightness(1.05);
+}
+
+.login-error {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: oklch(0.5 0.18 30);
+  text-align: center;
+  min-height: 1.25em;
+}
+
+/* Authenticated shell stub (full chrome built in Phase 3) */
+.app-shell {
+  padding: 1.5rem;
+}
+
+.app-shell .logout-link {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--accent);
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  padding: 0;
+}
