@@ -2,7 +2,7 @@
   {
     "id": "test-exp-001",
     "name": "Serum Starvation Timecourse",
-    "date": "2026-07-02",
+    "date": "2026-06-02",
     "dye": "BODIPY",
     "notes": "Investigating lipid droplet accumulation under serum starvation at 0, 6, and 24 hour timepoints.",
     "condition_count": 3
