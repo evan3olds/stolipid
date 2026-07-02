@@ -256,6 +256,19 @@ function wireShell(screen) {
 
 }
 
+// ---- Test data (used when logged in with a local: token) ----
+
+const TEST_EXPERIMENTS = [
+  {
+    id: 'test-exp-001',
+    name: 'Serum Starvation Timecourse',
+    date: '2026-07-02',
+    dye: 'BODIPY',
+    notes: 'Investigating lipid droplet accumulation under serum starvation at 0, 6, and 24 hour timepoints.',
+    condition_count: 3,
+  },
+];
+
 // ---- Experiments screen ----
 
 function escHtml(str) {
@@ -283,9 +296,7 @@ async function initExperiments() {
   let experiments;
 
   if (localStorage.getItem('token')?.startsWith('local:')) {
-    try {
-      experiments = await fetch('test-experiments.json').then(r => r.json());
-    } catch (_) { /* fall through to real API */ }
+    experiments = TEST_EXPERIMENTS;
   }
 
   if (!experiments) {
