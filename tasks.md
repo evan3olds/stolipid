@@ -23,10 +23,10 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 3 — Core Navigation
 
-- [ ] Build top bar (app title, prototype badge, hamburger menu button, user avatar)
-- [ ] Build sidebar drawer (Experiments, Graph, Raw Data, About, Help links; slide-in animation)
-- [ ] Build subheader with breadcrumb and context-sensitive primary action button
-- [ ] Add back-button logic for Conditions and Cells screens
+- [x] Build top bar (app title, prototype badge, hamburger menu button, user avatar)
+- [x] Build sidebar drawer (Experiments, Graph, Raw Data, About, Help links; slide-in animation)
+- [x] Build subheader with breadcrumb and context-sensitive primary action button
+- [x] Add back-button logic for Conditions and Cells screens
 
 ---
 

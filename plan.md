@@ -146,3 +146,64 @@ The existing implementation already reads the token from `localStorage.getItem('
 3. Pre-set `localStorage.token` and reloaded — skips straight to the experiments stub
 4. Clicked "Log out" — clears the token and returns to the login screen
 5. Probed empty-field submission — blocked by native `required` validation before `api()` is called
+
+---
+---
+
+# Plan: Phase 3 — Core Navigation
+
+## Context
+
+Phases 1–2 are complete. The current app renders whole-screen `innerHTML` swaps via `navigate()`: a login screen (no chrome) and an experiments stub. Phase 3 introduces the persistent authenticated "shell" — top bar, sidebar drawer, subheader — that all later screens (Experiments → Conditions → Cells) live inside.
+
+## The core design shift
+
+Every screen currently replaces all of `#app`. Phase 3's chrome must *persist* across screens and be context-sensitive (breadcrumb, back button, primary action). So a small navigation-state object plus a **shell renderer** draws the chrome once and swaps only the content region.
+
+---
+
+## What to Build
+
+### 1. Navigation state + router refactor (`app.js`)
+- Add a `state` object: `{ screen, experiment, condition }` (experiment/condition hold id + name for breadcrumbs; null until Phase 4/5 populate them).
+- Rework `navigate(screen, params)` to update `state`, then dispatch:
+  - `login` → `renderLogin()` (unchanged, no shell)
+  - authenticated screens → `renderShell()` then fill the content area with that screen's stub.
+- Keep the boot check and logout as-is.
+
+### 2. Top bar
+- App title (`Cell Archive`, from a config constant so Phase 13's `appTitle`/`prototypeBadge` props slot in later), a "Prototype" badge, a hamburger button (left), and a user-avatar circle (right, initial derived from the stored token/username).
+- Hamburger toggles the sidebar drawer.
+
+### 3. Sidebar drawer
+- Off-canvas panel with a translucent backdrop, `transform: translateX` slide-in animation.
+- Links: Experiments, Graph, Raw Data, About, Help. Each calls `navigate(...)` to a **stub** screen and closes the drawer. Clicking the backdrop or Esc closes it.
+
+### 4. Subheader (breadcrumb + context action)
+- Breadcrumb built from `state`: `Experiments`, `Experiments / [Exp]`, `Experiments / [Exp] / [Condition]`.
+- Right-aligned primary action button whose label/handler is context-sensitive (e.g. "Add experiment" on Experiments, "New slide" on Conditions). For Phase 3 these are wired to no-op stubs with the correct labels; real behavior comes with each screen's phase.
+
+### 5. Back-button logic
+- Back button appears in the subheader only on Conditions and Cells screens; pops one level up the hierarchy using `state` (Cells → Conditions → Experiments).
+
+### 6. Styling (`style.css`)
+- Add `.topbar`, `.badge`, `.avatar`, `.hamburger`, `.sidebar`/`.sidebar-backdrop` (slide transition), `.subheader`, `.breadcrumb`, `.primary-action`, `.back-btn`, and a `.content` wrapper — all using existing Paper tokens (mono for labels/breadcrumb, accent for the action button).
+- Replace the temporary `.app-shell` stub styling with the real shell.
+
+---
+
+## Scope boundary
+
+The Experiments/Graph/Raw Data/About/Help destinations remain **stubs** this phase — Phase 3 is only the chrome and navigation wiring. The stubs render inside the new shell so the breadcrumb, back button, and drawer are all demonstrably functional.
+
+---
+
+## Verification
+
+Open `index.html`, log in (test account), then confirm: hamburger opens/closes the drawer (animation, backdrop, Esc); each sidebar link swaps content and updates the breadcrumb; the primary action button label changes per screen; the back button appears only inside Conditions/Cells and steps up correctly.
+
+---
+
+## Final step (per project convention)
+
+After implementation: check Phase 3 items in `tasks.md`, append a Phase 3 entry to `activity.md`, and keep this plan in `plan.md`.
