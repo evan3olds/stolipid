@@ -56,6 +56,7 @@ function navigate(screen, params = {}) {
   if ('condition' in params) state.condition = params.condition;
   if (screen === 'login') return renderLogin();
   renderShell(screen);
+  if (screen === 'experiments') initExperiments();
 }
 
 function renderLogin() {
@@ -253,9 +254,200 @@ function wireShell(screen) {
     });
   }
 
-  // Primary action is context-sensitive; real handlers arrive with each screen's phase.
-  const action = document.getElementById('primary-action');
-  if (action) action.addEventListener('click', () => { /* wired in a later phase */ });
+}
+
+// ---- Experiments screen ----
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function formatDate(dateStr) {
+  try {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+async function initExperiments() {
+  const content = document.querySelector('.content');
+  content.innerHTML = '<div class="loading-state">Loading experiments…</div>';
+
+  let experiments;
+  try {
+    experiments = await api('/experiments');
+  } catch {
+    content.innerHTML = '<div class="error-state">Could not load experiments. The API may not be reachable yet.</div>';
+    wireExperimentsAction();
+    return;
+  }
+
+  content.innerHTML = renderExperimentsHTML(experiments);
+  wireExperiments(experiments);
+}
+
+function renderExperimentsHTML(experiments) {
+  const cards = experiments.length === 0
+    ? '<p class="empty-state">No experiments yet. Click "Add experiment" to create one.</p>'
+    : experiments.map(exp => {
+        const condCount = exp.condition_count ?? 0;
+        const condLabel = `${condCount} condition${condCount !== 1 ? 's' : ''}`;
+        return `
+          <div class="folder-card" data-id="${escHtml(String(exp.id))}" role="button" tabindex="0">
+            <div class="folder-name">${escHtml(exp.name)}</div>
+            <div class="folder-meta">
+              ${exp.dye ? `<span class="folder-meta-item">${escHtml(exp.dye)}</span>` : ''}
+              <span class="folder-meta-item">${condLabel}</span>
+              ${exp.date ? `<span class="folder-meta-item">${formatDate(exp.date)}</span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+  return `
+    <div class="experiments-layout">
+      <div class="folder-grid" id="folder-grid">${cards}</div>
+      <aside class="detail-panel" id="detail-panel" aria-label="Experiment details"></aside>
+    </div>
+  `;
+}
+
+function wireExperiments(experiments) {
+  const grid = document.getElementById('folder-grid');
+  const panel = document.getElementById('detail-panel');
+
+  function selectExperiment(id) {
+    const exp = experiments.find(e => String(e.id) === String(id));
+    if (!exp) return;
+
+    grid.querySelectorAll('.folder-card').forEach(c => c.classList.remove('selected'));
+    const card = grid.querySelector(`.folder-card[data-id="${CSS.escape(String(id))}"]`);
+    if (card) card.classList.add('selected');
+
+    const condCount = exp.condition_count ?? 0;
+    panel.innerHTML = `
+      <div class="detail-name">${escHtml(exp.name)}</div>
+      <div class="detail-row">
+        <span class="detail-label">Date</span>
+        <span class="detail-value">${exp.date ? formatDate(exp.date) : '—'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Dye</span>
+        <span class="detail-value">${exp.dye ? escHtml(exp.dye) : '—'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Conditions</span>
+        <span class="detail-value">${condCount}</span>
+      </div>
+      ${exp.notes ? `
+        <div class="detail-row">
+          <span class="detail-label">Notes</span>
+          <span class="detail-notes">${escHtml(exp.notes)}</span>
+        </div>
+      ` : ''}
+      <button class="detail-open-btn" id="detail-open">Open experiment</button>
+    `;
+    panel.classList.add('visible');
+
+    document.getElementById('detail-open').addEventListener('click', () => {
+      navigate('conditions', { experiment: { id: exp.id, name: exp.name } });
+    });
+  }
+
+  grid.querySelectorAll('.folder-card').forEach(card => {
+    card.addEventListener('click', () => selectExperiment(card.dataset.id));
+    card.addEventListener('dblclick', () => {
+      const exp = experiments.find(e => String(e.id) === card.dataset.id);
+      if (exp) navigate('conditions', { experiment: { id: exp.id, name: exp.name } });
+    });
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter') selectExperiment(card.dataset.id);
+    });
+  });
+
+  wireExperimentsAction();
+}
+
+function wireExperimentsAction() {
+  const actionBtn = document.getElementById('primary-action');
+  if (actionBtn) {
+    actionBtn.addEventListener('click', () => openAddExperimentModal(() => initExperiments()));
+  }
+}
+
+function openAddExperimentModal(onSuccess) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">Add experiment</div>
+      <form class="modal-form" id="modal-form">
+        <div class="modal-field">
+          <label for="modal-name">Name</label>
+          <input id="modal-name" type="text" required autocomplete="off">
+        </div>
+        <div class="modal-field">
+          <label for="modal-date">Date</label>
+          <input id="modal-date" type="date" required>
+        </div>
+        <div class="modal-field">
+          <label for="modal-dye">Dye</label>
+          <input id="modal-dye" type="text" autocomplete="off" placeholder="e.g. BODIPY">
+        </div>
+        <div class="modal-field">
+          <label for="modal-notes">Notes</label>
+          <textarea id="modal-notes" rows="3"></textarea>
+        </div>
+        <div class="modal-error" id="modal-error"></div>
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" id="modal-cancel">Cancel</button>
+          <button type="submit" class="modal-save" id="modal-save">Save</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const removeModal = () => backdrop.remove();
+
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) removeModal(); });
+  document.getElementById('modal-cancel').addEventListener('click', removeModal);
+
+  document.getElementById('modal-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const saveBtn = document.getElementById('modal-save');
+    const errEl = document.getElementById('modal-error');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    errEl.textContent = '';
+
+    try {
+      await api('/experiments', {
+        method: 'POST',
+        body: JSON.stringify({
+          name:  document.getElementById('modal-name').value,
+          date:  document.getElementById('modal-date').value,
+          dye:   document.getElementById('modal-dye').value,
+          notes: document.getElementById('modal-notes').value,
+        }),
+      });
+      removeModal();
+      onSuccess();
+    } catch {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      errEl.textContent = 'Could not save. Check the API connection.';
+    }
+  });
+
+  document.getElementById('modal-name').focus();
 }
 
 // Boot

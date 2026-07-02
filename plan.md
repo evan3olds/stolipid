@@ -207,3 +207,168 @@ Open `index.html`, log in (test account), then confirm: hamburger opens/closes t
 ## Final step (per project convention)
 
 After implementation: check Phase 3 items in `tasks.md`, append a Phase 3 entry to `activity.md`, and keep this plan in `plan.md`.
+
+---
+---
+
+# Plan: Phase 4 — Experiments Screen
+
+## Context
+
+Phases 1–3 are complete. The authenticated shell (top bar, sidebar drawer, subheader with breadcrumb/back button/primary action) is in place. Every authenticated screen currently renders a stub via `screenStub()`. Phase 4 replaces the stub for the `experiments` screen with the real Experiments UI.
+
+The current code structure to note:
+- `renderShell(screen)` renders the chrome (top bar, subheader, sidebar) and puts stub content in `<main class="content">`
+- `wireShell(screen)` wires chrome interactions; its primary-action handler is currently a no-op stub
+- `navigate(screen, params)` calls `renderShell()` then nothing further — Phase 4 hooks in a screen-specific initializer after that call
+
+All data goes through `api()` → Render API → Supabase. No direct Supabase calls.
+
+---
+
+## What to Build
+
+### Layout
+
+The experiments content area is a two-column layout:
+- **Left:** scrollable grid of folder cards
+- **Right:** detail panel — hidden until a card is selected
+
+```
+┌────────────────────────────┬────────────────────┐
+│  [Card] [Card] [Card]      │  [Detail panel]    │
+│  [Card] [Card]             │  Name, date, dye   │
+│                            │  condition count   │
+│                            │  notes             │
+│                            │  [Open experiment] │
+└────────────────────────────┴────────────────────┘
+```
+
+### Folder cards
+
+Each card shows: experiment name (prominent), dye type, condition count ("N conditions"), and date. A selected card gets an accent-outlined/highlighted state. Cards have a folder-tab aesthetic using the Paper accent color.
+
+### Interactions
+
+- **Single click** on a card → mark card selected, populate detail panel (show if hidden)
+- **Double click** on a card → `navigate('conditions', { experiment: { id, name } })`
+- **"Open experiment" button** in detail panel → same navigation as double-click
+- Clicking a card that's already selected → no change (detail panel stays open)
+
+### Add Experiment modal
+
+Triggered by the "Add experiment" primary action button (subheader). The modal has:
+- Overlay backdrop
+- Form fields: **Name** (text, required), **Date** (date, required), **Dye** (text), **Notes** (textarea)
+- "Save" → `api('/experiments', { method: 'POST', body })` → close modal, reload experiments list
+- "Cancel" → close without saving
+- Dismiss by clicking backdrop
+
+### Loading & error states
+
+- Show a loading spinner/text inside `.content` while the fetch is in flight
+- Show an error message if the API call fails (API not yet deployed; this is expected in dev)
+
+---
+
+## Implementation Details
+
+### `app.js` — changes and additions
+
+**1. `navigate()` — add initializer dispatch**
+```js
+function navigate(screen, params = {}) {
+  // ... existing state update and login check ...
+  renderShell(screen);
+  if (screen === 'experiments') initExperiments();
+}
+```
+
+**2. `wireShell()` — remove no-op primary-action stub**  
+Delete the `if (action) action.addEventListener(...)` no-op stub at the bottom. Each screen now wires its own primary action in its initializer.
+
+**3. `initExperiments()` — async screen initializer**  
+- Sets `.content` to a loading state
+- Calls `api('/experiments')` — expects `[{ id, name, date, dye, notes, condition_count }]`
+- On success: renders the experiments layout and wires interactions
+- On error: renders an error message
+
+**4. `renderExperimentsHTML(experiments)` — returns HTML string**  
+Builds the two-column layout. If `experiments` is empty, shows an "Add your first experiment" empty state in the left column. Detail panel starts hidden.
+
+**5. `wireExperiments(experiments)` — wires card and panel interactions**  
+- Single click → set `data-selected` on card, populate and show detail panel
+- Double click → `navigate('conditions', { experiment: { id, name } })`
+- "Open experiment" button in detail panel → same navigate call
+- Primary action button (`#primary-action`) → `openAddExperimentModal(() => initExperiments())`
+
+**6. `openAddExperimentModal(onSuccess)` — modal**  
+- Appends modal HTML to `document.body` (so it layers over the shell)
+- Form submit → `api('/experiments', POST)` → `removeModal()` → `onSuccess()`
+- Cancel / backdrop click → `removeModal()`
+
+### `style.css` — additions
+
+- `.experiments-layout` — `display: flex; gap`; full height of `.content`
+- `.folder-grid` — `flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap`; overflow-y scroll
+- `.folder-card` — border, cursor pointer, folder-tab aesthetic (pseudo-element tab on top using accent color); hover lift; `&.selected` — accent border + background tint
+- `.folder-tab`, `.folder-name`, `.folder-meta` — typography using mono for metadata
+- `.detail-panel` — `width: 280px; flex-shrink: 0; display: none; &.visible { display: block }`; border-left, padding
+- `.detail-label`, `.detail-value`, `.detail-open-btn` (accent button)
+- `.modal-backdrop` — fixed overlay, `rgba(0,0,0,0.4)`
+- `.modal` — centered card, Paper background, max-width 440px
+- `.modal-header`, `.modal-field`, `.modal-actions` — standard form layout
+- `.loading-state`, `.error-state`, `.empty-state` — inline feedback styles
+
+---
+
+## API Assumptions
+
+`GET /experiments` returns:
+```json
+[{ "id": "uuid", "name": "...", "date": "2024-01-15", "dye": "BODIPY", "notes": "...", "condition_count": 3 }]
+```
+
+`POST /experiments` accepts:
+```json
+{ "name": "...", "date": "2024-01-15", "dye": "...", "notes": "..." }
+```
+Returns the created experiment object.
+
+These are assumptions for the Render API (Phase 11). The frontend will degrade gracefully if the endpoint isn't deployed yet (shows error state).
+
+---
+
+## Scope
+
+- Only the `experiments` screen is built this phase
+- `navigate('conditions', ...)` still lands on the Phase 3 stub — real conditions screen is Phase 5
+- No server-side pagination; all experiments loaded in one fetch for v1
+
+---
+
+## Files Modified
+
+| File | Change |
+|---|---|
+| `app.js` | Add `initExperiments`, `renderExperimentsHTML`, `wireExperiments`, `openAddExperimentModal`; update `navigate()`; remove primary-action no-op stub from `wireShell()` |
+| `style.css` | Add folder grid, card, detail panel, modal, and feedback state styles |
+| `index.html` | No change |
+
+---
+
+## Verification
+
+1. Log in → Experiments screen loads (loading state visible briefly, then grid or error state)
+2. With API unavailable: error state renders cleanly; no JS errors in console
+3. (When API available) Cards render with correct name/dye/date/condition count
+4. Single-click → card highlights, detail panel appears with correct data
+5. Double-click / "Open experiment" → navigates to Conditions stub with correct breadcrumb (`Experiments / [Name]`)
+6. "Add experiment" button opens modal; Cancel closes it; Save POSTs and refreshes the grid
+7. Back in the Conditions stub, back button returns to Experiments
+
+---
+
+## Final step (per project convention)
+
+After implementation: check Phase 4 items in `tasks.md`, append a Phase 4 entry to `activity.md`.

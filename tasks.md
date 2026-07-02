@@ -32,10 +32,10 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 4 — Experiments Screen
 
-- [ ] Experiments grid: folder cards showing name, dye, condition count, date
-- [ ] Single-click to select → show detail panel (name, date, dye, condition count, notes)
-- [ ] Double-click or "Open experiment" button → navigate into experiment
-- [ ] "Add experiment" button + modal form (Name, Date, Dye, Notes) → write to `experiments` table
+- [x] Experiments grid: folder cards showing name, dye, condition count, date
+- [x] Single-click to select → show detail panel (name, date, dye, condition count, notes)
+- [x] Double-click or "Open experiment" button → navigate into experiment
+- [x] "Add experiment" button + modal form (Name, Date, Dye, Notes) → write to `experiments` table
 
 ---
 
