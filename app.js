@@ -1,4 +1,4 @@
-const RENDER_API_URL = 'YOUR_RENDER_API_URL';
+const RENDER_API_URL = 'https://stolipid.onrender.com';
 
 // All backend calls go through Render, which talks to Supabase server-side
 async function api(path, options = {}) {

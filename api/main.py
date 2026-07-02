@@ -16,8 +16,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 @app.get("/")
+def health_check():
+    return {"status": "ok"}
+@app.get("/cells")
 def get_cells():
     response = supabase.table("cells").select("*").execute()
     return response.data
