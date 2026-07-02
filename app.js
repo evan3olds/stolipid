@@ -52,6 +52,19 @@ function renderLogin() {
     const username = document.getElementById('login-username').value;
     const password = document.getElementById('login-password').value;
 
+    // Check test-accounts.json before hitting the real API
+    try {
+      const testAccounts = await fetch('test-accounts.json').then(r => r.json());
+      const match = testAccounts.find(a => a.username === username && a.password === password);
+      if (match) {
+        localStorage.setItem('token', `local:${username}`);
+        navigate('experiments');
+        return;
+      }
+    } catch (_) {
+      // test-accounts.json unavailable; fall through to real API
+    }
+
     try {
       const { token } = await api('/auth/login', {
         method: 'POST',

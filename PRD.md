@@ -166,7 +166,7 @@ The app is a static single-page application deployed via GitHub Pages. No build 
 
 - **Hosting:** GitHub Pages serves the static site directly from the repository (e.g., `gh-pages` branch or `/docs` folder)
 - **No framework dependency:** UI components are written in plain JS; no React, Vue, or bundler required
-- **Supabase JS client:** Loaded via CDN (`@supabase/supabase-js`) for all database reads/writes
+- **Supabase JS client:** Loaded via CDN (`@supabase/supabase-js`) for auth, data reads, and hand-count writes — image/ICC writes go through Render server-to-server, not the frontend
 - **Auth:** Supabase Auth handles login/logout; the JWT is stored in `localStorage` and sent with every API request
 - **Routing:** Client-side screen switching via JS state (no URL routing required for v1)
 
