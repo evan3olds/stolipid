@@ -5,8 +5,8 @@ import os
 from supabase import create_client
 
 supabase = create_client(
-    os.environ.get("SUPABASE_URL"),
-    os.environ.get("SUPABASE_SECRET_KEY")
+    os.environ["SUPABASE_URL"],
+    os.environ["SUPABASE_SECRET_KEY"]
 )
 app = FastAPI()
 
