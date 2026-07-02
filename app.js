@@ -281,12 +281,21 @@ async function initExperiments() {
   content.innerHTML = '<div class="loading-state">Loading experiments…</div>';
 
   let experiments;
-  try {
-    experiments = await api('/experiments');
-  } catch {
-    content.innerHTML = '<div class="error-state">Could not load experiments. The API may not be reachable yet.</div>';
-    wireExperimentsAction();
-    return;
+
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    try {
+      experiments = await fetch('test-experiments.json').then(r => r.json());
+    } catch (_) { /* fall through to real API */ }
+  }
+
+  if (!experiments) {
+    try {
+      experiments = await api('/experiments');
+    } catch {
+      content.innerHTML = '<div class="error-state">Could not load experiments. The API may not be reachable yet.</div>';
+      wireExperimentsAction();
+      return;
+    }
   }
 
   content.innerHTML = renderExperimentsHTML(experiments);
