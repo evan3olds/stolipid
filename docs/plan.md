@@ -698,3 +698,120 @@ Screenshot- and DOM-verified via a temporary headless-Chrome harness (`_verify_c
 5. DOM dump after Done with 0 markers — status tag still reads "1 count" (a value-0 count was saved), confirming Done is not disabled at zero.
 6. DOM dump after Cancel with markers placed — status tag stays "needs count" (nothing saved).
 7. DOM dump with a non-local token and Done clicked against the real (unreachable in this environment) Render API — inline error "Could not save count. Check the API connection." shown, screen stays on `count`, Done button re-enabled with its original label.
+
+---
+---
+
+# Plan: Phase 9 — Graph Screen
+
+## Context
+
+Phases 1–8 are complete. `SCREENS.graph = { title: 'Graph' }` currently falls through to the generic `screenStub()` inside the authenticated shell — Graph is a top-level sidebar destination (no back button, no subheader primary action), unlike Conditions/Cells. Phase 9 replaces that stub with the real interactive scatter from PRD §5.7.
+
+Unlike Conditions' static per-experiment mini chart ([app.js:557](app.js#L557) `renderMiniScatterSVG`), Graph lets the user assemble a comparison **across experiments**: pick any Experiment + Condition pair and add it to the plot, one column per condition, dots colored by which experiment the condition came from. That "color by series" requirement plus a hover tooltip pushes this past what the mini chart's single-accent-color treatment can do, so this phase consulted the `dataviz` skill for the categorical color and interaction rules rather than improvising them.
+
+All data still loads through the same two endpoints already assumed by Conditions (Phase 5): `GET /experiments` and `GET /experiments/{id}/conditions` (which already returns each condition's `cells` with `counts`). No new Render endpoints needed — Graph is read-only.
+
+---
+
+## Color-by-series design (from the `dataviz` skill)
+
+- **Series = experiment**, not condition — a column is one condition; its dots take the color of the experiment that condition belongs to, so mixing conditions from two experiments reads as two colors while conditions from the same experiment stay visually grouped.
+- **If everything currently selected belongs to a single experiment, use the existing `--accent` color and show no legend** — same treatment as the Conditions mini-chart, and matches the skill's "a single series needs no legend box" rule.
+- **As soon as a second experiment is added, switch to the categorical palette** from `references/palette.md`: slots assigned in fixed first-seen order (first experiment added → slot 1 blue, second → slot 2 aqua, …), never reassigned/recycled as items are removed and re-added within the same session. A legend row (swatch + experiment name) appears above the chart whenever ≥ 2 experiments are represented.
+- **Column labels double as direct labels** (PRD already calls for "condition names and experiment labels below each column"), so identity is never carried by color alone even before the legend renders — satisfies the skill's redundant-encoding rule.
+- Mean tick per column is stroked in that column's series color (bolder weight) rather than the neutral dark tick the mini-chart uses, so it still reads correctly once multiple series share one plot.
+- **Table view requirement:** the skill calls for an accessible table alternative to any chart. Phase 10 (Raw Data) is exactly that table (all cells, all experiments/conditions, hand counts, average) — Graph doesn't need its own inline table, it relies on Raw Data as the existing alternative view.
+- **Before finalizing hex values:** run `scripts/validate_palette.js` against the app's actual Paper background (`oklch(0.965 0.008 75)`, converted to hex) rather than the skill's default `#fcfcfb` surface, since the two aren't identical. Fix any slot that fails at that surface before wiring it into CSS.
+- No dark-mode variant needed yet — Paper/Sage are swapped via a runtime prop (Phase 13), not an OS `prefers-color-scheme` toggle, and Sage isn't implemented yet.
+
+---
+
+## What to Build
+
+### Sidebar (`.graph-sidebar`)
+- Experiment `<select>` — populated from all experiments (first `<select>` element in the codebase; existing modals only use text/date/textarea inputs)
+- Condition `<select>` — populated from the chosen experiment's conditions; disabled/empty until an experiment is picked. First option is **"All conditions"** (a sentinel value, not a real condition id), followed by each individual condition by name
+- Single "Add to graph" button — reads the condition select's value: the `All conditions` sentinel adds every not-yet-added condition belonging to the chosen experiment in one click; any other value adds just that one condition (deduped by id)
+- Selected-conditions list below the button: each row shows `[Experiment] › [Condition]` plus a `×` remove button; removing drops that condition from the plot (and its legend entry, if it was the last condition from that experiment)
+
+### Main area (`.graph-main`)
+- Title: "Lipid droplet counts by condition"
+- **Empty state** ("No data — add a condition from the sidebar to begin.") when nothing is selected yet
+- Otherwise: optional legend row (only when ≥ 2 experiments represented), then the scatter SVG — one column per selected condition in the order added, per-cell average dots, condition-mean tick per column, x-axis labels (condition name + experiment name), y-axis gridlines/ticks labeled "Lipid droplets / cell"
+- Hover tooltip on any dot: experiment, condition, cell name, hand counts (e.g. "6, 6, 7"), average
+
+---
+
+## Implementation Details (`app.js`)
+
+1. **`navigate()`** — add `if (screen === 'graph') initGraph();`
+2. **`graphState`** — screen-local state, reset each `initGraph()` mount (same lifetime convention as `addPhotosState`/`countState`): `{ experiments: [], conditionsCache: {}, selectedExperimentId: null, selected: [] }`. `selected` is an array of `{ conditionId, conditionName, experimentId, experimentName, cells }`.
+3. **`initGraph()`** — loading state in `.content`; loads experiments (local test token → `TEST_EXPERIMENTS`, else `api('/experiments')`); on success renders the sidebar + empty chart area and wires it; on failure renders `.error-state` (same pattern as `initConditions`/`initCells`).
+4. **`renderGraphHTML(experiments)`** — `.graph-layout` wrapping `.graph-sidebar` (selects, buttons, selected list) and `.graph-main` (title + `#graph-chart-area` placeholder).
+5. **`wireGraph(experiments)`**:
+   - Experiment select `change` → fetch/cache that experiment's conditions (local test token → `TEST_CONDITIONS[id]`, else `api('/experiments/{id}/conditions')`, cached in `graphState.conditionsCache` to avoid refetching) → populate condition select with the `All conditions` sentinel option first, then each condition by id
+   - "Add to graph" → reads the condition select's value: if it's the `All conditions` sentinel, push every condition of the chosen experiment not already in `graphState.selected`; otherwise push just the chosen condition (with parent experiment name/id) if not already present → re-render selected list + chart
+   - Selected-list `×` → splice that entry out of `graphState.selected` → re-render
+6. **`seriesColorForExperiment(experimentId)`** — looks up (or assigns, on first sight, in encounter order) a stable palette slot per experiment id; returns `--accent` directly when only one distinct experiment is currently selected.
+7. **`renderGraphChartArea()`** — empty-state markup if `selected.length === 0`; else legend markup (only if > 1 distinct experiment) + `renderGraphScatterSVG(graphState.selected)`.
+8. **`renderGraphScatterSVG(selected)`** — larger fluid SVG (viewBox sized for the wider `.graph-main` column, unlike the mini chart's fixed 240×120); one column per selected condition; per-cell dots carry `data-experiment`, `data-condition`, `data-cell`, `data-counts`, `data-average` attributes (read straight off the DOM by the tooltip handler instead of a parallel lookup table); mean tick per column; axis/gridlines; condition+experiment labels beneath each column. Reuses `cellAverage()`, `conditionMean()`, `escHtml()`, `truncateLabel()` as-is.
+9. **`wireGraphTooltip()`** — one delegated `mouseover`/`mousemove`/`mouseout` listener on the chart container targeting `.graph-dot`, positioning a single shared `#graph-tooltip` div (appended once, `pointer-events: none` so it can't itself trigger `mouseout`) and filling it from the hovered dot's `data-*` attributes.
+
+### Local test data
+Add a second `TEST_EXPERIMENTS` entry with a small matching `TEST_CONDITIONS` fixture (1–2 conditions, a handful of cells) — purely so the multi-experiment color/legend path is exercisable via the local test account, same precedent as Phase 6 extending fixtures to hit new UI states. Kept intentionally small, not a full parallel dataset.
+
+### `style.css` additions
+- Eight categorical CSS custom properties (`--series-1` … `--series-8`) in `:root`, values from the dataviz skill's validated palette (re-checked against the Paper background per above)
+- `.graph-layout`, `.graph-sidebar` (fixed width, like `.detail-panel`), `.graph-select`, `.graph-add-btn` (single button), `.graph-selected-list`, `.graph-selected-item` (+ remove ×)
+- `.graph-main`, `.graph-chart-title`, `.graph-legend`, `.graph-legend-swatch`
+- `.graph-scatter-svg`, `.graph-dot`, `.graph-mean-tick`, `.graph-gridline`, `.graph-axis-label`, `.graph-col-label`, `.graph-col-sublabel`
+- `.graph-tooltip` — fixed-position floating card, mono font, small shadow/border, `pointer-events: none`
+
+---
+
+## API Assumptions
+
+No new endpoints. Reuses the Phase 5 assumptions:
+```
+GET /experiments
+GET /experiments/{id}/conditions
+  → [{ id, name, dye, starvation, notes, icc,
+       cells: [{ id, name, counts: [{ id, value, counted_by, created_at }] }] }]
+```
+
+---
+
+## Scope boundaries
+
+- No inline data table on this screen — Raw Data (Phase 10) is the accessible table alternative the `dataviz` skill calls for
+- No persistence of the selected-conditions list across navigation away from Graph — resets on each visit, consistent with how Experiments/Conditions/Cells lose their card selection on remount
+- Palette caps at 8 distinct experiment colors (the categorical palette's fixed slot count); a 9th distinct experiment in one graph is an edge case not handled specially in this phase
+
+---
+
+## Files Modified
+
+| File | Change |
+|---|---|
+| `app.js` | Add `initGraph`, `renderGraphHTML`, `wireGraph`, `seriesColorForExperiment`, `renderGraphChartArea`, `renderGraphScatterSVG`, `wireGraphTooltip`; extend `TEST_EXPERIMENTS`/`TEST_CONDITIONS` with a second experiment fixture; update `navigate()` |
+| `style.css` | Add categorical color custom properties, `.graph-*` layout/sidebar/chart/tooltip styles |
+| `index.html` | No change |
+
+---
+
+## Verification
+
+1. Log in with a local test account → Graph → empty state shown before anything is added
+2. Pick Experiment A + a condition → "Add to graph" → single column appears, dots in `--accent` color, no legend
+3. Select "All conditions" for Experiment A → "Add to graph" → remaining conditions' columns appear
+4. Pick Experiment B (the new fixture) + a condition → "Add to graph" → a second color appears, legend row now shows both experiment names/swatches
+5. Hover a dot → tooltip shows correct experiment, condition, cell name, hand counts, and average
+6. Remove Experiment B's condition via the selected-list × → its column disappears and the legend reverts to no-legend/single-accent state
+7. With API unavailable and no local token → clean `.error-state`, no console errors
+
+---
+
+## Final step (per project convention)
+
+After implementation: check Phase 9 items in `docs/tasks.md`, append a Phase 9 entry to `docs/activity.md`.

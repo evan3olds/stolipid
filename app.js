@@ -65,6 +65,7 @@ function navigate(screen, params = {}) {
   if (screen === 'experiments') initExperiments();
   if (screen === 'conditions') initConditions();
   if (screen === 'cells') initCells();
+  if (screen === 'graph') initGraph();
 }
 
 function renderLogin() {
@@ -275,6 +276,14 @@ const TEST_EXPERIMENTS = [
     notes: 'Investigating lipid droplet accumulation under serum starvation at 0, 6, and 24 hour timepoints.',
     condition_count: 3,
   },
+  {
+    id: 'test-exp-002',
+    name: 'Oleic Acid Loading Panel',
+    date: '2026-06-18',
+    dye: 'Nile Red',
+    notes: 'Comparing lipid droplet accumulation after oleic acid supplementation vs untreated controls.',
+    condition_count: 2,
+  },
 ];
 
 const TEST_CONDITIONS = {
@@ -318,6 +327,32 @@ const TEST_CONDITIONS = {
         { id: 'test-cell-008', name: 'Cell 1', counts: [{ id: 'test-cnt-008-1', value: 9 }, { id: 'test-cnt-008-2', value: 9 }, { id: 'test-cnt-008-3', value: 10 }] },
         { id: 'test-cell-009', name: 'Cell 2', counts: [{ id: 'test-cnt-009-1', value: 8 }, { id: 'test-cnt-009-2', value: 14 }, { id: 'test-cnt-009-3', value: 15 }] },
         { id: 'test-cell-010', name: 'Cell 3', counts: [{ id: 'test-cnt-010-1', value: 7 }, { id: 'test-cnt-010-2', value: 8 }] },
+      ],
+    },
+  ],
+  'test-exp-002': [
+    {
+      id: 'test-cond-004',
+      name: 'Untreated',
+      dye: 'Nile Red',
+      starvation: null,
+      notes: '',
+      icc: 0.79,
+      cells: [
+        { id: 'test-cell-012', name: 'Cell 1', counts: [{ id: 'test-cnt-012-1', value: 5 }, { id: 'test-cnt-012-2', value: 4 }] },
+        { id: 'test-cell-013', name: 'Cell 2', counts: [{ id: 'test-cnt-013-1', value: 6 }, { id: 'test-cnt-013-2', value: 5 }, { id: 'test-cnt-013-3', value: 6 }] },
+      ],
+    },
+    {
+      id: 'test-cond-005',
+      name: 'Oleic Acid 24hr',
+      dye: 'Nile Red',
+      starvation: null,
+      notes: 'Robust droplet accumulation observed across all cells.',
+      icc: 0.95,
+      cells: [
+        { id: 'test-cell-014', name: 'Cell 1', counts: [{ id: 'test-cnt-014-1', value: 18 }, { id: 'test-cnt-014-2', value: 17 }, { id: 'test-cnt-014-3', value: 19 }] },
+        { id: 'test-cell-015', name: 'Cell 2', counts: [{ id: 'test-cnt-015-1', value: 21 }, { id: 'test-cnt-015-2', value: 20 }] },
       ],
     },
   ],
@@ -1464,6 +1499,323 @@ function wireCount() {
       removeMarker(btn.dataset.markerId);
     });
   });
+}
+
+// ---- Graph screen ----
+// Lives inside the authenticated shell (unlike Add Photos/Count). Lets the
+// user assemble conditions from any experiment onto one scatter plot. Dots
+// are colored per-experiment ("series"): a single experiment stays in
+// --accent with no legend; a second experiment switches every column to the
+// dataviz-skill categorical palette (--series-1..8, see style.css) with a
+// legend, colors assigned in fixed first-seen order and never recycled for
+// the rest of the screen's session (graphState.colorAssignments persists
+// across add/remove within one visit; a full reset only happens on remount).
+
+let graphState = null; // { conditionsCache, selectedExperimentId, selected, colorAssignments }
+
+async function initGraph() {
+  const content = document.querySelector('.content');
+  content.innerHTML = '<div class="loading-state">Loading experiments…</div>';
+
+  let experiments;
+
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    experiments = TEST_EXPERIMENTS;
+  }
+
+  if (!experiments) {
+    try {
+      experiments = await api('/experiments');
+    } catch {
+      content.innerHTML = '<div class="error-state">Could not load experiments. The API may not be reachable yet.</div>';
+      return;
+    }
+  }
+
+  graphState = { conditionsCache: {}, selectedExperimentId: null, selected: [], colorAssignments: {} };
+  content.innerHTML = renderGraphHTML(experiments);
+  wireGraph(experiments);
+}
+
+function renderGraphHTML(experiments) {
+  const expOptions = experiments.map(exp =>
+    `<option value="${escHtml(String(exp.id))}">${escHtml(exp.name)}</option>`
+  ).join('');
+
+  return `
+    <div class="graph-layout">
+      <aside class="graph-sidebar">
+        <div class="graph-field">
+          <label for="graph-experiment-select">Experiment</label>
+          <select class="graph-select" id="graph-experiment-select">
+            <option value="" selected disabled>Select an experiment…</option>
+            ${expOptions}
+          </select>
+        </div>
+        <div class="graph-field">
+          <label for="graph-condition-select">Condition</label>
+          <select class="graph-select" id="graph-condition-select" disabled>
+            <option value="">Select an experiment first…</option>
+          </select>
+        </div>
+        <button class="graph-add-btn" id="graph-add-btn" disabled>Add to graph</button>
+        <div class="graph-selected-list" id="graph-selected-list">${renderGraphSelectedListHTML()}</div>
+      </aside>
+      <div class="graph-main">
+        <h2 class="graph-chart-title">Lipid droplet counts by condition</h2>
+        <div id="graph-chart-area">${renderGraphChartArea()}</div>
+        <div class="graph-tooltip" id="graph-tooltip" hidden></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderGraphSelectedListHTML() {
+  if (graphState.selected.length === 0) return '';
+  return `
+    <ul class="graph-selected-list-items">
+      ${graphState.selected.map(s => `
+        <li class="graph-selected-item">
+          <span>${escHtml(s.experimentName)} &rsaquo; ${escHtml(s.conditionName)}</span>
+          <button class="graph-selected-remove" data-condition-id="${escHtml(String(s.conditionId))}" aria-label="Remove ${escHtml(s.conditionName)} from graph">&times;</button>
+        </li>
+      `).join('')}
+    </ul>
+  `;
+}
+
+function refreshGraphSelectedList() {
+  document.getElementById('graph-selected-list').innerHTML = renderGraphSelectedListHTML();
+  wireGraphSelectedList();
+}
+
+function wireGraphSelectedList() {
+  document.querySelectorAll('.graph-selected-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      graphState.selected = graphState.selected.filter(s => String(s.conditionId) !== btn.dataset.conditionId);
+      refreshGraphSelectedList();
+      refreshGraphChartArea();
+    });
+  });
+}
+
+function refreshGraphChartArea() {
+  document.getElementById('graph-chart-area').innerHTML = renderGraphChartArea();
+  wireGraphTooltip();
+}
+
+// Series = experiment. A single represented experiment stays in the plain
+// --accent color with no legend; a second one flips every column over to
+// the categorical palette, assigning slots in first-seen order and keeping
+// them fixed even if that experiment is later removed and re-added.
+function seriesColorForExperiment(experimentId) {
+  const distinctIds = [...new Set(graphState.selected.map(s => s.experimentId))];
+  if (distinctIds.length <= 1) return 'var(--accent)';
+
+  if (!(experimentId in graphState.colorAssignments)) {
+    const nextIdx = Object.keys(graphState.colorAssignments).length % 8;
+    graphState.colorAssignments[experimentId] = nextIdx;
+  }
+  return `var(--series-${graphState.colorAssignments[experimentId] + 1})`;
+}
+
+function renderGraphChartArea() {
+  const { selected } = graphState;
+  if (selected.length === 0) {
+    return '<div class="empty-state">No data — add a condition from the sidebar to begin.</div>';
+  }
+
+  // Render the scatter first: it's what assigns fresh color slots (in
+  // column order == first-seen order), so the legend below can just look
+  // the assignments up rather than risk a different assignment order.
+  const scatterSvg = renderGraphScatterSVG(selected);
+
+  const distinctIds = [...new Set(selected.map(s => s.experimentId))];
+  const legend = distinctIds.length > 1
+    ? `
+      <div class="graph-legend">
+        ${distinctIds.map(expId => {
+          const item = selected.find(s => s.experimentId === expId);
+          const color = seriesColorForExperiment(expId);
+          return `
+            <span class="graph-legend-item">
+              <span class="graph-legend-swatch" style="background:${color}"></span>
+              ${escHtml(item.experimentName)}
+            </span>
+          `;
+        }).join('')}
+      </div>
+    `
+    : '';
+
+  return legend + scatterSvg;
+}
+
+function renderGraphScatterSVG(selected) {
+  const width = 900;
+  const height = 420;
+  const padLeft = 40;
+  const padRight = 20;
+  const padTop = 20;
+  const padBottom = 56;
+  const plotWidth = width - padLeft - padRight;
+  const plotHeight = height - padTop - padBottom;
+
+  const allAverages = selected.flatMap(s => (s.cells || []).map(cellAverage)).filter(a => a != null);
+  const rawMax = Math.max(1, ...allAverages);
+  const niceMax = Math.ceil(rawMax / 5) * 5 || 5;
+  const tickCount = 5;
+  const yFor = val => padTop + plotHeight - (val / niceMax) * plotHeight;
+
+  const n = selected.length;
+  const colWidth = plotWidth / n;
+
+  const gridlines = Array.from({ length: tickCount + 1 }).map((_, i) => {
+    const val = (niceMax / tickCount) * i;
+    const y = yFor(val);
+    return `
+      <line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${(padLeft + plotWidth).toFixed(1)}" y2="${y.toFixed(1)}" class="graph-gridline" />
+      <text x="${(padLeft - 8).toFixed(1)}" y="${(y + 3).toFixed(1)}" class="graph-axis-tick" text-anchor="end">${val.toFixed(0)}</text>
+    `;
+  }).join('');
+
+  const columns = selected.map((s, i) => {
+    const cx = padLeft + colWidth * (i + 0.5);
+    const color = seriesColorForExperiment(s.experimentId);
+    const cellsWithAvg = (s.cells || [])
+      .map(cell => ({ cell, avg: cellAverage(cell) }))
+      .filter(x => x.avg != null);
+
+    const dots = cellsWithAvg.map(({ cell, avg }, j) => {
+      const jitter = (j % 2 === 0 ? 1 : -1) * (Math.floor(j / 2) + 1) * 5;
+      const x = cx + jitter;
+      const y = yFor(avg);
+      const countsStr = (cell.counts || []).map(c => c.value).join(', ') || '—';
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" class="graph-dot" style="fill:${color}"
+        data-experiment="${escHtml(s.experimentName)}" data-condition="${escHtml(s.conditionName)}"
+        data-cell="${escHtml(cell.name)}" data-counts="${escHtml(countsStr)}" data-average="${avg.toFixed(1)}" />`;
+    }).join('');
+
+    const mean = conditionMean(s);
+    const barHalf = colWidth * 0.3;
+    const meanTick = mean != null
+      ? `<line x1="${(cx - barHalf).toFixed(1)}" y1="${yFor(mean).toFixed(1)}" x2="${(cx + barHalf).toFixed(1)}" y2="${yFor(mean).toFixed(1)}" class="graph-mean-tick" style="stroke:${color}" />`
+      : '';
+
+    const label = `
+      <text x="${cx.toFixed(1)}" y="${height - 34}" class="graph-col-label" text-anchor="middle">${escHtml(truncateLabel(s.conditionName, 14))}</text>
+      <text x="${cx.toFixed(1)}" y="${height - 18}" class="graph-col-sublabel" text-anchor="middle">${escHtml(truncateLabel(s.experimentName, 16))}</text>
+    `;
+
+    return dots + meanTick + label;
+  }).join('');
+
+  return `
+    <svg class="graph-scatter-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Lipid droplet counts by condition">
+      <text x="${padLeft}" y="14" class="graph-axis-label">Lipid droplets / cell</text>
+      ${gridlines}
+      ${columns}
+    </svg>
+  `;
+}
+
+function wireGraphTooltip() {
+  const tooltip = document.getElementById('graph-tooltip');
+  if (!tooltip) return;
+
+  document.querySelectorAll('.graph-dot').forEach(dot => {
+    dot.addEventListener('mouseenter', () => {
+      tooltip.innerHTML = `
+        <div class="graph-tooltip-row"><strong>${escHtml(dot.dataset.experiment)}</strong></div>
+        <div class="graph-tooltip-row">${escHtml(dot.dataset.condition)}</div>
+        <div class="graph-tooltip-row">${escHtml(dot.dataset.cell)}</div>
+        <div class="graph-tooltip-row">Counts: ${escHtml(dot.dataset.counts)}</div>
+        <div class="graph-tooltip-row">Average: ${escHtml(dot.dataset.average)}</div>
+      `;
+      tooltip.hidden = false;
+    });
+    dot.addEventListener('mousemove', e => {
+      tooltip.style.left = `${e.clientX + 12}px`;
+      tooltip.style.top = `${e.clientY + 12}px`;
+    });
+    dot.addEventListener('mouseleave', () => {
+      tooltip.hidden = true;
+    });
+  });
+}
+
+function wireGraph(experiments) {
+  const expSelect = document.getElementById('graph-experiment-select');
+  const condSelect = document.getElementById('graph-condition-select');
+  const addBtn = document.getElementById('graph-add-btn');
+
+  async function loadConditionsFor(experimentId) {
+    if (graphState.conditionsCache[experimentId]) return graphState.conditionsCache[experimentId];
+
+    let conditions;
+    if (localStorage.getItem('token')?.startsWith('local:')) {
+      conditions = TEST_CONDITIONS[experimentId] || [];
+    } else {
+      try {
+        conditions = await api(`/experiments/${experimentId}/conditions`);
+      } catch {
+        conditions = [];
+      }
+    }
+    graphState.conditionsCache[experimentId] = conditions;
+    return conditions;
+  }
+
+  expSelect.addEventListener('change', async () => {
+    const expId = expSelect.value;
+    graphState.selectedExperimentId = expId;
+    condSelect.innerHTML = '<option value="">Loading…</option>';
+    condSelect.disabled = true;
+    addBtn.disabled = true;
+
+    const conditions = await loadConditionsFor(expId);
+    if (graphState.selectedExperimentId !== expId) return; // user switched experiments mid-fetch
+
+    if (conditions.length === 0) {
+      condSelect.innerHTML = '<option value="">No conditions</option>';
+      return;
+    }
+
+    condSelect.innerHTML = `
+      <option value="__all__">All conditions</option>
+      ${conditions.map(c => `<option value="${escHtml(String(c.id))}">${escHtml(c.name)}</option>`).join('')}
+    `;
+    condSelect.disabled = false;
+    addBtn.disabled = false;
+  });
+
+  addBtn.addEventListener('click', () => {
+    const expId = graphState.selectedExperimentId;
+    const exp = experiments.find(e => String(e.id) === String(expId));
+    const conditions = graphState.conditionsCache[expId] || [];
+    if (!exp || conditions.length === 0) return;
+
+    const condValue = condSelect.value;
+    const toAdd = condValue === '__all__' ? conditions : conditions.filter(c => String(c.id) === condValue);
+
+    toAdd.forEach(cond => {
+      const already = graphState.selected.some(s => String(s.conditionId) === String(cond.id));
+      if (already) return;
+      graphState.selected.push({
+        conditionId: cond.id,
+        conditionName: cond.name,
+        experimentId: exp.id,
+        experimentName: exp.name,
+        cells: cond.cells || [],
+      });
+    });
+
+    refreshGraphSelectedList();
+    refreshGraphChartArea();
+  });
+
+  wireGraphSelectedList();
+  wireGraphTooltip();
 }
 
 // Boot

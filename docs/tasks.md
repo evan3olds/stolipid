@@ -81,12 +81,12 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 9 — Graph Screen
 
-- [ ] Left sidebar: experiment + condition selector; "Add to graph" and "Add all conditions" buttons
-- [ ] Selected conditions list with × remove per entry
-- [ ] Scatter plot: one column per condition, per-cell average dots (color-coded by series), condition mean bar
-- [ ] Hover tooltip (experiment, condition, cell name, hand counts, average)
-- [ ] Legend with condition names and experiment labels below columns
-- [ ] "No data" empty state
+- [x] Left sidebar: experiment + condition selector (condition select includes an "All conditions" option in place of a separate button); "Add to graph" button
+- [x] Selected conditions list with × remove per entry
+- [x] Scatter plot: one column per condition, per-cell average dots (color-coded by series), condition mean bar
+- [x] Hover tooltip (experiment, condition, cell name, hand counts, average)
+- [x] Legend with condition names and experiment labels below columns
+- [x] "No data" empty state
 
 ---
 
