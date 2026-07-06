@@ -369,6 +369,137 @@ These are assumptions for the Render API (Phase 11). The frontend will degrade g
 
 ---
 
+# Plan: Phase 5 — Conditions Screen
+
+## Context
+
+Phase 4 is complete: Experiments screen has a two-column folder grid + detail panel, plus an Add Experiment modal, all wired through `initExperiments()` / `renderExperimentsHTML()` / `wireExperiments()` / `openAddExperimentModal()`. `navigate('conditions', { experiment })` currently lands on the Phase 3 `screenStub()`.
+
+Phase 5 replaces that stub with the real Conditions screen, scoped to `state.experiment`. Cells (Phase 6) will need the identical two-column shell, so this phase also generalizes the shared layout/card/panel CSS instead of duplicating it a second time.
+
+All data still goes through `api()` → Render API → Supabase; the Render API (`api/main.py`) currently only exposes `/` and `/cells`, so the real endpoints assumed below are not deployed yet — same "degrade to a clean error state" posture as Phase 4.
+
+---
+
+## What to Build
+
+### Layout
+
+Same two-column shell as Experiments: scrollable folder grid (left) + detail panel (right, hidden until a card is selected). Breadcrumb: `Experiments / [Experiment Name]`.
+
+### Rename shared layout class
+
+`.experiments-layout` → `.folder-layout` in `style.css`, updated in `renderExperimentsHTML()`. Purely a rename (no rule changes) so Conditions (and Phase 6 Cells) can reuse it without a second copy of the same three rules.
+
+### Folder cards
+
+Each card shows: condition name (prominent), dye, starvation length (e.g. "6 hr"), and cell count.
+
+### Detail panel
+
+- Condition name, dye, starvation length, cell count
+- ICC value + quality label, using standard Koo & Li (2016) buckets:
+  - `< 0.5` → Poor
+  - `0.5–0.75` → Moderate
+  - `0.75–0.9` → Good
+  - `> 0.9` → Excellent
+- Mini scatter chart (per PRD 5.3): **one column per condition in the current experiment** (not just the selected one) — dots are per-cell averages, a bar/line marks each condition's mean. This is a static preview; the interactive version with hover tooltips is Phase 9 (Graph screen).
+- "Open condition" button → same navigation as double-click
+
+### Add Condition modal
+
+Triggered by the "New slide" primary action button. Fields: **Name** (text, required), **Dye** (text), **Starvation length** (number, hours), **Notes** (textarea). Save → POST → close modal → refresh grid. Same backdrop/cancel/dismiss behavior as the Add Experiment modal.
+
+### Local test data
+
+Extend the existing local-test-account pattern (`TEST_EXPERIMENTS`) with a `TEST_CONDITIONS` fixture, keyed by experiment id, each condition including a small set of fake per-cell averages — so the screen (grid, detail panel, ICC label, mini chart) is fully exercisable via the `local:` test-account token without the Render API deployed.
+
+### Loading & error states
+
+Same `.loading-state` / `.error-state` / `.empty-state` classes as Experiments.
+
+---
+
+## Implementation Details
+
+### `app.js` — changes and additions
+
+**1. `navigate()`** — add `if (screen === 'conditions') initConditions();`
+
+**2. `initConditions()`** — async screen initializer
+- Loading state in `.content`
+- If local test token: read `TEST_CONDITIONS[state.experiment.id]`
+- Else `api(`/experiments/${state.experiment.id}/conditions`)`
+- On success: render + wire; on error: error state
+
+**3. `renderConditionsHTML(conditions)`** — two-column layout using `.folder-layout`; empty state if no conditions
+
+**4. `wireConditions(conditions)`**
+- Single click → select card, populate detail panel (name/dye/starvation/cell count/ICC+label) and render the mini scatter chart (all conditions in the experiment, not just selected)
+- Double click / "Open condition" → `navigate('cells', { condition: { id, name } })`
+- Primary action (`#primary-action`) → `openAddConditionModal(() => initConditions())`
+
+**5. `iccQualityLabel(icc)`** — returns `{ label, }` per the buckets above; handles `null`/undefined ICC (not enough counts yet) by returning "—"/no label
+
+**6. `renderMiniScatterSVG(conditions)`** — builds an inline SVG string: one x-axis column per condition, per-cell average dots (small deterministic horizontal jitter so same-value dots don't fully overlap), a short horizontal tick/bar at each condition's mean height. Pure presentation helper, no interactivity.
+
+**7. `openAddConditionModal(onSuccess)`** — mirrors `openAddExperimentModal`; POSTs `{ name, dye, starvation, notes }` to `/experiments/${state.experiment.id}/conditions`
+
+### `style.css` — additions
+
+- Rename `.experiments-layout` → `.folder-layout`
+- `.mini-chart` container + SVG column/dot/mean-bar styles (reuse accent color for dots/bars)
+- `.icc-value`, `.icc-label` (quality label as a small pill, color varies: muted for Poor/Moderate, accent for Good/Excellent)
+
+---
+
+## API Assumptions
+
+```
+GET /experiments/{id}/conditions
+[{ "id": "uuid", "name": "...", "dye": "...", "starvation": 6, "notes": "...",
+   "icc": 0.82, "cells": [{ "id": "uuid", "name": "...", "average": 4.3 }, ...] }]
+```
+
+```
+POST /experiments/{id}/conditions
+{ "name": "...", "dye": "...", "starvation": 6, "notes": "..." }
+```
+Returns the created condition object.
+
+---
+
+## Scope
+
+- Only the `conditions` screen is built this phase
+- `navigate('cells', ...)` still lands on the Phase 3 stub — real Cells screen is Phase 6
+- Mini chart is static (no hover tooltip, no click-to-filter) — interactive Graph is Phase 9
+- ICC thresholds are fixed client-side constants, not configurable
+
+---
+
+## Files Modified
+
+| File | Change |
+|---|---|
+| `app.js` | Add `initConditions`, `renderConditionsHTML`, `wireConditions`, `iccQualityLabel`, `renderMiniScatterSVG`, `openAddConditionModal`, `TEST_CONDITIONS`; update `navigate()`; rename `.experiments-layout` usage to `.folder-layout` |
+| `style.css` | Rename `.experiments-layout` → `.folder-layout`; add mini-chart and ICC label styles |
+| `index.html` | No change |
+
+---
+
+## Verification
+
+1. Log in with a local test account → Experiments → open the seeded experiment → Conditions grid loads from `TEST_CONDITIONS`
+2. Cards show name, dye, starvation, cell count
+3. Single-click → detail panel shows ICC value, correct quality label, and a mini chart with one column per condition
+4. Double-click / "Open condition" → navigates to Cells stub with breadcrumb `Experiments / [Experiment] / [Condition]`
+5. "New slide" → modal opens; Cancel closes it; Save posts and refreshes the grid (against local fixture or clean error state if hitting the real API)
+6. Back button returns to Experiments
+7. With API unavailable and no local token: clean error state, no console errors
+
+---
+
 ## Final step (per project convention)
 
 After implementation: check Phase 4 items in `tasks.md`, append a Phase 4 entry to `activity.md`.

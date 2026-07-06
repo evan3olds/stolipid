@@ -383,8 +383,8 @@ body {
   background: oklch(0.93 0.01 75);
 }
 
-/* ---- Experiments screen ---- */
-.experiments-layout {
+/* ---- Shared folder grid + detail panel layout (Experiments, Conditions, Cells) ---- */
+.folder-layout {
   display: flex;
   gap: 1.5rem;
   align-items: flex-start;
@@ -652,4 +652,60 @@ body {
 .modal-save:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* ---- ICC quality pill ---- */
+.icc-pill {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.03em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.icc-pill-none,
+.icc-pill-poor,
+.icc-pill-moderate {
+  background: oklch(0.93 0.01 75);
+  color: oklch(0.5 0.03 75);
+}
+
+.icc-pill-good {
+  background: oklch(0.93 0.05 45);
+  color: var(--accent);
+}
+
+.icc-pill-excellent {
+  background: var(--accent);
+  color: oklch(0.98 0.005 75);
+}
+
+/* ---- Mini scatter chart (Conditions detail panel) ---- */
+.mini-chart {
+  margin-top: 0.375rem;
+}
+
+.mini-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.mini-chart-dot {
+  fill: var(--accent);
+  opacity: 0.75;
+}
+
+.mini-chart-mean {
+  stroke: oklch(0.3 0.02 75);
+  stroke-width: 2;
+}
+
+.mini-chart-label {
+  font-family: var(--font-mono);
+  font-size: 6px;
+  fill: oklch(0.5 0.03 75);
 }

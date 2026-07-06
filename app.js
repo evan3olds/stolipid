@@ -57,6 +57,7 @@ function navigate(screen, params = {}) {
   if (screen === 'login') return renderLogin();
   renderShell(screen);
   if (screen === 'experiments') initExperiments();
+  if (screen === 'conditions') initConditions();
 }
 
 function renderLogin() {
@@ -269,6 +270,51 @@ const TEST_EXPERIMENTS = [
   },
 ];
 
+const TEST_CONDITIONS = {
+  'test-exp-001': [
+    {
+      id: 'test-cond-001',
+      name: '0 Hr Starved',
+      dye: 'BODIPY',
+      starvation: 0,
+      notes: 'Baseline, fed condition.',
+      icc: 0.88,
+      cells: [
+        { id: 'test-cell-001', name: 'Cell 1', average: 3.3 },
+        { id: 'test-cell-002', name: 'Cell 2', average: 4.0 },
+        { id: 'test-cell-003', name: 'Cell 3', average: 2.7 },
+      ],
+    },
+    {
+      id: 'test-cond-002',
+      name: '6 Hr Starved',
+      dye: 'BODIPY',
+      starvation: 6,
+      notes: '',
+      icc: 0.93,
+      cells: [
+        { id: 'test-cell-004', name: 'Cell 1', average: 6.1 },
+        { id: 'test-cell-005', name: 'Cell 2', average: 7.4 },
+        { id: 'test-cell-006', name: 'Cell 3', average: 5.8 },
+        { id: 'test-cell-007', name: 'Cell 4', average: 6.9 },
+      ],
+    },
+    {
+      id: 'test-cond-003',
+      name: '24 Hr Starved',
+      dye: 'BODIPY',
+      starvation: 24,
+      notes: 'High variance between raters on Cell 2.',
+      icc: 0.61,
+      cells: [
+        { id: 'test-cell-008', name: 'Cell 1', average: 9.2 },
+        { id: 'test-cell-009', name: 'Cell 2', average: 12.1 },
+        { id: 'test-cell-010', name: 'Cell 3', average: 7.5 },
+      ],
+    },
+  ],
+};
+
 // ---- Experiments screen ----
 
 function escHtml(str) {
@@ -332,7 +378,7 @@ function renderExperimentsHTML(experiments) {
       }).join('');
 
   return `
-    <div class="experiments-layout">
+    <div class="folder-layout">
       <div class="folder-grid" id="folder-grid">${cards}</div>
       <aside class="detail-panel" id="detail-panel" aria-label="Experiment details"></aside>
     </div>
@@ -456,6 +502,264 @@ function openAddExperimentModal(onSuccess) {
           date:  document.getElementById('modal-date').value,
           dye:   document.getElementById('modal-dye').value,
           notes: document.getElementById('modal-notes').value,
+        }),
+      });
+      removeModal();
+      onSuccess();
+    } catch {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      errEl.textContent = 'Could not save. Check the API connection.';
+    }
+  });
+
+  document.getElementById('modal-name').focus();
+}
+
+// ---- Conditions screen ----
+
+// ICC quality label per Koo & Li (2016) buckets
+function iccQualityLabel(icc) {
+  if (icc == null) return { label: '—', tier: 'none' };
+  if (icc < 0.5) return { label: 'Poor', tier: 'poor' };
+  if (icc < 0.75) return { label: 'Moderate', tier: 'moderate' };
+  if (icc < 0.9) return { label: 'Good', tier: 'good' };
+  return { label: 'Excellent', tier: 'excellent' };
+}
+
+function conditionMean(cond) {
+  const cells = cond.cells || [];
+  if (!cells.length) return null;
+  return cells.reduce((sum, c) => sum + c.average, 0) / cells.length;
+}
+
+function truncateLabel(str, max = 10) {
+  return str.length > max ? str.slice(0, max - 1) + '…' : str;
+}
+
+// Static preview chart: one column per condition in the current experiment,
+// dots = per-cell averages, tick = condition mean. Interactive version is Phase 9.
+function renderMiniScatterSVG(conditions) {
+  const width = 240;
+  const height = 120;
+  const padTop = 10;
+  const padBottom = 20;
+  const plotHeight = height - padTop - padBottom;
+
+  const allAverages = conditions.flatMap(c => (c.cells || []).map(cell => cell.average));
+  const maxAvg = Math.max(1, ...allAverages);
+  const yFor = val => padTop + plotHeight - (val / maxAvg) * plotHeight;
+
+  const n = Math.max(conditions.length, 1);
+  const colWidth = width / n;
+
+  const columns = conditions.map((cond, i) => {
+    const cx = colWidth * (i + 0.5);
+    const cells = cond.cells || [];
+
+    const dots = cells.map((cell, j) => {
+      const jitter = (j % 2 === 0 ? 1 : -1) * (Math.floor(j / 2) + 1) * 6;
+      const x = cx + jitter;
+      const y = yFor(cell.average);
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" class="mini-chart-dot" />`;
+    }).join('');
+
+    const mean = conditionMean(cond);
+    const barHalf = colWidth * 0.32;
+    const bar = mean != null
+      ? `<line x1="${(cx - barHalf).toFixed(1)}" y1="${yFor(mean).toFixed(1)}" x2="${(cx + barHalf).toFixed(1)}" y2="${yFor(mean).toFixed(1)}" class="mini-chart-mean" />`
+      : '';
+
+    const label = `<text x="${cx.toFixed(1)}" y="${height - 4}" class="mini-chart-label" text-anchor="middle">${escHtml(truncateLabel(cond.name))}</text>`;
+
+    return dots + bar + label;
+  }).join('');
+
+  return `
+    <svg class="mini-chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Per-condition lipid droplet averages">
+      ${columns}
+    </svg>
+  `;
+}
+
+async function initConditions() {
+  const content = document.querySelector('.content');
+  content.innerHTML = '<div class="loading-state">Loading conditions…</div>';
+
+  let conditions;
+
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    conditions = TEST_CONDITIONS[state.experiment?.id] || [];
+  }
+
+  if (!conditions) {
+    try {
+      conditions = await api(`/experiments/${state.experiment.id}/conditions`);
+    } catch {
+      content.innerHTML = '<div class="error-state">Could not load conditions. The API may not be reachable yet.</div>';
+      wireConditionsAction();
+      return;
+    }
+  }
+
+  content.innerHTML = renderConditionsHTML(conditions);
+  wireConditions(conditions);
+}
+
+function renderConditionsHTML(conditions) {
+  const cards = conditions.length === 0
+    ? '<p class="empty-state">No conditions yet. Click "New slide" to create one.</p>'
+    : conditions.map(cond => {
+        const cellCount = (cond.cells || []).length;
+        return `
+          <div class="folder-card" data-id="${escHtml(String(cond.id))}" role="button" tabindex="0">
+            <div class="folder-name">${escHtml(cond.name)}</div>
+            <div class="folder-meta">
+              ${cond.dye ? `<span class="folder-meta-item">${escHtml(cond.dye)}</span>` : ''}
+              ${cond.starvation != null ? `<span class="folder-meta-item">${cond.starvation} hr</span>` : ''}
+              <span class="folder-meta-item">${cellCount} cell${cellCount !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+  return `
+    <div class="folder-layout">
+      <div class="folder-grid" id="folder-grid">${cards}</div>
+      <aside class="detail-panel" id="detail-panel" aria-label="Condition details"></aside>
+    </div>
+  `;
+}
+
+function wireConditions(conditions) {
+  const grid = document.getElementById('folder-grid');
+  const panel = document.getElementById('detail-panel');
+
+  function selectCondition(id) {
+    const cond = conditions.find(c => String(c.id) === String(id));
+    if (!cond) return;
+
+    grid.querySelectorAll('.folder-card').forEach(c => c.classList.remove('selected'));
+    const card = grid.querySelector(`.folder-card[data-id="${CSS.escape(String(id))}"]`);
+    if (card) card.classList.add('selected');
+
+    const cellCount = (cond.cells || []).length;
+    const { label, tier } = iccQualityLabel(cond.icc);
+
+    panel.innerHTML = `
+      <div class="detail-name">${escHtml(cond.name)}</div>
+      <div class="detail-row">
+        <span class="detail-label">Dye</span>
+        <span class="detail-value">${cond.dye ? escHtml(cond.dye) : '—'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Starvation</span>
+        <span class="detail-value">${cond.starvation != null ? `${cond.starvation} hr` : '—'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Cells</span>
+        <span class="detail-value">${cellCount}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">ICC</span>
+        <span class="detail-value">${cond.icc != null ? cond.icc.toFixed(2) : '—'}<span class="icc-pill icc-pill-${tier}">${label}</span></span>
+      </div>
+      ${cond.notes ? `
+        <div class="detail-row">
+          <span class="detail-label">Notes</span>
+          <span class="detail-notes">${escHtml(cond.notes)}</span>
+        </div>
+      ` : ''}
+      <div class="detail-row">
+        <span class="detail-label">All conditions</span>
+        <div class="mini-chart">${renderMiniScatterSVG(conditions)}</div>
+      </div>
+      <button class="detail-open-btn" id="detail-open">Open condition</button>
+    `;
+    panel.classList.add('visible');
+
+    document.getElementById('detail-open').addEventListener('click', () => {
+      navigate('cells', { condition: { id: cond.id, name: cond.name } });
+    });
+  }
+
+  grid.querySelectorAll('.folder-card').forEach(card => {
+    card.addEventListener('click', () => selectCondition(card.dataset.id));
+    card.addEventListener('dblclick', () => {
+      const cond = conditions.find(c => String(c.id) === card.dataset.id);
+      if (cond) navigate('cells', { condition: { id: cond.id, name: cond.name } });
+    });
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter') selectCondition(card.dataset.id);
+    });
+  });
+
+  wireConditionsAction();
+}
+
+function wireConditionsAction() {
+  const actionBtn = document.getElementById('primary-action');
+  if (actionBtn) {
+    actionBtn.addEventListener('click', () => openAddConditionModal(() => initConditions()));
+  }
+}
+
+function openAddConditionModal(onSuccess) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">New slide</div>
+      <form class="modal-form" id="modal-form">
+        <div class="modal-field">
+          <label for="modal-name">Name</label>
+          <input id="modal-name" type="text" required autocomplete="off">
+        </div>
+        <div class="modal-field">
+          <label for="modal-dye">Dye</label>
+          <input id="modal-dye" type="text" autocomplete="off" placeholder="e.g. BODIPY">
+        </div>
+        <div class="modal-field">
+          <label for="modal-starvation">Starvation length (hours)</label>
+          <input id="modal-starvation" type="number" min="0" step="1">
+        </div>
+        <div class="modal-field">
+          <label for="modal-notes">Notes</label>
+          <textarea id="modal-notes" rows="3"></textarea>
+        </div>
+        <div class="modal-error" id="modal-error"></div>
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" id="modal-cancel">Cancel</button>
+          <button type="submit" class="modal-save" id="modal-save">Save</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const removeModal = () => backdrop.remove();
+
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) removeModal(); });
+  document.getElementById('modal-cancel').addEventListener('click', removeModal);
+
+  document.getElementById('modal-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const saveBtn = document.getElementById('modal-save');
+    const errEl = document.getElementById('modal-error');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    errEl.textContent = '';
+
+    const starvationVal = document.getElementById('modal-starvation').value;
+
+    try {
+      await api(`/experiments/${state.experiment.id}/conditions`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name:       document.getElementById('modal-name').value,
+          dye:        document.getElementById('modal-dye').value,
+          starvation: starvationVal === '' ? null : Number(starvationVal),
+          notes:      document.getElementById('modal-notes').value,
         }),
       });
       removeModal();

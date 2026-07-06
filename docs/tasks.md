@@ -41,10 +41,10 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 5 — Conditions Screen
 
-- [ ] Conditions grid: folder cards with name and metadata, scoped to current experiment
-- [ ] Single-click to select → detail panel showing condition name, dye, starvation length, cell count, ICC + quality label
-- [ ] Mini scatter chart in detail panel (one column per condition, per-cell average dots, condition mean bar)
-- [ ] "New slide" button + Add Condition modal (Name, Dye, Starvation length in hours, Notes) → write to `conditions` table
+- [x] Conditions grid: folder cards with name and metadata, scoped to current experiment
+- [x] Single-click to select → detail panel showing condition name, dye, starvation length, cell count, ICC + quality label
+- [x] Mini scatter chart in detail panel (one column per condition, per-cell average dots, condition mean bar)
+- [x] "New slide" button + Add Condition modal (Name, Dye, Starvation length in hours, Notes) → write to `conditions` table
 
 ---
 
