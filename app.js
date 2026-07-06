@@ -1952,10 +1952,18 @@ function renderRawDataHTML() {
   `;
 }
 
-function renderRawDataHeaderCellHTML(col) {
+// Both arrows show (muted) until this column is the active sort, at which
+// point only the arrow matching the current direction remains (accented).
+function rawDataSortArrowsHTML(col) {
   const active = rawDataState.sortKey === col.key;
-  const arrow = active ? (rawDataState.sortDir === 'asc' ? ' ▲' : ' ▼') : '';
-  return `<th class="rawdata-th-sortable" data-sort-key="${col.key}" role="button" tabindex="0">${escHtml(col.label)}${arrow}</th>`;
+  const showUp = !active || rawDataState.sortDir === 'asc';
+  const showDown = !active || rawDataState.sortDir === 'desc';
+  const arrowClass = active ? 'rawdata-sort-arrow active' : 'rawdata-sort-arrow';
+  return `<span class="rawdata-sort-arrows">${showUp ? `<span class="${arrowClass}">▲</span>` : ''}${showDown ? `<span class="${arrowClass}">▼</span>` : ''}</span>`;
+}
+
+function renderRawDataHeaderCellHTML(col) {
+  return `<th class="rawdata-th-sortable" data-sort-key="${col.key}" role="button" tabindex="0">${escHtml(col.label)}${rawDataSortArrowsHTML(col)}</th>`;
 }
 
 function renderRawDataRowsHTML() {
@@ -1985,9 +1993,7 @@ function refreshRawDataTable() {
   document.getElementById('rawdata-tbody').innerHTML = renderRawDataRowsHTML();
   document.querySelectorAll('.rawdata-th-sortable').forEach(th => {
     const col = RAWDATA_COLUMNS.find(c => c.key === th.dataset.sortKey);
-    const active = rawDataState.sortKey === col.key;
-    const arrow = active ? (rawDataState.sortDir === 'asc' ? ' ▲' : ' ▼') : '';
-    th.innerHTML = escHtml(col.label) + arrow;
+    th.innerHTML = escHtml(col.label) + rawDataSortArrowsHTML(col);
   });
 }
 

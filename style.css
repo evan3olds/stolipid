@@ -1528,6 +1528,25 @@ body {
   user-select: none;
 }
 
+.rawdata-sort-arrows {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+
+.rawdata-sort-arrow {
+  font-size: 0.55rem;
+  line-height: 1;
+  color: oklch(0.75 0.01 75);
+}
+
+.rawdata-sort-arrow.active {
+  color: var(--accent);
+}
+
 .rawdata-th-sortable:hover {
   background: oklch(0.9 0.015 75);
 }
