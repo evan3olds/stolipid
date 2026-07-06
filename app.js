@@ -27,6 +27,7 @@ const state = {
   screen: 'login',
   experiment: null, // { id, name }
   condition: null,  // { id, name }
+  cell: null,       // { id, name }
 };
 
 // Per-screen chrome metadata: subheader title, primary action label, back button
@@ -38,6 +39,8 @@ const SCREENS = {
   rawdata:     { title: 'Raw data' },
   about:       { title: 'About' },
   help:        { title: 'Help' },
+  count:       { title: 'Count' },
+  addphotos:   { title: 'Add Photos' },
 };
 
 // Sidebar drawer destinations
@@ -54,10 +57,12 @@ function navigate(screen, params = {}) {
   state.screen = screen;
   if ('experiment' in params) state.experiment = params.experiment;
   if ('condition' in params) state.condition = params.condition;
+  if ('cell' in params) state.cell = params.cell;
   if (screen === 'login') return renderLogin();
   renderShell(screen);
   if (screen === 'experiments') initExperiments();
   if (screen === 'conditions') initConditions();
+  if (screen === 'cells') initCells();
 }
 
 function renderLogin() {
@@ -280,9 +285,10 @@ const TEST_CONDITIONS = {
       notes: 'Baseline, fed condition.',
       icc: 0.88,
       cells: [
-        { id: 'test-cell-001', name: 'Cell 1', average: 3.3 },
-        { id: 'test-cell-002', name: 'Cell 2', average: 4.0 },
-        { id: 'test-cell-003', name: 'Cell 3', average: 2.7 },
+        { id: 'test-cell-001', name: 'Cell 1', counts: [] },
+        { id: 'test-cell-002', name: 'Cell 2', counts: [{ id: 'test-cnt-002-1', value: 4 }] },
+        { id: 'test-cell-003', name: 'Cell 3', counts: [{ id: 'test-cnt-003-1', value: 3 }, { id: 'test-cnt-003-2', value: 2 }] },
+        { id: 'test-cell-011', name: 'Cell 4', counts: [{ id: 'test-cnt-011-1', value: 3 }, { id: 'test-cnt-011-2', value: 4 }, { id: 'test-cnt-011-3', value: 3 }] },
       ],
     },
     {
@@ -293,10 +299,10 @@ const TEST_CONDITIONS = {
       notes: '',
       icc: 0.93,
       cells: [
-        { id: 'test-cell-004', name: 'Cell 1', average: 6.1 },
-        { id: 'test-cell-005', name: 'Cell 2', average: 7.4 },
-        { id: 'test-cell-006', name: 'Cell 3', average: 5.8 },
-        { id: 'test-cell-007', name: 'Cell 4', average: 6.9 },
+        { id: 'test-cell-004', name: 'Cell 1', counts: [{ id: 'test-cnt-004-1', value: 6 }, { id: 'test-cnt-004-2', value: 6 }, { id: 'test-cnt-004-3', value: 7 }] },
+        { id: 'test-cell-005', name: 'Cell 2', counts: [{ id: 'test-cnt-005-1', value: 7 }, { id: 'test-cnt-005-2', value: 8 }, { id: 'test-cnt-005-3', value: 7 }] },
+        { id: 'test-cell-006', name: 'Cell 3', counts: [{ id: 'test-cnt-006-1', value: 6 }, { id: 'test-cnt-006-2', value: 6 }, { id: 'test-cnt-006-3', value: 6 }] },
+        { id: 'test-cell-007', name: 'Cell 4', counts: [{ id: 'test-cnt-007-1', value: 7 }, { id: 'test-cnt-007-2', value: 7 }, { id: 'test-cnt-007-3', value: 7 }] },
       ],
     },
     {
@@ -307,9 +313,9 @@ const TEST_CONDITIONS = {
       notes: 'High variance between raters on Cell 2.',
       icc: 0.61,
       cells: [
-        { id: 'test-cell-008', name: 'Cell 1', average: 9.2 },
-        { id: 'test-cell-009', name: 'Cell 2', average: 12.1 },
-        { id: 'test-cell-010', name: 'Cell 3', average: 7.5 },
+        { id: 'test-cell-008', name: 'Cell 1', counts: [{ id: 'test-cnt-008-1', value: 9 }, { id: 'test-cnt-008-2', value: 9 }, { id: 'test-cnt-008-3', value: 10 }] },
+        { id: 'test-cell-009', name: 'Cell 2', counts: [{ id: 'test-cnt-009-1', value: 8 }, { id: 'test-cnt-009-2', value: 14 }, { id: 'test-cnt-009-3', value: 15 }] },
+        { id: 'test-cell-010', name: 'Cell 3', counts: [{ id: 'test-cnt-010-1', value: 7 }, { id: 'test-cnt-010-2', value: 8 }] },
       ],
     },
   ],
@@ -527,10 +533,17 @@ function iccQualityLabel(icc) {
   return { label: 'Excellent', tier: 'excellent' };
 }
 
+// cell.average is derived from hand counts, never stored (per data model)
+function cellAverage(cell) {
+  const counts = cell.counts || [];
+  if (!counts.length) return null;
+  return counts.reduce((sum, c) => sum + c.value, 0) / counts.length;
+}
+
 function conditionMean(cond) {
-  const cells = cond.cells || [];
-  if (!cells.length) return null;
-  return cells.reduce((sum, c) => sum + c.average, 0) / cells.length;
+  const averages = (cond.cells || []).map(cellAverage).filter(a => a != null);
+  if (!averages.length) return null;
+  return averages.reduce((sum, a) => sum + a, 0) / averages.length;
 }
 
 function truncateLabel(str, max = 10) {
@@ -546,7 +559,7 @@ function renderMiniScatterSVG(conditions) {
   const padBottom = 20;
   const plotHeight = height - padTop - padBottom;
 
-  const allAverages = conditions.flatMap(c => (c.cells || []).map(cell => cell.average));
+  const allAverages = conditions.flatMap(c => (c.cells || []).map(cellAverage)).filter(a => a != null);
   const maxAvg = Math.max(1, ...allAverages);
   const yFor = val => padTop + plotHeight - (val / maxAvg) * plotHeight;
 
@@ -555,12 +568,12 @@ function renderMiniScatterSVG(conditions) {
 
   const columns = conditions.map((cond, i) => {
     const cx = colWidth * (i + 0.5);
-    const cells = cond.cells || [];
+    const cellAverages = (cond.cells || []).map(cellAverage).filter(a => a != null);
 
-    const dots = cells.map((cell, j) => {
+    const dots = cellAverages.map((avg, j) => {
       const jitter = (j % 2 === 0 ? 1 : -1) * (Math.floor(j / 2) + 1) * 6;
       const x = cx + jitter;
-      const y = yFor(cell.average);
+      const y = yFor(avg);
       return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" class="mini-chart-dot" />`;
     }).join('');
 
@@ -772,6 +785,197 @@ function openAddConditionModal(onSuccess) {
   });
 
   document.getElementById('modal-name').focus();
+}
+
+// ---- Cells screen ----
+
+function cellCountStatus(cell) {
+  const n = (cell.counts || []).length;
+  return n === 0 ? 'needs count' : `${n} count${n !== 1 ? 's' : ''}`;
+}
+
+// Simple seeded PRNG (Park-Miller) so a cell's placeholder thumbnail is
+// stable across re-renders instead of reshuffling every time.
+function seededRandom(seed) {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return function () {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+function hashStringToInt(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) | 0;
+  return Math.abs(hash) || 1;
+}
+
+// Real microscopy image rendering is Phase 11 (Render/Python pipeline).
+// Until image_url is populated, cards show a deterministic simulated
+// fluorescence thumbnail: green droplets on a dark background.
+function renderCellThumbnailSVG(cell) {
+  const width = 160, height = 100;
+  const rand = seededRandom(hashStringToInt(String(cell.id)));
+  const dropletCount = 6 + Math.floor(rand() * 8);
+  const droplets = Array.from({ length: dropletCount }).map(() => {
+    const cx = (4 + rand() * (width - 8)).toFixed(1);
+    const cy = (4 + rand() * (height - 8)).toFixed(1);
+    const r = (1.5 + rand() * 2.5).toFixed(1);
+    const opacity = (0.5 + rand() * 0.5).toFixed(2);
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" class="cell-thumb-droplet" opacity="${opacity}" />`;
+  }).join('');
+
+  return `
+    <svg class="cell-thumb-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Simulated fluorescence thumbnail">
+      <rect class="cell-thumb-bg" width="${width}" height="${height}" />
+      ${droplets}
+    </svg>
+  `;
+}
+
+async function initCells() {
+  const content = document.querySelector('.content');
+  content.innerHTML = '<div class="loading-state">Loading cells…</div>';
+
+  let cells;
+
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    const conditions = TEST_CONDITIONS[state.experiment?.id] || [];
+    const cond = conditions.find(c => String(c.id) === String(state.condition?.id));
+    cells = cond?.cells || [];
+  }
+
+  if (!cells) {
+    try {
+      cells = await api(`/conditions/${state.condition.id}/cells`);
+    } catch {
+      content.innerHTML = '<div class="error-state">Could not load cells. The API may not be reachable yet.</div>';
+      wireCellsAction();
+      return;
+    }
+  }
+
+  content.innerHTML = renderCellsHTML(cells);
+  wireCells(cells);
+}
+
+function renderCellsHTML(cells) {
+  const cards = cells.length === 0
+    ? '<p class="empty-state">No cells yet. Click "Add photos" to box some cells.</p>'
+    : cells.map(cell => {
+        const tier = (cell.counts || []).length === 0 ? 'needs' : 'counted';
+        return `
+          <div class="folder-card" data-id="${escHtml(String(cell.id))}" role="button" tabindex="0">
+            <div class="cell-thumbnail">${renderCellThumbnailSVG(cell)}</div>
+            <div class="folder-name">${escHtml(cell.name)}</div>
+            <div class="folder-meta">
+              <span class="status-tag status-tag-${tier}">${cellCountStatus(cell)}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+  return `
+    <div class="folder-layout">
+      <div class="folder-grid" id="folder-grid">${cards}</div>
+      <aside class="detail-panel" id="detail-panel" aria-label="Cell details"></aside>
+    </div>
+  `;
+}
+
+function wireCells(cells) {
+  const grid = document.getElementById('folder-grid');
+  const panel = document.getElementById('detail-panel');
+
+  function renderDetail(cell) {
+    const avg = cellAverage(cell);
+    const counts = cell.counts || [];
+    const needsMore = counts.length < 3;
+
+    panel.innerHTML = `
+      <div class="detail-name">${escHtml(cell.name)}</div>
+      <div class="detail-row">
+        <span class="detail-label">Average hand count</span>
+        <span class="detail-average">${avg != null ? avg.toFixed(1) : '—'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Hand counts</span>
+        ${counts.length === 0
+          ? '<span class="detail-value">No counts yet.</span>'
+          : `<ul class="count-list">${counts.map(c => `
+              <li class="count-list-item">
+                <span class="count-value">${c.value}</span>
+                <button class="count-delete-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Delete count">&times;</button>
+              </li>
+            `).join('')}</ul>`}
+      </div>
+      ${needsMore ? '<button class="count-cta-btn" id="count-cta">Count</button>' : ''}
+    `;
+    panel.classList.add('visible');
+
+    panel.querySelectorAll('.count-delete-btn').forEach(btn => {
+      btn.addEventListener('click', () => deleteCount(cell, btn.dataset.countId));
+    });
+
+    const ctaBtn = document.getElementById('count-cta');
+    if (ctaBtn) {
+      ctaBtn.addEventListener('click', () => {
+        navigate('count', { cell: { id: cell.id, name: cell.name } });
+      });
+    }
+  }
+
+  function updateCardStatus(cell) {
+    const card = grid.querySelector(`.folder-card[data-id="${CSS.escape(String(cell.id))}"]`);
+    if (!card) return;
+    const tag = card.querySelector('.status-tag');
+    const tier = (cell.counts || []).length === 0 ? 'needs' : 'counted';
+    tag.className = `status-tag status-tag-${tier}`;
+    tag.textContent = cellCountStatus(cell);
+  }
+
+  async function deleteCount(cell, countId) {
+    if (localStorage.getItem('token')?.startsWith('local:')) {
+      cell.counts = (cell.counts || []).filter(c => String(c.id) !== String(countId));
+    } else {
+      try {
+        await api(`/counts/${countId}`, { method: 'DELETE' });
+      } catch {
+        return;
+      }
+      cell.counts = (cell.counts || []).filter(c => String(c.id) !== String(countId));
+    }
+    renderDetail(cell);
+    updateCardStatus(cell);
+  }
+
+  function selectCell(id) {
+    const cell = cells.find(c => String(c.id) === String(id));
+    if (!cell) return;
+
+    grid.querySelectorAll('.folder-card').forEach(c => c.classList.remove('selected'));
+    const card = grid.querySelector(`.folder-card[data-id="${CSS.escape(String(id))}"]`);
+    if (card) card.classList.add('selected');
+
+    renderDetail(cell);
+  }
+
+  grid.querySelectorAll('.folder-card').forEach(card => {
+    card.addEventListener('click', () => selectCell(card.dataset.id));
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter') selectCell(card.dataset.id);
+    });
+  });
+
+  wireCellsAction();
+}
+
+function wireCellsAction() {
+  const actionBtn = document.getElementById('primary-action');
+  if (actionBtn) {
+    actionBtn.addEventListener('click', () => navigate('addphotos'));
+  }
 }
 
 // Boot

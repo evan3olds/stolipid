@@ -50,11 +50,11 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 6 — Cells Screen
 
-- [ ] Cells grid: cards with name and count-status tag ("2 counts", "needs count"), scoped to current condition
-- [ ] Simulated fluorescence image thumbnail on each card (green droplets on dark background placeholder)
-- [ ] Select cell → right panel showing average hand count, list of individual counts with per-count delete (×)
-- [ ] "Count" CTA button visible when cell has fewer than 3 counts
-- [ ] "Add photos" button → navigate to Add Photos screen
+- [x] Cells grid: cards with name and count-status tag ("2 counts", "needs count"), scoped to current condition
+- [x] Simulated fluorescence image thumbnail on each card (green droplets on dark background placeholder)
+- [x] Select cell → right panel showing average hand count, list of individual counts with per-count delete (×)
+- [x] "Count" CTA button visible when cell has fewer than 3 counts
+- [x] "Add photos" button → navigate to Add Photos screen
 
 ---
 

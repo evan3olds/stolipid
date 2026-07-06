@@ -503,3 +503,54 @@ Returns the created condition object.
 ## Final step (per project convention)
 
 After implementation: check Phase 4 items in `tasks.md`, append a Phase 4 entry to `activity.md`.
+
+---
+---
+
+# Plan: Phase 6 — Cells Screen
+
+## Context
+
+Phases 1–5 are complete. Conditions screen has the two-column `.folder-layout` grid + detail panel, an Add Condition modal, and a static mini scatter chart. `navigate('cells', { condition })` currently lands on the Phase 3 `screenStub()`.
+
+Phase 6 replaces that stub with the real Cells screen, scoped to `state.condition`.
+
+## Data model correction
+
+CLAUDE.md/PRD are explicit that `cell.average` is derived from hand counts (`AVG(counts.value)`), never stored. The Phase 5 `TEST_CONDITIONS` fixture took a shortcut and hardcoded `average` directly on each cell. Cells needs real per-count data to list/delete individual counts, so this gets fixed at the source before building Cells:
+
+- Add `cellAverage(cell)` — mean of `cell.counts[].value`, `null` if empty
+- Update Phase 5's `conditionMean()` and `renderMiniScatterSVG()` to call `cellAverage(cell)` instead of reading `cell.average`, filtering out cells with no counts yet
+- Change fixture cells to `counts: [{ id, value }, …]` (0–3 entries) instead of a flat `average` number; add a 4th cell to `0 Hr Starved` so all four states (0/1/2/3 counts) are exercisable in one condition
+
+## What to build
+
+- `initCells()` — async initializer mirroring `initConditions()`: local-test path reads `TEST_CONDITIONS[experiment].cells` scoped to `state.condition`, else `GET /conditions/{id}/cells`
+- `renderCellsHTML()`/`wireCells()` — reuse `.folder-layout`; cards show a simulated thumbnail, name, and a status-tag pill via `cellCountStatus()` ("needs count" / "N counts")
+- `renderCellThumbnailSVG(cell)` — deterministic inline-SVG placeholder (green droplets on dark rect), seeded by cell id via a small PRNG so it's stable across re-renders. Real image rendering is Phase 11's job
+- Detail panel: prominent average, count list with × delete buttons, "Count" CTA only when `counts.length < 3`
+- Delete-count: local mode mutates the fixture in place; API mode calls `DELETE /counts/{id}` first. No confirmation dialog — matches the rest of the prototype
+- "Count" CTA → `navigate('count', { cell })`; "Add photos" → `navigate('addphotos')`. Both get minimal `SCREENS` entries (title only, no `back`/`action`) so they fall through to the generic stub — Phase 7/8 build the real destinations, which are likely full-screen layouts bypassing the shell entirely (like Login), so back-button wiring is deliberately deferred to those phases
+- Add `state.cell`; `navigate()` accepts a `cell` param
+
+## API assumptions (Render, Phase 11)
+
+```
+GET /conditions/{condition_id}/cells
+  → [{ id, name, image_url, counts: [{ id, value, counted_by, created_at }] }]
+DELETE /counts/{id}
+```
+
+## Scope boundaries
+
+- No real image rendering — thumbnails stay simulated
+- No delete-confirmation dialog on counts
+- No drill-down double-click — Cells is a leaf screen
+
+## Verification
+
+Log in with a local test account → Experiments → seeded experiment → "0 Hr Starved" condition → Cells grid loads from the fixture; cards show correct thumbnail/status tag per state; selecting a cell shows average + count list + working × delete that live-updates the tag and average; Count CTA appears only under 3 counts; "Add photos"/"Count" navigate to stub screens cleanly; back button still returns to Conditions; API-unavailable path shows a clean error state.
+
+## Final step (per project convention)
+
+After implementation: check Phase 6 items in `tasks.md`, append a Phase 6 entry to `activity.md`.
