@@ -915,7 +915,19 @@ function wireCells(cells) {
     panel.classList.add('visible');
 
     panel.querySelectorAll('.count-delete-btn').forEach(btn => {
-      btn.addEventListener('click', () => deleteCount(cell, btn.dataset.countId));
+      const countId = btn.dataset.countId;
+      btn.addEventListener('click', () => {
+        const li = btn.closest('.count-list-item');
+        li.innerHTML = `
+          <span class="count-confirm-label">Delete this count?</span>
+          <span class="count-confirm-actions">
+            <button class="count-cancel-btn">Cancel</button>
+            <button class="count-confirm-btn">Delete</button>
+          </span>
+        `;
+        li.querySelector('.count-confirm-btn').addEventListener('click', () => deleteCount(cell, countId));
+        li.querySelector('.count-cancel-btn').addEventListener('click', () => renderDetail(cell));
+      });
     });
 
     const ctaBtn = document.getElementById('count-cta');

@@ -620,6 +620,46 @@ body {
   color: oklch(0.48 0.14 30);
 }
 
+.count-confirm-label {
+  font-size: 0.8125rem;
+  color: oklch(0.48 0.14 30);
+}
+
+.count-confirm-actions {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.count-confirm-btn,
+.count-cancel-btn {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.count-confirm-btn {
+  border: none;
+  background: oklch(0.48 0.14 30);
+  color: oklch(0.98 0.005 75);
+}
+
+.count-confirm-btn:hover {
+  filter: brightness(1.1);
+}
+
+.count-cancel-btn {
+  border: 1px solid oklch(0.8 0.02 75);
+  background: none;
+  color: oklch(0.4 0.02 75);
+}
+
+.count-cancel-btn:hover {
+  background: oklch(0.93 0.01 75);
+}
+
 .count-cta-btn {
   margin-top: 1rem;
   width: 100%;
