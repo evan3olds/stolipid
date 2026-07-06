@@ -71,11 +71,11 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 8 — Count Screen
 
-- [ ] Dark-mode full-screen layout displaying the processed fluorescence image
-- [ ] Crosshair cursor; click to place a numbered marker on a lipid droplet
-- [ ] Click an existing marker to remove it
-- [ ] Running total in top bar ("Total: N")
-- [ ] "Done" → write count to `counts` table; "Cancel" → discard and return
+- [x] Dark-mode full-screen layout displaying the processed fluorescence image
+- [x] Crosshair cursor; click to place a numbered marker on a lipid droplet
+- [x] Click an existing marker to remove it
+- [x] Running total in top bar ("Total: N")
+- [x] "Done" → write count to `counts` table; "Cancel" → discard and return
 
 ---
 
@@ -104,6 +104,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [ ] Endpoint: accept `.tif` upload, load with `tifffile` or `Pillow`, normalize contrast, apply green false-color LUT (BODIPY channel), export as PNG
 - [ ] Endpoint: `POST /conditions/{id}/tif-preview` — accept a raw `.tif` upload (multipart), render the contrast-normalized/LUT PNG, return `{ preview_url }` for the Add Photos canvas (no DB writes — this is a preview only)
 - [ ] Endpoint: `POST /conditions/{id}/cells/from-tif` — accept the original `.tif` file plus a `boxes` JSON array (`{x, y, width, height}` as 0–100 percentages of the source image), crop one region per box, upload each crop to Supabase Storage (`cell-images` bucket), and create one `cells` row per box with `image_url` set
+- [ ] Endpoint: `POST /cells/{id}/counts` — accept `{ value }`, create a `counts` row (`cell_id`, `value`, `counted_by` from auth context, `created_at` default), return the created count object
 - [ ] Upload rendered PNG to Supabase Storage (`cell-images` bucket) and write `image_url` to `cells` table
 - [ ] Endpoint: compute ICC per condition with `pingouin`; write result back to `conditions.icc` column
 - [ ] Wire frontend to POST to Render API endpoints (configure base URL as a constant)

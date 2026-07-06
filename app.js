@@ -60,6 +60,7 @@ function navigate(screen, params = {}) {
   if ('cell' in params) state.cell = params.cell;
   if (screen === 'login') return renderLogin();
   if (screen === 'addphotos') return renderAddPhotos();
+  if (screen === 'count') return renderCount();
   renderShell(screen);
   if (screen === 'experiments') initExperiments();
   if (screen === 'conditions') initConditions();
@@ -934,7 +935,7 @@ function wireCells(cells) {
     const ctaBtn = document.getElementById('count-cta');
     if (ctaBtn) {
       ctaBtn.addEventListener('click', () => {
-        navigate('count', { cell: { id: cell.id, name: cell.name } });
+        navigate('count', { cell: { id: cell.id, name: cell.name, image_url: cell.image_url } });
       });
     }
   }
@@ -1345,6 +1346,122 @@ function wireAddPhotos() {
     handle.addEventListener('mousedown', e => {
       e.stopPropagation();
       startBoxResize(e, handle.closest('.photo-box'), frame);
+    });
+  });
+}
+
+// ---- Count screen ----
+// Full-screen, dark-mode counting interface; bypasses the standard shell
+// like Login and Add Photos do (see navigate()). Screen-local state, reset
+// every time the screen mounts.
+
+let countState = null; // { cell, markers: [{ id, x, y }] }
+
+function renderCount() {
+  countState = { cell: state.cell, markers: [] };
+  refreshCount();
+}
+
+function refreshCount() {
+  app.innerHTML = renderCountHTML();
+  wireCount();
+}
+
+function renderCountHTML() {
+  const { cell, markers } = countState;
+
+  const image = cell.image_url
+    ? `<img class="photo-preview-img" src="${escHtml(cell.image_url)}" alt="Processed fluorescence image of ${escHtml(cell.name)}">`
+    : renderPhotoPreviewSVG(cell.id);
+
+  const markerEls = markers.map((m, i) => `
+    <button class="count-marker" data-marker-id="${escHtml(m.id)}" style="left:${m.x}%; top:${m.y}%;" aria-label="Remove marker ${i + 1}">${i + 1}</button>
+  `).join('');
+
+  return `
+    <div class="count-screen">
+      <header class="count-topbar">
+        <div class="count-topbar-left">
+          <div class="count-cell-name">${escHtml(cell.name)}</div>
+          <div class="count-total">Total: ${markers.length}</div>
+        </div>
+        <div class="count-topbar-actions">
+          <button class="count-cancel-btn" id="count-cancel">Cancel</button>
+          <button class="primary-action" id="count-done">Done</button>
+        </div>
+      </header>
+      <div class="count-error" id="count-error"></div>
+      <div class="count-canvas">
+        <div class="canvas-frame" id="count-frame">
+          ${image}
+          ${markerEls}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function addMarkerAt(xPct, yPct) {
+  countState.markers.push({ id: genLocalId('marker'), x: clamp(xPct, 0, 100), y: clamp(yPct, 0, 100) });
+  refreshCount();
+}
+
+function removeMarker(id) {
+  countState.markers = countState.markers.filter(m => m.id !== id);
+  refreshCount();
+}
+
+async function finishCount() {
+  const value = countState.markers.length;
+  const doneBtn = document.getElementById('count-done');
+  const errEl = document.getElementById('count-error');
+  doneBtn.disabled = true;
+  doneBtn.textContent = 'Saving…';
+  errEl.textContent = '';
+
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    const conditions = TEST_CONDITIONS[state.experiment?.id] || [];
+    const cond = conditions.find(c => String(c.id) === String(state.condition?.id));
+    const cell = cond?.cells.find(c => String(c.id) === String(countState.cell.id));
+    if (cell) cell.counts = [...(cell.counts || []), { id: genLocalId('cnt'), value }];
+    navigate('cells');
+    return;
+  }
+
+  try {
+    await api(`/cells/${countState.cell.id}/counts`, {
+      method: 'POST',
+      body: JSON.stringify({ value }),
+    });
+    navigate('cells');
+  } catch {
+    errEl.textContent = 'Could not save count. Check the API connection.';
+    doneBtn.disabled = false;
+    doneBtn.textContent = 'Done';
+  }
+}
+
+function wireCount() {
+  document.getElementById('count-cancel').addEventListener('click', () => {
+    navigate('cells');
+  });
+
+  document.getElementById('count-done').addEventListener('click', finishCount);
+
+  const frame = document.getElementById('count-frame');
+
+  frame.addEventListener('click', e => {
+    if (e.target.closest('.count-marker')) return;
+    const rect = frame.getBoundingClientRect();
+    const xPct = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+    addMarkerAt(xPct, yPct);
+  });
+
+  frame.querySelectorAll('.count-marker').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      removeMarker(btn.dataset.markerId);
     });
   });
 }

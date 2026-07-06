@@ -649,3 +649,52 @@ New rules, namespaced `.addphotos-*` (or similarly scoped), reusing existing tok
 6. Switch to file 2 in the sidebar → canvas swaps to file 2's (empty) boxes; switching back to file 1 shows its boxes preserved.
 7. "Create N cells" label reflects the live total across both files; with 0 total boxes it's disabled.
 8. Click "Create N cells" → new cells appear in the Cells grid with "needs count" status; "Cancel" instead discards everything and returns to Cells unchanged.
+
+---
+---
+
+# Plan: Phase 8 — Count Screen
+
+## Context
+
+Phases 1–7 are complete. The Cells screen's "Count" CTA already calls `navigate('count', { cell: { id, name } })` ([app.js:937](app.js#L937)), which fell through to the generic `screenStub()` since `count` had no special case in `navigate()`. Phase 8 replaces that stub with the real full-screen counting interface from PRD §5.6.
+
+This screen is structurally the closest sibling to Phase 7's Add Photos screen: both are full-screen, bypass the authenticated shell (like Login), hold their own screen-local state object reset on mount, and render a simulated-vs-real image in a `.canvas-frame`. The plan reuses that machinery directly:
+
+- `renderPhotoPreviewSVG(seed)` already takes an arbitrary string and returns a deterministic dark fluorescence-frame SVG — called with `cell.id` as the seed, giving the Count screen a "processed image" placeholder for local test accounts.
+- `.canvas-frame` / `.photo-preview-svg` / `.photo-preview-img` are already dark-styled and generic — reused as-is.
+- `genLocalId()`, `clamp()`, `escHtml()`, `api()`, and the `refreshX()` full-re-render-on-mutate convention all carry over unchanged.
+
+One real difference from Add Photos: markers are placed **and removed by clicking**, not dragged/resized — PRD 5.6 only calls for a numbered dot, not a resizable box. Simpler than Phase 7's box interactions.
+
+## What was built (`app.js`)
+
+- `navigate()` special-cases `count` alongside `login`/`addphotos`: `renderCount()` replaces `#app` entirely, bypassing the shell.
+- The Cells "Count" CTA now passes `image_url` through in the `navigate('count', { cell })` call, so real cells can eventually show their actual processed image once Phase 11 populates it; local test cells fall back to the simulated SVG.
+- `countState` — screen-local `{ cell, markers: [{ id, x, y }] }`, reset every `renderCount()` mount (same lifetime convention as `addPhotosState`). Marker `x`/`y` are 0–100 percentages marking the marker's **center** (`transform: translate(-50%, -50%)`), unlike `photo-box`'s top-left anchor.
+- `renderCountHTML()` / `wireCount()` / `refreshCount()` — dark top bar (cell name, "Total: N", Cancel/Done) plus the canvas frame; reuses `renderPhotoPreviewSVG(cell.id)` and the existing `.canvas-frame`/`.photo-preview-*` classes unchanged.
+- `addMarkerAt()` / `removeMarker()` — click the frame background to add a numbered marker at the click point; click an existing marker (`stopPropagation`) to remove it. Markers renumber contiguously by array position on removal, same convention as box renumbering.
+- `finishCount()` — value is `countState.markers.length`. Local test token mutates the real fixture cell (found via `TEST_CONDITIONS[experiment][condition].cells`) by pushing `{ id, value }` onto `counts`; real token POSTs to the new assumed `POST /cells/{id}/counts`. Either way, success navigates back to Cells. On failure, an inline error shows and the user stays on-screen with markers intact (same convention as `confirmAddPhotos`).
+- Unlike Add Photos' "Create N cells" (disabled at 0 boxes), **Done stays enabled at 0 markers** — a hand count of zero lipid droplets is a legitimate scientific measurement, not a meaningless no-op.
+- `style.css` — added `.count-screen`/`.count-topbar`/`.count-cell-name`/`.count-total`/`.count-topbar-actions`/`.count-error`/`.count-canvas`/`.count-marker`, plus a **new dedicated** `.count-cancel-btn` ghost-button style rather than reusing `.modal-cancel` (which hard-codes a near-white hover background with `color: inherit` — would repeat the exact invisible-content bug from the Phase 7 refinement if reused on this dark screen).
+
+## API assumption (Render, Phase 11 — new)
+
+```
+POST /cells/{cell_id}/counts
+  body: { value: number }
+  → creates a counts row (cell_id, value, counted_by from auth context, created_at default)
+  → returns the created count object
+```
+
+## Verification
+
+Screenshot- and DOM-verified via a temporary headless-Chrome harness (`_verify_count.html`, removed after use) served over a local `python -m http.server`, driving `navigate()`/`state`/`countState` directly as globals to reach the Count screen deterministically, then dispatching synthetic `MouseEvent`s on `#count-frame` at known percentage coordinates:
+
+1. Screenshot of the empty screen — dark background, visible cell name, "Total: 0", visible Cancel/Done buttons, visible simulated fluorescence frame (no invisible-on-dark elements, the specific failure mode from the Phase 7 refinement).
+2. Screenshot after 3 synthetic frame clicks — three correctly-positioned, numbered markers; "Total: 3".
+3. Screenshot after removing marker #2 — remaining markers renumber to 1, 2; "Total: 2"; confirmed (via DOM) the removal click did not also place a new marker underneath.
+4. DOM dump after Done with 3 markers — navigated back to Cells; Cell 1's status tag reads "1 count".
+5. DOM dump after Done with 0 markers — status tag still reads "1 count" (a value-0 count was saved), confirming Done is not disabled at zero.
+6. DOM dump after Cancel with markers placed — status tag stays "needs count" (nothing saved).
+7. DOM dump with a non-local token and Done clicked against the real (unreachable in this environment) Render API — inline error "Could not save count. Check the API connection." shown, screen stays on `count`, Done button re-enabled with its original label.
