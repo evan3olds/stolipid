@@ -66,6 +66,7 @@ function navigate(screen, params = {}) {
   if (screen === 'conditions') initConditions();
   if (screen === 'cells') initCells();
   if (screen === 'graph') initGraph();
+  if (screen === 'rawdata') initRawData();
 }
 
 function renderLogin() {
@@ -1816,6 +1817,205 @@ function wireGraph(experiments) {
 
   wireGraphSelectedList();
   wireGraphTooltip();
+}
+
+// ---- Raw Data screen ----
+// Flat, sortable/filterable table of every cell across every experiment and
+// condition. Read-only — reuses the same endpoints Graph (Phase 9) already
+// assumes (GET /experiments, GET /experiments/{id}/conditions), just fans
+// out across *all* experiments instead of user-selected ones.
+
+let rawDataState = null; // { rows, sortKey, sortDir, filterText }
+
+const RAWDATA_COLUMNS = [
+  { key: 'experimentName', label: 'Experiment' },
+  { key: 'conditionName', label: 'Condition' },
+  { key: 'cellName', label: 'Cell' },
+  { key: 'count1', label: 'Count 1' },
+  { key: 'count2', label: 'Count 2' },
+  { key: 'count3', label: 'Count 3' },
+  { key: 'average', label: 'Average' },
+];
+
+async function initRawData() {
+  const content = document.querySelector('.content');
+  content.innerHTML = '<div class="loading-state">Loading raw data…</div>';
+
+  let experiments;
+
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    experiments = TEST_EXPERIMENTS;
+  }
+
+  if (!experiments) {
+    try {
+      experiments = await api('/experiments');
+    } catch {
+      content.innerHTML = '<div class="error-state">Could not load raw data. The API may not be reachable yet.</div>';
+      return;
+    }
+  }
+
+  let conditionsByExperiment;
+  try {
+    if (localStorage.getItem('token')?.startsWith('local:')) {
+      conditionsByExperiment = experiments.map(exp => TEST_CONDITIONS[exp.id] || []);
+    } else {
+      conditionsByExperiment = await Promise.all(
+        experiments.map(exp => api(`/experiments/${exp.id}/conditions`))
+      );
+    }
+  } catch {
+    content.innerHTML = '<div class="error-state">Could not load raw data. The API may not be reachable yet.</div>';
+    return;
+  }
+
+  const rows = [];
+  experiments.forEach((exp, i) => {
+    (conditionsByExperiment[i] || []).forEach(cond => {
+      (cond.cells || []).forEach(cell => {
+        rows.push({
+          experimentName: exp.name,
+          conditionName: cond.name,
+          cellName: cell.name,
+          counts: cell.counts || [],
+          average: cellAverage(cell),
+        });
+      });
+    });
+  });
+
+  rawDataState = { rows, sortKey: null, sortDir: 'asc', filterText: '' };
+  content.innerHTML = renderRawDataHTML();
+  wireRawData();
+}
+
+function rawDataCountAt(row, idx) {
+  return row.counts[idx] ? row.counts[idx].value : null;
+}
+
+function rawDataSortValue(row, key) {
+  switch (key) {
+    case 'experimentName': return row.experimentName;
+    case 'conditionName': return row.conditionName;
+    case 'cellName': return row.cellName;
+    case 'count1': return rawDataCountAt(row, 0);
+    case 'count2': return rawDataCountAt(row, 1);
+    case 'count3': return rawDataCountAt(row, 2);
+    case 'average': return row.average;
+    default: return null;
+  }
+}
+
+function visibleRawDataRows() {
+  const { rows, sortKey, sortDir, filterText } = rawDataState;
+  const needle = filterText.trim().toLowerCase();
+
+  let filtered = rows;
+  if (needle) {
+    filtered = rows.filter(r =>
+      r.experimentName.toLowerCase().includes(needle) ||
+      r.conditionName.toLowerCase().includes(needle) ||
+      r.cellName.toLowerCase().includes(needle)
+    );
+  }
+
+  if (!sortKey) return filtered;
+
+  return filtered.slice().sort((a, b) => {
+    const av = rawDataSortValue(a, sortKey);
+    const bv = rawDataSortValue(b, sortKey);
+    // Missing values always sort to the bottom, regardless of direction.
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    const cmp = typeof av === 'string' ? av.localeCompare(bv) : av - bv;
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+}
+
+function renderRawDataHTML() {
+  return `
+    <div class="rawdata-screen">
+      <input type="text" class="rawdata-filter" id="rawdata-filter"
+             placeholder="Filter by experiment, condition, or cell…"
+             value="${escHtml(rawDataState.filterText)}">
+      <div class="rawdata-table-wrap">
+        <table class="rawdata-table">
+          <thead>
+            <tr>${RAWDATA_COLUMNS.map(renderRawDataHeaderCellHTML).join('')}</tr>
+          </thead>
+          <tbody id="rawdata-tbody">${renderRawDataRowsHTML()}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderRawDataHeaderCellHTML(col) {
+  const active = rawDataState.sortKey === col.key;
+  const arrow = active ? (rawDataState.sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+  return `<th class="rawdata-th-sortable" data-sort-key="${col.key}" role="button" tabindex="0">${escHtml(col.label)}${arrow}</th>`;
+}
+
+function renderRawDataRowsHTML() {
+  if (rawDataState.rows.length === 0) {
+    return `<tr><td class="rawdata-empty" colspan="${RAWDATA_COLUMNS.length}">No cells recorded yet.</td></tr>`;
+  }
+
+  const visible = visibleRawDataRows();
+  if (visible.length === 0) {
+    return `<tr><td class="rawdata-empty" colspan="${RAWDATA_COLUMNS.length}">No rows match your filter.</td></tr>`;
+  }
+
+  return visible.map(row => `
+    <tr>
+      <td>${escHtml(row.experimentName)}</td>
+      <td>${escHtml(row.conditionName)}</td>
+      <td>${escHtml(row.cellName)}</td>
+      <td>${rawDataCountAt(row, 0) ?? '—'}</td>
+      <td>${rawDataCountAt(row, 1) ?? '—'}</td>
+      <td>${rawDataCountAt(row, 2) ?? '—'}</td>
+      <td>${row.average != null ? `<span class="rawdata-average">${row.average.toFixed(1)}</span>` : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+function refreshRawDataTable() {
+  document.getElementById('rawdata-tbody').innerHTML = renderRawDataRowsHTML();
+  document.querySelectorAll('.rawdata-th-sortable').forEach(th => {
+    const col = RAWDATA_COLUMNS.find(c => c.key === th.dataset.sortKey);
+    const active = rawDataState.sortKey === col.key;
+    const arrow = active ? (rawDataState.sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+    th.innerHTML = escHtml(col.label) + arrow;
+  });
+}
+
+function wireRawData() {
+  document.getElementById('rawdata-filter').addEventListener('input', (e) => {
+    rawDataState.filterText = e.target.value;
+    refreshRawDataTable();
+  });
+
+  function toggleSort(key) {
+    if (rawDataState.sortKey === key) {
+      rawDataState.sortDir = rawDataState.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      rawDataState.sortKey = key;
+      rawDataState.sortDir = 'asc';
+    }
+    refreshRawDataTable();
+  }
+
+  document.querySelectorAll('.rawdata-th-sortable').forEach(th => {
+    th.addEventListener('click', () => toggleSort(th.dataset.sortKey));
+    th.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleSort(th.dataset.sortKey);
+      }
+    });
+  });
 }
 
 // Boot

@@ -815,3 +815,42 @@ GET /experiments/{id}/conditions
 ## Final step (per project convention)
 
 After implementation: check Phase 9 items in `docs/tasks.md`, append a Phase 9 entry to `docs/activity.md`.
+
+---
+---
+
+# Plan: Phase 10 — Raw Data Screen
+
+## Context
+
+Phases 1–9 are complete. `SCREENS.rawdata = { title: 'Raw data' }` (no `action`/`back`, same shape as `graph`) currently falls through to the generic `screenStub()`. It's a top-level sidebar destination like Graph — no back button, no subheader primary action. PRD §5.8 wants a flat table: Experiment, Condition, Cell, Count 1, Count 2, Count 3, Average (average in accent color). This is the first `<table>` in the codebase.
+
+No new Render endpoints needed — reuses the same data Graph (Phase 9) already assumes (`GET /experiments`, `GET /experiments/{id}/conditions`, each condition already carrying `cells: [{ id, name, counts }]`). Difference from Graph: Raw Data needs **every** experiment's conditions up front (a full cross-join, not user-selected), so real-API mode fans out with `Promise.all` across all experiments' condition fetches instead of fetching one at a time.
+
+**Scope addition (user request during planning):** sorting and a filter, beyond what PRD §5.8 literally specifies.
+
+## What to build (`app.js`)
+
+- `navigate()` — add `if (screen === 'rawdata') initRawData();`
+- `initRawData()` — loading state; local-test token flattens `TEST_EXPERIMENTS` × `TEST_CONDITIONS[expId]` × `cond.cells` directly; real token calls `api('/experiments')` then `Promise.all` over `api('/experiments/{id}/conditions')` per experiment, then flattens the same way; error state on failure (same convention as `initGraph`/`initConditions`)
+- `rawDataState = { rows, sortKey, sortDir, filterText }` — screen-local, reset each mount
+- `renderRawDataHTML()` / `renderRawDataRowsHTML()` / `renderRawDataHeaderCellHTML()` — filter input + sticky-header `<table>`; missing counts render `—`; average wrapped in `<span class="rawdata-average">` (accent color) when present; two empty-state messages (no data at all vs. no rows match filter)
+- `visibleRawDataRows()` — pure derivation: live filter (case-insensitive substring across experiment/condition/cell name) then sort; doesn't mutate `rows`
+- Sorting: click a `<th>` (or Enter/Space when focused, `role="button" tabindex="0"` — same convention as the folder-card grids) toggles asc → desc on repeat clicks of the same column, resets to asc on a new column; text columns via `localeCompare`, numeric columns (count1/2/3/average) numerically; **missing values always sort to the bottom regardless of direction**
+- `refreshRawDataTable()` re-renders only the `<tbody>` + header arrows on every filter keystroke or header click — minimal-region re-render, same convention as `refreshGraphChartArea()`
+
+## Styling (`style.css`)
+
+New `.rawdata-*` rules: `.rawdata-filter` (reuses existing input styling), `.rawdata-table-wrap`/`.rawdata-table` (sticky header, zebra striping; mono font reserved for the numeric count/average columns, name columns use default body font matching `.detail-value`), `.rawdata-th-sortable` (hover tint, focus outline), `.rawdata-average`, `.rawdata-empty`.
+
+## Scope boundaries
+
+No CSV export (out of scope per PRD §11/Future), no per-column filter dropdowns (one free-text filter across the three name columns), no pagination — all rows render in one table.
+
+## Verification
+
+Screenshot-verified (not just a DOM dump, per the standing Phase 7 lesson) via a temporary headless-Chrome harness: all 15 fixture cells render correctly with `—` for missing counts; clicking the Average header twice sorts descending with the one null-average row correctly pinned to the bottom rather than jumping to the top; typing "Starved" into the filter narrows to only the Serum Starvation Timecourse rows while preserving the active sort.
+
+## Final step (per project convention)
+
+After implementation: check Phase 10 items in `docs/tasks.md`, append a Phase 10 entry to `docs/activity.md`, append this plan to `docs/plan.md`.

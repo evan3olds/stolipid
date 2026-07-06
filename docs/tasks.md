@@ -92,8 +92,10 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 10 — Raw Data Screen
 
-- [ ] Full table of all cells: columns Experiment, Condition, Cell, Count 1, Count 2, Count 3, Average
-- [ ] Average column rendered in accent color
+- [x] Full table of all cells: columns Experiment, Condition, Cell, Count 1, Count 2, Count 3, Average
+- [x] Average column rendered in accent color
+- [x] Sortable columns (click header to toggle ascending/descending; missing values always sort last)
+- [x] Filter input (live substring match across Experiment/Condition/Cell name)
 
 ---
 
