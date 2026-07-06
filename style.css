@@ -1189,17 +1189,17 @@ body {
 .count-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1rem;
+  height: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
   background: oklch(0.56 0.1 45 / 0.85);
   color: oklch(0.98 0.005 75);
-  border: 2px solid oklch(0.98 0.005 75);
+  border: 1.5px solid oklch(0.98 0.005 75);
   border-radius: 50%;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.5625rem;
   font-weight: 600;
   cursor: pointer;
   padding: 0;
