@@ -59,6 +59,7 @@ function navigate(screen, params = {}) {
   if ('condition' in params) state.condition = params.condition;
   if ('cell' in params) state.cell = params.cell;
   if (screen === 'login') return renderLogin();
+  if (screen === 'addphotos') return renderAddPhotos();
   renderShell(screen);
   if (screen === 'experiments') initExperiments();
   if (screen === 'conditions') initConditions();
@@ -988,6 +989,364 @@ function wireCellsAction() {
   if (actionBtn) {
     actionBtn.addEventListener('click', () => navigate('addphotos'));
   }
+}
+
+// ---- Add Photos screen ----
+// Full-screen annotation tool; bypasses the standard shell like Login does
+// (see navigate()). Screen-local state, reset every time the screen mounts.
+
+function genLocalId(prefix) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function clamp(val, min, max) {
+  return Math.min(Math.max(val, min), max);
+}
+
+// Multipart uploads (raw .tif files) can't go through api() — it always
+// JSON-encodes the body — so this attaches the same Bearer token manually.
+async function apiUpload(path, formData) {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`${RENDER_API_URL}${path}`, {
+    method: 'POST',
+    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+// Real preview rendering (contrast-normalized, LUT-applied PNG) is Phase 11's
+// job on Render. Until that endpoint exists, local test accounts get a
+// deterministic simulated fluorescence frame, seeded by filename, so the
+// box-drawing UX is fully exercisable without it.
+function renderPhotoPreviewSVG(name) {
+  const width = 640, height = 400;
+  const rand = seededRandom(hashStringToInt(String(name)));
+  const dropletCount = 40 + Math.floor(rand() * 40);
+  const droplets = Array.from({ length: dropletCount }).map(() => {
+    const cx = (8 + rand() * (width - 16)).toFixed(1);
+    const cy = (8 + rand() * (height - 16)).toFixed(1);
+    const r = (2 + rand() * 5).toFixed(1);
+    const opacity = (0.4 + rand() * 0.5).toFixed(2);
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" class="cell-thumb-droplet" opacity="${opacity}" />`;
+  }).join('');
+
+  return `
+    <svg class="photo-preview-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Simulated fluorescence preview">
+      <rect class="cell-thumb-bg" width="${width}" height="${height}" />
+      ${droplets}
+    </svg>
+  `;
+}
+
+let addPhotosState = null;
+
+function renderAddPhotos() {
+  addPhotosState = { files: [], activeFileId: null };
+  refreshAddPhotos();
+}
+
+function refreshAddPhotos() {
+  app.innerHTML = renderAddPhotosHTML();
+  wireAddPhotos();
+}
+
+function renderAddPhotosHTML() {
+  const totalBoxes = addPhotosState.files.reduce((sum, f) => sum + f.boxes.length, 0);
+  const conditionName = state.condition?.name || 'Condition';
+
+  return `
+    <div class="addphotos-screen">
+      <header class="addphotos-topbar">
+        <div class="addphotos-topbar-left">
+          <div class="addphotos-condition">${escHtml(conditionName)}</div>
+          <div class="addphotos-instructions">Click anywhere on the image to box a cell.</div>
+        </div>
+        <div class="addphotos-topbar-actions">
+          <button class="modal-cancel" id="addphotos-cancel">Cancel</button>
+          <button class="primary-action" id="addphotos-create" ${totalBoxes === 0 ? 'disabled' : ''}>Create ${totalBoxes} cell${totalBoxes !== 1 ? 's' : ''}</button>
+        </div>
+      </header>
+      <div class="addphotos-error" id="addphotos-error"></div>
+      <div class="addphotos-body">
+        ${renderAddPhotosSidebarHTML()}
+        ${renderAddPhotosCanvasHTML()}
+      </div>
+      <input type="file" id="addphotos-file-input" accept=".tif,.tiff" multiple hidden>
+    </div>
+  `;
+}
+
+function renderAddPhotosSidebarHTML() {
+  const { files, activeFileId } = addPhotosState;
+  const items = files.map(f => `
+    <div class="addphotos-file${f.id === activeFileId ? ' active' : ''}" data-file-id="${escHtml(f.id)}" role="button" tabindex="0">
+      <div class="addphotos-file-thumb">${
+        f.status === 'ready' ? f.previewSvg :
+        f.status === 'error' ? '<div class="addphotos-file-error">!</div>' :
+        '<div class="addphotos-file-loading">…</div>'
+      }</div>
+      <div class="addphotos-file-info">
+        <div class="addphotos-file-name">${escHtml(f.name)}</div>
+        <div class="addphotos-file-count">${f.boxes.length} box${f.boxes.length !== 1 ? 'es' : ''}</div>
+      </div>
+    </div>
+  `).join('');
+
+  return `
+    <aside class="addphotos-sidebar">
+      <div class="addphotos-sidebar-header">
+        <span>Photos</span>
+        ${files.length > 0 ? '<button class="addphotos-add-files-btn" id="addphotos-add-files">+ Add files</button>' : ''}
+      </div>
+      <div class="addphotos-file-list">
+        ${files.length === 0
+          ? '<div class="addphotos-empty"><p>No photos yet.</p><button class="detail-open-btn" id="addphotos-choose">Choose .tif files</button></div>'
+          : items}
+      </div>
+    </aside>
+  `;
+}
+
+function renderAddPhotosCanvasHTML() {
+  const { files, activeFileId } = addPhotosState;
+  const file = files.find(f => f.id === activeFileId);
+
+  if (!file) {
+    return '<div class="addphotos-canvas-empty"><p>Select or add a photo to begin boxing cells.</p></div>';
+  }
+  if (file.status === 'loading') {
+    return '<div class="addphotos-canvas-empty"><p>Rendering preview…</p></div>';
+  }
+  if (file.status === 'error') {
+    return `<div class="addphotos-canvas-empty addphotos-canvas-error"><p>Could not render a preview for "${escHtml(file.name)}". The API may not be reachable yet.</p></div>`;
+  }
+
+  const boxes = file.boxes.map((box, i) => `
+    <div class="photo-box" data-box-id="${escHtml(box.id)}" style="left:${box.x}%; top:${box.y}%; width:${box.w}%; height:${box.h}%;">
+      <span class="photo-box-label">${i + 1}</span>
+      <button class="photo-box-remove" data-box-id="${escHtml(box.id)}" aria-label="Remove box">&times;</button>
+      <span class="photo-box-handle" data-box-id="${escHtml(box.id)}"></span>
+    </div>
+  `).join('');
+
+  return `
+    <div class="addphotos-canvas">
+      <div class="canvas-frame" id="canvas-frame">
+        ${file.previewSvg}
+        ${boxes}
+      </div>
+    </div>
+  `;
+}
+
+function addPhotoFile(file) {
+  const entry = { id: genLocalId('file'), name: file.name, rawFile: file, status: 'loading', previewSvg: '', boxes: [] };
+  addPhotosState.files.push(entry);
+  if (!addPhotosState.activeFileId) addPhotosState.activeFileId = entry.id;
+
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    entry.previewSvg = renderPhotoPreviewSVG(entry.name);
+    entry.status = 'ready';
+    refreshAddPhotos();
+    return;
+  }
+
+  refreshAddPhotos();
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  apiUpload(`/conditions/${state.condition.id}/tif-preview`, formData)
+    .then(({ preview_url }) => {
+      entry.previewSvg = `<img class="photo-preview-img" src="${escHtml(preview_url)}" alt="Rendered preview of ${escHtml(entry.name)}">`;
+      entry.status = 'ready';
+    })
+    .catch(() => {
+      entry.status = 'error';
+    })
+    .finally(() => {
+      refreshAddPhotos();
+    });
+}
+
+function addBoxAt(xPct, yPct) {
+  const file = addPhotosState.files.find(f => f.id === addPhotosState.activeFileId);
+  if (!file) return;
+  const w = 20, h = 20;
+  const x = clamp(xPct - w / 2, 0, 100 - w);
+  const y = clamp(yPct - h / 2, 0, 100 - h);
+  file.boxes.push({ id: genLocalId('box'), x, y, w, h });
+  refreshAddPhotos();
+}
+
+function removeBox(boxId) {
+  const file = addPhotosState.files.find(f => f.id === addPhotosState.activeFileId);
+  if (!file) return;
+  file.boxes = file.boxes.filter(b => b.id !== boxId);
+  refreshAddPhotos();
+}
+
+// Drag/resize mutate the box element's style directly on every mousemove for
+// smooth visuals; the underlying state (and hence sidebar box count / labels,
+// which don't change mid-drag) is only committed, not re-rendered, until drop.
+function startBoxDrag(e, boxEl, frame) {
+  e.preventDefault();
+  const file = addPhotosState.files.find(f => f.id === addPhotosState.activeFileId);
+  const box = file?.boxes.find(b => b.id === boxEl.dataset.boxId);
+  if (!box) return;
+
+  const frameRect = frame.getBoundingClientRect();
+  const startX = e.clientX, startY = e.clientY;
+  const startBoxX = box.x, startBoxY = box.y;
+
+  function onMove(ev) {
+    const dxPct = ((ev.clientX - startX) / frameRect.width) * 100;
+    const dyPct = ((ev.clientY - startY) / frameRect.height) * 100;
+    box.x = clamp(startBoxX + dxPct, 0, 100 - box.w);
+    box.y = clamp(startBoxY + dyPct, 0, 100 - box.h);
+    boxEl.style.left = `${box.x}%`;
+    boxEl.style.top = `${box.y}%`;
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+function startBoxResize(e, boxEl, frame) {
+  e.preventDefault();
+  const file = addPhotosState.files.find(f => f.id === addPhotosState.activeFileId);
+  const box = file?.boxes.find(b => b.id === boxEl.dataset.boxId);
+  if (!box) return;
+
+  const frameRect = frame.getBoundingClientRect();
+  const startX = e.clientX, startY = e.clientY;
+  const startW = box.w, startH = box.h;
+  const MIN_SIZE = 5;
+
+  function onMove(ev) {
+    const dwPct = ((ev.clientX - startX) / frameRect.width) * 100;
+    const dhPct = ((ev.clientY - startY) / frameRect.height) * 100;
+    box.w = clamp(startW + dwPct, MIN_SIZE, 100 - box.x);
+    box.h = clamp(startH + dhPct, MIN_SIZE, 100 - box.y);
+    boxEl.style.width = `${box.w}%`;
+    boxEl.style.height = `${box.h}%`;
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+async function confirmAddPhotos() {
+  const totalBoxes = addPhotosState.files.reduce((sum, f) => sum + f.boxes.length, 0);
+  if (totalBoxes === 0) return;
+
+  const errEl = document.getElementById('addphotos-error');
+  const createBtn = document.getElementById('addphotos-create');
+  createBtn.disabled = true;
+  createBtn.textContent = 'Creating…';
+  errEl.textContent = '';
+
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    const conditions = TEST_CONDITIONS[state.experiment?.id] || [];
+    const cond = conditions.find(c => String(c.id) === String(state.condition?.id));
+    if (cond) {
+      let nextNumber = cond.cells.length + 1;
+      addPhotosState.files.forEach(file => {
+        file.boxes.forEach(() => {
+          cond.cells.push({ id: genLocalId('cell'), name: `Cell ${nextNumber}`, counts: [] });
+          nextNumber++;
+        });
+      });
+    }
+    navigate('cells');
+    return;
+  }
+
+  try {
+    for (const file of addPhotosState.files) {
+      if (file.boxes.length === 0) continue;
+      const formData = new FormData();
+      formData.append('file', file.rawFile);
+      formData.append('boxes', JSON.stringify(file.boxes.map(({ x, y, w, h }) => ({ x, y, width: w, height: h }))));
+      await apiUpload(`/conditions/${state.condition.id}/cells/from-tif`, formData);
+    }
+    navigate('cells');
+  } catch {
+    errEl.textContent = 'Could not create cells. Check the API connection.';
+    createBtn.disabled = false;
+    createBtn.textContent = `Create ${totalBoxes} cell${totalBoxes !== 1 ? 's' : ''}`;
+  }
+}
+
+function wireAddPhotos() {
+  const fileInput = document.getElementById('addphotos-file-input');
+  const triggerPicker = () => fileInput.click();
+
+  const chooseBtn = document.getElementById('addphotos-choose');
+  if (chooseBtn) chooseBtn.addEventListener('click', triggerPicker);
+  const addFilesBtn = document.getElementById('addphotos-add-files');
+  if (addFilesBtn) addFilesBtn.addEventListener('click', triggerPicker);
+
+  fileInput.addEventListener('change', () => {
+    Array.from(fileInput.files || []).forEach(addPhotoFile);
+    fileInput.value = '';
+  });
+
+  document.getElementById('addphotos-cancel').addEventListener('click', () => {
+    navigate('cells');
+  });
+
+  const createBtn = document.getElementById('addphotos-create');
+  if (createBtn) createBtn.addEventListener('click', confirmAddPhotos);
+
+  document.querySelectorAll('.addphotos-file').forEach(el => {
+    const select = () => {
+      addPhotosState.activeFileId = el.dataset.fileId;
+      refreshAddPhotos();
+    };
+    el.addEventListener('click', select);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') select(); });
+  });
+
+  const frame = document.getElementById('canvas-frame');
+  if (!frame) return;
+
+  frame.addEventListener('click', e => {
+    if (e.target.closest('.photo-box')) return;
+    const rect = frame.getBoundingClientRect();
+    const xPct = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+    addBoxAt(xPct, yPct);
+  });
+
+  frame.querySelectorAll('.photo-box-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      removeBox(btn.dataset.boxId);
+    });
+  });
+
+  frame.querySelectorAll('.photo-box').forEach(boxEl => {
+    boxEl.addEventListener('mousedown', e => {
+      if (e.target.closest('.photo-box-handle') || e.target.closest('.photo-box-remove')) return;
+      startBoxDrag(e, boxEl, frame);
+    });
+  });
+
+  frame.querySelectorAll('.photo-box-handle').forEach(handle => {
+    handle.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      startBoxResize(e, handle.closest('.photo-box'), frame);
+    });
+  });
 }
 
 // Boot

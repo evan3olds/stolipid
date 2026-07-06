@@ -60,12 +60,12 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 7 — Add Photos Screen
 
-- [ ] Full-screen layout with left thumbnail sidebar (lists .tif files in batch with per-file box count)
-- [ ] Main canvas: click to place a bounding box centered at click point
-- [ ] Boxes are draggable (move by body) and resizable (corner handle)
-- [ ] Each box has a numbered label and × remove button
-- [ ] Top bar: condition name, instruction text, "Cancel" and "Create N cells" buttons
-- [ ] Confirm → write one `cells` record per box to Supabase
+- [x] Full-screen layout with left thumbnail sidebar (lists .tif files in batch with per-file box count)
+- [x] Main canvas: click to place a bounding box centered at click point
+- [x] Boxes are draggable (move by body) and resizable (corner handle)
+- [x] Each box has a numbered label and × remove button
+- [x] Top bar: condition name, instruction text, "Cancel" and "Create N cells" buttons
+- [x] Confirm → write one `cells` record per box to Supabase
 
 ---
 
@@ -102,6 +102,8 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [ ] Set up Python web API project (e.g., FastAPI) and deploy to Render
 - [ ] Endpoint: `POST /auth/login` — accept `{ username, password }`, validate against Supabase Auth, return `{ token }`
 - [ ] Endpoint: accept `.tif` upload, load with `tifffile` or `Pillow`, normalize contrast, apply green false-color LUT (BODIPY channel), export as PNG
+- [ ] Endpoint: `POST /conditions/{id}/tif-preview` — accept a raw `.tif` upload (multipart), render the contrast-normalized/LUT PNG, return `{ preview_url }` for the Add Photos canvas (no DB writes — this is a preview only)
+- [ ] Endpoint: `POST /conditions/{id}/cells/from-tif` — accept the original `.tif` file plus a `boxes` JSON array (`{x, y, width, height}` as 0–100 percentages of the source image), crop one region per box, upload each crop to Supabase Storage (`cell-images` bucket), and create one `cells` row per box with `image_url` set
 - [ ] Upload rendered PNG to Supabase Storage (`cell-images` bucket) and write `image_url` to `cells` table
 - [ ] Endpoint: compute ICC per condition with `pingouin`; write result back to `conditions.icc` column
 - [ ] Wire frontend to POST to Render API endpoints (configure base URL as a constant)

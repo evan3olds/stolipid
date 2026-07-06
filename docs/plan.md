@@ -554,3 +554,98 @@ Log in with a local test account → Experiments → seeded experiment → "0 Hr
 ## Final step (per project convention)
 
 After implementation: check Phase 6 items in `tasks.md`, append a Phase 6 entry to `activity.md`.
+
+---
+---
+
+# Plan: Phase 7 — Add Photos Screen
+
+## Context
+
+Phases 1–6 are complete: the authenticated shell, Experiments/Conditions/Cells screens all work against local test-account fixtures (`TEST_EXPERIMENTS`/`TEST_CONDITIONS` in [app.js](app.js)) and degrade to a clean error state when the real Render API isn't reachable (it isn't yet — [api/main.py](api/main.py) only has `/` and `/cells`).
+
+The Cells screen's "Add photos" button already calls `navigate('addphotos')` ([app.js:989](app.js#L989)), which currently falls through to the generic `screenStub()`. Phase 7 replaces that stub with the real full-screen annotation tool from PRD §5.5.
+
+**Real pipeline (confirmed with user):** when a `.tif` is selected, Render converts it to a contrast-normalized, false-color PNG immediately (a "preview" render, not yet tied to any cell). The user draws boxes over that PNG. On confirm, each box is a crop region — Render crops the PNG per box, uploads each crop to the `cell-images` bucket, and creates one `cells` row per box with `image_url` set (server-to-server, per [CLAUDE.md](CLAUDE.md) — the frontend never touches Supabase directly). None of this exists on the Render side yet (Phase 11), so this phase adds two new **assumed** endpoints — documented the same way Phases 4–6 documented their assumed endpoint shapes — and the local test-account path substitutes a simulated deterministic preview image (reusing the seeded-PRNG fluorescence pattern from `renderCellThumbnailSVG` in Phase 6) so the whole flow is exercisable without Render deployed.
+
+Like Login, this screen is full-screen and bypasses the standard shell chrome (top bar/sidebar/breadcrumb) — Phase 6's activity log already flagged this as the expected shape for Phase 7/8.
+
+---
+
+## What to build (`app.js`)
+
+### Routing
+- `navigate()`: add `if (screen === 'addphotos') return renderAddPhotos();` alongside the existing `login` bypass, before the `renderShell()` path. `addphotos` stays in `SCREENS` only for its title metadata (unused once it bypasses the shell) — no functional change needed there.
+
+### Screen-local state
+A plain object, reset each time `renderAddPhotos()` runs (not part of the persistent `state`, same lifetime rule as e.g. modal-local state elsewhere):
+```js
+{
+  files: [ { id, name, status: 'loading'|'ready'|'error', previewSvg, boxes: [{ id, x, y, w, h }] } ],
+  activeFileId: null,
+}
+```
+`x/y/w/h` are percentages (0–100) of the canvas frame — resolution-independent, and Render can convert percentage rects to pixel rects itself once it knows the source image dimensions.
+
+### Empty state → file picker
+Hidden `<input type="file" multiple accept=".tif,.tiff">` triggered by a "Choose .tif files" button when `files.length === 0`. A smaller "Add files" affordance in the sidebar header appends more files later (appends to `files`, doesn't replace).
+
+### Per-file preview render (on file add)
+- Local test token: synthesize immediately (no network) — new helper `renderPhotoPreviewSVG(name)` mirrors `renderCellThumbnailSVG`'s `seededRandom(hashStringToInt(...))` pattern but seeded by filename, sized for a full-frame canvas rather than a small thumbnail. Mark `status: 'ready'` synchronously.
+- Real token: `status: 'loading'` first (sidebar shows a loading placeholder), then POST the raw file to `/conditions/{condition_id}/tif-preview` (multipart) → `{ preview_url }`. This bypasses the existing `api()` helper (it always sends `Content-Type: application/json` + `JSON.stringify`), so this needs a small dedicated fetch that still attaches the Bearer token from `localStorage`. On failure, `status: 'error'` and the sidebar/canvas show an inline "Could not render preview" message for that file only — other files are unaffected.
+
+### Sidebar
+Thumbnail list: each entry shows the filename, a small preview swatch (or loading/error indicator), and `${boxes.length} box(es)`. Clicking an entry sets `activeFileId` and re-renders the canvas.
+
+### Canvas
+- `.canvas-frame` holds the active file's preview (SVG or `<img>`) plus one absolutely-positioned `.photo-box` div per box (positioned via the percentage coordinates).
+- Click on the frame background (not on a box or its handle) → compute click position as a percentage of frame width/height, push a new box centered there (default ~20% × 20%, clamped so it stays inside 0–100), re-render.
+- Each `.photo-box` has: a numbered label (position in that file's `boxes` array, 1-based — renumbered whenever a box is removed), a drag handle (the box body — mousedown starts a drag, tracked via document-level `mousemove`/`mouseup` listeners that are attached on drag-start and removed on drag-end, same cleanup discipline as the existing `escHandler` pattern in `wireShell`), a resize handle (bottom-right corner, `stopPropagation` so it doesn't also trigger the parent's drag), and a `×` remove button.
+- Dragging/resizing clamps the box within the 0–100 frame bounds and enforces a minimum size (~5%).
+- Removing a box splices it out and renumbers the remaining boxes in that file.
+
+### Top bar (screen-specific, not the shared `subheaderHTML`)
+- Left: condition name (`state.condition.name`) + short instruction text ("Click anywhere to box a cell").
+- Right: "Cancel" (→ `navigate('cells')`, discarding all screen-local state) and "Create N cells" where N is the live total (`files.flatMap(f => f.boxes).length`), disabled when N is 0.
+
+### Confirm ("Create N cells")
+- Local test token: for each file, for each box, push a new cell into `TEST_CONDITIONS[experiment][condition].cells` — `{ id: crypto.randomUUID()-style local id, name: 'Cell ' + nextNumber, counts: [] }`, continuing the numbering from `cond.cells.length`. No network calls. Then `navigate('cells')`.
+- Real token: per file with boxes, POST to `/conditions/{condition_id}/cells/from-tif` (multipart: original file + `boxes` JSON array of the percentage rects) → creates one `cells` row per box server-side with a cropped `image_url`. Same dedicated-fetch-with-auth-header approach as the preview call. On success for every file, `navigate('cells')`. On any failure, show an inline error banner and keep the user on the screen (don't discard their annotation work).
+
+---
+
+## Styling (`style.css`)
+
+New rules, namespaced `.addphotos-*` (or similarly scoped), reusing existing tokens (`--accent`, `--font-mono`, `--font-heading`) and the same visual language as the modal/detail-panel components already in the sheet:
+- Full-viewport layout: custom top bar, left sidebar (file list), main canvas area — no `.shell`/`.sidebar`/`.topbar` reuse since this bypasses the authenticated chrome.
+- `.photo-box` (dashed accent border, semi-transparent fill), `.photo-box-label`, `.photo-box-handle` (corner resize grip), `.photo-box-remove` (× button, top-right of the box).
+- Loading/error swatch states for sidebar thumbnails, matching the existing `.loading-state`/`.error-state` visual tone.
+
+---
+
+## Documentation updates (per project convention)
+
+- `docs/tasks.md`: check off all Phase 7 items.
+- `docs/activity.md`: append a Phase 7 entry — new functions added, the two new assumed Render endpoints (`POST /conditions/{id}/tif-preview`, `POST /conditions/{id}/cells/from-tif`) and their shapes, and the same "not verified in an actual browser" caveat prior phases used if applicable.
+- `docs/plan.md`: append this plan.
+
+---
+
+## Scope boundaries
+
+- No real `.tif` decoding in the browser — previews are simulated for local test accounts; real accounts call the (not-yet-deployed) Render preview endpoint and show a clean per-file error if it's unreachable.
+- Cropping/PNG storage/cell-row creation happens server-side in Render (Phase 11's job) — the frontend only sends percentage-based box rects, never manipulates image pixels itself.
+- No drag-select multi-box or copy/paste — one box per click, matching PRD §5.5 exactly.
+
+---
+
+## Verification
+
+1. Log in with a local test account → Experiments → seeded experiment → a condition → Cells → "Add photos".
+2. Choose 2+ arbitrary files (content is irrelevant since only filename seeds the simulated preview) → sidebar lists both immediately with a simulated preview and "0 boxes".
+3. On file 1's canvas, click three times → three numbered, draggable, resizable boxes appear; sidebar count updates to "3 boxes".
+4. Drag a box and resize it via the corner handle → both persist visually.
+5. Remove the middle box via × → remaining boxes renumber 1, 2.
+6. Switch to file 2 in the sidebar → canvas swaps to file 2's (empty) boxes; switching back to file 1 shows its boxes preserved.
+7. "Create N cells" label reflects the live total across both files; with 0 total boxes it's disabled.
+8. Click "Create N cells" → new cells appear in the Cells grid with "needs count" status; "Cancel" instead discards everything and returns to Cells unchanged.
