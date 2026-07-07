@@ -41,7 +41,7 @@ experiments (id, name, date, dye, notes, created_by)
 ### Python API (Render)
 A Python web API deployed on [Render](https://render.com) handles work the browser can't do. The frontend POSTs to it over HTTP — no local script required.
 - Load `.tif` files with `tifffile` or `Pillow`
-- Normalize contrast, apply green false-color LUT (BODIPY channel), export as PNG
+- Normalize contrast, render as grayscale, export as PNG
 - Upload rendered PNG to Supabase Storage bucket `cell-images`; write `image_url` back to `cells`
 - Compute ICC per condition with `pingouin`; write result to `conditions.icc`
 

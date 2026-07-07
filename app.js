@@ -1176,7 +1176,7 @@ function renderAddPhotosCanvasHTML() {
 
   return `
     <div class="addphotos-canvas">
-      <div class="canvas-frame" id="canvas-frame">
+      <div class="canvas-frame" id="canvas-frame" style="aspect-ratio: ${file.aspectRatio || '8 / 5'};">
         ${file.previewSvg}
         ${boxes}
       </div>
@@ -1205,8 +1205,23 @@ function addPhotoFile(file) {
     .then(({ preview_url }) => {
       entry.previewSvg = `<img class="photo-preview-img" src="${escHtml(preview_url)}" alt="Rendered preview of ${escHtml(entry.name)}">`;
       entry.status = 'ready';
+      // Boxes are drawn (and sent to the backend) as percentages of the
+      // canvas-frame. The frame must match the source image's own aspect
+      // ratio, or object-fit: cover silently crops the display and those
+      // percentages stop lining up with the full, uncropped image the
+      // backend actually crops from.
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          entry.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = preview_url;
+      });
     })
-    .catch(() => {
+    .catch((err) => {
+      console.error(`tif-preview failed for "${entry.name}":`, err);
       entry.status = 'error';
     })
     .finally(() => {
@@ -1322,7 +1337,8 @@ async function confirmAddPhotos() {
       await apiUpload(`/conditions/${state.condition.id}/cells/from-tif`, formData);
     }
     navigate('cells');
-  } catch {
+  } catch (err) {
+    console.error('cells/from-tif failed:', err);
     errEl.textContent = 'Could not create cells. Check the API connection.';
     createBtn.disabled = false;
     createBtn.textContent = `Create ${totalBoxes} cell${totalBoxes !== 1 ? 's' : ''}`;

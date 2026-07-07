@@ -28,9 +28,9 @@ def load_tif_plane(tif_bytes: bytes) -> np.ndarray:
 
 
 def render_display_image(plane: np.ndarray) -> Image.Image:
-    """Percentile-stretched, green false-color 8-bit RGB — for human viewing
-    only. Lossy (clips the 1st/99.5th percentile tails), so this is not a
-    valid input for quantitative analysis — see load_tif_plane."""
+    """Percentile-stretched, 8-bit grayscale — for human viewing only. Lossy
+    (clips the 1st/99.5th percentile tails), so this is not a valid input
+    for quantitative analysis — see load_tif_plane."""
     low, high = np.percentile(plane, [1, 99.5])
     if high <= low:
         normalized = np.zeros_like(plane, dtype=np.uint8)
@@ -38,11 +38,7 @@ def render_display_image(plane: np.ndarray) -> Image.Image:
         stretched = np.clip((plane - low) / (high - low), 0, 1)
         normalized = (stretched * 255).astype(np.uint8)
 
-    height, width = normalized.shape
-    rgb = np.zeros((height, width, 3), dtype=np.uint8)
-    rgb[:, :, 1] = normalized  # green false-color LUT (BODIPY channel)
-
-    return Image.fromarray(rgb, mode="RGB")
+    return Image.fromarray(normalized, mode="L")
 
 
 def render_tif_to_image(tif_bytes: bytes) -> Image.Image:

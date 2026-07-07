@@ -1127,3 +1127,43 @@ Added `scipy` (explicit; was previously only transitive via `pingouin`) and `sci
 ## Final step (per project convention)
 
 After implementation: add/check the relevant items in `docs/tasks.md`, append an activity entry to `docs/activity.md`, append this plan to `docs/plan.md`.
+
+---
+
+# Bug fix — Add Photos crop cutting off part of the cell
+
+**Report:** cropping a cell doesn't work — part of the cell gets cut off even when the drawn box fully contains the cell on screen.
+
+## Diagnosis
+
+`.canvas-frame` (`style.css`) is hardcoded to `aspect-ratio: 8 / 5` with `.photo-preview-img { object-fit: cover }`. `tif-preview` serves a full-resolution, unresized render of the source `.tif`, whose aspect ratio is whatever the microscopy capture happens to be — not necessarily 8:5. When it isn't, `object-fit: cover` crops the *displayed* image to fill the frame, but the box drag/resize code (`addBoxAt`, `startBoxDrag`, `startBoxResize`) records box position/size as percentages of the frame, and `confirmAddPhotos` sends those percentages straight to the backend. `crop_percent`/`crop_array_percent` (`api/imaging.py`) apply them against the full, uncropped original image. So a box that visually bounds the cell in the cover-cropped preview maps to a shifted rectangle in the true image, cutting off whatever `cover` had already trimmed from the display. Not reproducible via the `local:` test account because its simulated SVG preview is a fixed 640×400 (exactly 8:5) viewBox, so `cover` never actually crops there — only real, non-8:5 `.tif` captures trigger it.
+
+## Fix
+
+`app.js` — after `tif-preview` resolves, preload the returned PNG with `new Image()` to read `naturalWidth`/`naturalHeight`, store `${w} / ${h}` as `entry.aspectRatio`, and set it as the inline `aspect-ratio` style on `.canvas-frame` in `renderAddPhotosCanvasHTML` (falling back to the CSS default `8 / 5` while loading, or for `local:` fixtures which don't set it). With the frame's ratio always matching the real image, `object-fit: cover` degenerates to a uniform scale with no cropping, so frame-relative box percentages equal image-relative percentages — matching what the backend's crop math assumes.
+
+## Verification
+
+Not verifiable end-to-end locally — needs a real, non-8:5-ratio `.tif` through the deployed Render service, which this environment doesn't have. Reasoned through by hand: previously, for an image narrower/taller than 8:5, `cover` trimmed the sides in the display; a box drawn to fully bound a cell near that trimmed edge would translate to backend percentages overshooting the real image. With the frame ratio matched to the image, that mismatch is eliminated. Flagged to the user to confirm against a real oddly-proportioned capture after deploying.
+
+## Final step (per project convention)
+
+Activity entry appended to `docs/activity.md`. No `docs/tasks.md` items apply — this is a bug fix to already-shipped Phase 11 functionality, not a new checklist item.
+
+---
+
+# Display rendering — green false-color LUT → grayscale
+
+**Request:** convert the `.tif` display render to a black-and-white PNG instead of green false-color.
+
+## Change
+
+`render_display_image` (`api/imaging.py`) keeps the existing percentile contrast stretch to `uint8` but now returns `Image.fromarray(normalized, mode="L")` — a true single-channel grayscale image — instead of building an `(H, W, 3)` RGB array with intensity only in the green channel. `render_tif_to_image`, `encode_png`, `crop_percent`, `crop_array_percent` are all channel-agnostic and needed no changes. Updated the two places documenting this as current design: `CLAUDE.md` ("Normalize contrast, render as grayscale, export as PNG") and the `.tif` pipeline comment in `api/main.py`. Historical references to the green LUT in `docs/PRD.md`, `docs/tasks.md`, and earlier `docs/activity.md`/`docs/plan.md` entries were left as-is — they're a record of what Phase 11 originally shipped, not living docs.
+
+## Verification
+
+Not verifiable end-to-end locally (no live Render/Supabase in this environment). By inspection: `"L"`-mode `PIL.Image` from a 2D `uint8` array is valid and PNG-encodes natively, so no downstream changes needed. Flagged to the user to confirm the rendered images look correct after deploying.
+
+## Final step (per project convention)
+
+Activity entry appended to `docs/activity.md`. No `docs/tasks.md` items apply — this changes already-shipped Phase 11 rendering behavior, not a new checklist item.

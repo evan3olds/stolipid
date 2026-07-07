@@ -453,4 +453,28 @@ Same "pure algorithm, no Supabase needed" pattern as Phase 11b's ICC work — ge
 
 - `app.js`'s `renderDetail(cell)` (Cells screen detail panel) now shows an "Auto count" row between "Average hand count" and "Hand counts," rendered only when `cell.auto_count != null` (so cells without it — e.g. every `local:` test-account fixture cell except the two seeded below, or any real cell created before this backend feature shipped — don't show an empty/misleading row). Reuses the existing `.detail-row`/`.detail-label`/`.detail-value` classes, no new CSS
 - Seeded `auto_count` on two `TEST_CONDITIONS` fixture cells (`test-cell-001`: 3, no hand counts yet; `test-cell-003`: 5, alongside its 2 existing hand counts) so the new row is exercisable via the local test account, matching the project's established convention of extending fixtures to hit new UI states
+
+---
+
+## Bug fix — Add Photos crop cutting off part of the cell
+
+**Symptom:** boxes drawn around a cell in the Add Photos canvas, fully containing the cell on screen, still produced a crop with part of the cell missing after `cells/from-tif`.
+
+**Root cause:** `.canvas-frame` (`style.css`) is hardcoded to `aspect-ratio: 8 / 5` with `.photo-preview-img { object-fit: cover }`. The preview PNG served by `tif-preview` is a full-resolution, unresized render of the source `.tif` — whatever aspect ratio the microscopy capture actually has. Whenever that ratio isn't 8:5, `object-fit: cover` silently crops the *displayed* image to fill the frame (e.g. trims the left/right or top/bottom edges), but box coordinates are recorded as percentages of the frame and sent to the backend as-is. `crop_percent`/`crop_array_percent` (`api/imaging.py`) apply those percentages against the full, uncropped original — so a box that visually bounds the cell in the letterbox-free but *cover*-cropped preview maps to a shifted/scaled rectangle in the real image, cutting off whatever the display had already trimmed away. The local `local:` test account never surfaced this because its simulated SVG preview has a fixed 640×400 (exactly 8:5) viewBox, so `cover` never actually cropped anything there.
+
+**Fix (`app.js`):** after `tif-preview` returns, preload the preview PNG with `new Image()` to read `naturalWidth`/`naturalHeight`, store it as `entry.aspectRatio`, and set `.canvas-frame`'s `aspect-ratio` inline to that value in `renderAddPhotosCanvasHTML` (falling back to the CSS default `8 / 5` while loading or for `local:` fixtures). With the frame's aspect ratio always matching the actual image, `object-fit: cover` no longer crops anything — it's a uniform scale — so frame-relative box percentages line up exactly with the image percentages the backend crops against.
+
+### Verification
+
+Not verifiable end-to-end locally (needs a real non-8:5 `.tif` through the deployed Render service, which this environment doesn't have). Reasoned through the fix by hand: for an image narrower/taller than 8:5, `cover` previously cropped the sides; a box drawn to fully bound a cell near an edge in that cropped view would translate to backend percentages that overshoot the actual cell in the true image. With the frame ratio matched, the same box's frame-relative percentages now equal the image-relative percentages 1:1, matching what `crop_percent` assumes. Flagged to the user to confirm against a real oddly-proportioned capture after deploying.
+
+---
+
+## Display rendering — green false-color LUT → grayscale
+
+Per user request, `render_display_image` (`api/imaging.py`) no longer applies the green false-color LUT to the BODIPY channel. It still does the same 1st/99.5th-percentile contrast stretch to `uint8`, but now returns a single-channel `PIL.Image` in `"L"` (grayscale) mode instead of building an `(H, W, 3)` RGB array with the intensity only in the green channel. `render_tif_to_image`, `encode_png`, `crop_percent`, and `crop_array_percent` are all unaffected (none of them assume a specific channel count/mode). Updated the two places that documented the old behavior as current design: `CLAUDE.md`'s Python API section and the `api/main.py` `.tif` pipeline comment. Left `docs/PRD.md`, `docs/tasks.md`, and earlier `docs/activity.md`/`docs/plan.md` entries untouched — those are historical records of what shipped in Phase 11, not living documentation of current behavior.
+
+### Verification
+
+Not verifiable end-to-end locally (no live Render deployment or Supabase project in this environment, same limitation as prior `.tif`-pipeline work). By inspection: `Image.fromarray(normalized, mode="L")` with `normalized` already a 2D `uint8` array is a valid grayscale `PIL.Image`, and `PNG` supports `"L"` mode natively, so `encode_png`/Storage upload need no changes. Flagged to the user to confirm the rendered preview/cell images look correct (grayscale, not green) after deploying.
 - Screenshot-verified (not just a DOM dump, per the standing Phase 7 lesson) via Playwright driving the system's installed Chrome (`chromium-cli` and Node weren't available in this environment, so used the Python `playwright` package pointed at `chrome.exe` directly, no browser download needed) against a local `python -m http.server`: logged in with the `test`/`test` local account, navigated to the seeded experiment's "0 Hr Starved" condition, selected Cell 1 (needs count, no hand counts) → panel shows "Auto count 3" above "No counts yet."; selected Cell 3 (2 hand counts) → panel shows "Auto count 5" above the hand-count list (3, 2), with "Average hand count 2.5" still correct above it. No console errors. Confirms no layout overlap/collision between the new row and the existing Average/Hand counts rows

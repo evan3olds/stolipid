@@ -220,11 +220,10 @@ def list_cells(condition_id: str, user=Depends(get_current_user)):
 
 
 # ---- .tif image pipeline ----
-# Loads a raw microscopy .tif, contrast-normalizes it, and applies a green
-# false-color LUT for the BODIPY channel (see api/imaging.py). tif-preview
-# is a render-only step for the Add Photos canvas (no DB writes); cells/
-# from-tif crops the same render per annotated box and creates one `cells`
-# row per box.
+# Loads a raw microscopy .tif, contrast-normalizes it, and renders it as
+# grayscale (see api/imaging.py). tif-preview is a render-only step for the
+# Add Photos canvas (no DB writes); cells/from-tif crops the same render per
+# annotated box and creates one `cells` row per box.
 
 @app.post("/conditions/{condition_id}/tif-preview")
 def tif_preview(condition_id: str, file: UploadFile = File(...), user=Depends(get_current_user)):
