@@ -124,7 +124,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Split the `.tif` render pipeline so the pre-quantization intensity plane is available for analysis, separate from the lossy 8-bit display PNG (`api/imaging.py`: `load_tif_plane`, `render_display_image`, `crop_array_percent`)
 - [x] `api/detection.py`: Gaussian blur → Otsu threshold → distance-transform watershed → `count_droplets(plane)`, splitting touching/overlapping droplets so each still gets its own count
 - [x] Wire into `POST /conditions/{id}/cells/from-tif`: compute a count automatically per box at cell-creation time, write to `cells.auto_count` (not a hand count — excluded from `cell.average`/`condition.icc`)
-- [ ] Frontend: surface `cells.auto_count` somewhere in the UI (Cells screen, Count screen, etc.) — not built yet, this phase only adds the backend column and computation
+- [x] Frontend: surface `cells.auto_count` on the Cells screen detail panel, shown above the "Hand counts" list
 
 ---
 
@@ -146,7 +146,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 ## Future (Out of Scope for v1)
 
 - [ ] CSV export of Raw Data table
-- [ ] Automated droplet detection via `cellpose` or `skimage` — **partially done**: Phase 11c added a `skimage`-based count suggestion (`cells.auto_count`), computed automatically, no frontend UI yet, and no marker/location coordinates (count only) — still open: `cellpose`, marker coordinates, and any frontend surfacing
+- [ ] Automated droplet detection via `cellpose` or `skimage` — **partially done**: Phase 11c added a `skimage`-based count suggestion (`cells.auto_count`), computed automatically and shown on the Cells screen detail panel — still open: `cellpose`, marker/location coordinates (currently count only)
 - [ ] Named inter-rater workflow (assign counts to specific researchers)
 - [ ] Per-cell ICC breakdowns and outlier flagging
 - [ ] Supabase Edge Function to trigger Python pipeline on `.tif` upload

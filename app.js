@@ -297,9 +297,9 @@ const TEST_CONDITIONS = {
       notes: 'Baseline, fed condition.',
       icc: 0.88,
       cells: [
-        { id: 'test-cell-001', name: 'Cell 1', counts: [] },
+        { id: 'test-cell-001', name: 'Cell 1', counts: [], auto_count: 3 },
         { id: 'test-cell-002', name: 'Cell 2', counts: [{ id: 'test-cnt-002-1', value: 4 }] },
-        { id: 'test-cell-003', name: 'Cell 3', counts: [{ id: 'test-cnt-003-1', value: 3 }, { id: 'test-cnt-003-2', value: 2 }] },
+        { id: 'test-cell-003', name: 'Cell 3', counts: [{ id: 'test-cnt-003-1', value: 3 }, { id: 'test-cnt-003-2', value: 2 }], auto_count: 5 },
         { id: 'test-cell-011', name: 'Cell 4', counts: [{ id: 'test-cnt-011-1', value: 3 }, { id: 'test-cnt-011-2', value: 4 }, { id: 'test-cnt-011-3', value: 3 }] },
       ],
     },
@@ -937,6 +937,12 @@ function wireCells(cells) {
         <span class="detail-label">Average hand count</span>
         <span class="detail-average">${avg != null ? avg.toFixed(1) : '—'}</span>
       </div>
+      ${cell.auto_count != null ? `
+        <div class="detail-row">
+          <span class="detail-label">Auto count</span>
+          <span class="detail-value">${cell.auto_count}</span>
+        </div>
+      ` : ''}
       <div class="detail-row">
         <span class="detail-label">Hand counts</span>
         ${counts.length === 0
