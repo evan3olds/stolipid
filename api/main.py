@@ -45,7 +45,7 @@ def health_check():
 # token on every later request.
 
 class LoginBody(BaseModel):
-    username: str
+    email: str
     password: str
 
 
@@ -53,14 +53,50 @@ class LoginBody(BaseModel):
 def login(body: LoginBody):
     try:
         result = supabase.auth.sign_in_with_password({
-            "email": body.username,
+            "email": body.email,
             "password": body.password,
         })
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
     if not result or not result.session:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
     return {"token": result.session.access_token}
+
+
+class SignupBody(BaseModel):
+    email: str
+    password: str
+
+
+@app.post("/auth/signup")
+def signup(body: SignupBody):
+    try:
+        result = supabase.auth.sign_up({
+            "email": body.email,
+            "password": body.password,
+        })
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    # If email confirmation is disabled in the Supabase project, sign_up
+    # returns a session immediately; otherwise the user must confirm by
+    # email first and result.session is None.
+    if result and result.session:
+        return {"token": result.session.access_token}
+    return {"message": "Check your email to confirm your account."}
+
+
+class ResetPasswordBody(BaseModel):
+    email: str
+
+
+@app.post("/auth/reset-password")
+def reset_password(body: ResetPasswordBody):
+    try:
+        supabase.auth.reset_password_for_email(body.email)
+    except Exception:
+        # Don't leak whether the email is registered.
+        pass
+    return {"message": "If that email has an account, a reset link is on its way."}
 
 
 def get_current_user(authorization: Optional[str] = Header(None)):

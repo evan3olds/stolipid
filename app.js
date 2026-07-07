@@ -69,58 +69,117 @@ function navigate(screen, params = {}) {
   if (screen === 'rawdata') initRawData();
 }
 
-function renderLogin() {
+// mode: 'login' | 'signup' | 'forgot'
+function renderLogin(mode = 'login') {
+  const copy = {
+    login:  { submit: 'Log in',        error: 'Login failed. Check your email and password.' },
+    signup: { submit: 'Create account', error: 'Could not create account.' },
+    forgot: { submit: 'Send reset link', error: 'Could not send reset link.' },
+  }[mode];
+
   app.innerHTML = `
     <div class="login-screen">
       <form class="login-card" id="login-form">
         <div class="login-eyebrow">Biology Dept &middot; Cell Archive</div>
         <h1 class="login-title">Cell Archive</h1>
         <div class="login-field">
-          <label for="login-username">Username</label>
-          <input id="login-username" name="username" type="text" autocomplete="username" required>
+          <label for="login-email">Email</label>
+          <input id="login-email" name="email" type="email" autocomplete="email" required>
         </div>
+        ${mode !== 'forgot' ? `
         <div class="login-field">
           <label for="login-password">Password</label>
-          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
-        </div>
-        <button class="login-submit" type="submit">Log in</button>
+          <input id="login-password" name="password" type="password" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}" required>
+        </div>` : ''}
+        <button class="login-submit" type="submit">${copy.submit}</button>
+        <div class="login-message" id="login-message"></div>
         <div class="login-error" id="login-error"></div>
+        <div class="login-links">
+          ${mode === 'login' ? `
+            <button type="button" class="login-link" id="login-forgot-link">Forgot password?</button>
+            <button type="button" class="login-link" id="login-signup-link">Create account</button>
+          ` : `
+            <button type="button" class="login-link" id="login-back-link">Back to log in</button>
+          `}
+        </div>
       </form>
     </div>
   `;
 
   const form = document.getElementById('login-form');
   const errorEl = document.getElementById('login-error');
+  const messageEl = document.getElementById('login-message');
+
+  if (mode === 'login') {
+    document.getElementById('login-forgot-link').addEventListener('click', () => renderLogin('forgot'));
+    document.getElementById('login-signup-link').addEventListener('click', () => renderLogin('signup'));
+  } else {
+    document.getElementById('login-back-link').addEventListener('click', () => renderLogin('login'));
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     errorEl.textContent = '';
+    messageEl.textContent = '';
 
-    const username = document.getElementById('login-username').value;
-    const password = document.getElementById('login-password').value;
+    const email = document.getElementById('login-email').value;
+    const password = mode !== 'forgot' ? document.getElementById('login-password').value : undefined;
 
-    // Check test-accounts.json before hitting the real API
-    try {
-      const testAccounts = await fetch('docs/test-accounts.json').then(r => r.json());
-      const match = testAccounts.find(a => a.username === username && a.password === password);
-      if (match) {
-        localStorage.setItem('token', `local:${username}`);
-        navigate('experiments');
-        return;
+    if (mode === 'login') {
+      // Check test-accounts.json before hitting the real API
+      try {
+        const testAccounts = await fetch('docs/test-accounts.json').then(r => r.json());
+        const match = testAccounts.find(a => a.email === email && a.password === password);
+        if (match) {
+          localStorage.setItem('token', `local:${email}`);
+          navigate('experiments');
+          return;
+        }
+      } catch (_) {
+        // test-accounts.json unavailable; fall through to real API
       }
-    } catch (_) {
-      // test-accounts.json unavailable; fall through to real API
+
+      try {
+        const { token } = await api('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        });
+        localStorage.setItem('token', token);
+        navigate('experiments');
+      } catch (err) {
+        errorEl.textContent = copy.error;
+      }
+      return;
     }
 
-    try {
-      const { token } = await api('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ username, password }),
-      });
-      localStorage.setItem('token', token);
-      navigate('experiments');
-    } catch (err) {
-      errorEl.textContent = 'Login failed. Check your username and password.';
+    if (mode === 'signup') {
+      try {
+        const result = await api('/auth/signup', {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        });
+        if (result.token) {
+          localStorage.setItem('token', result.token);
+          navigate('experiments');
+        } else {
+          messageEl.textContent = 'Check your email to confirm your account, then log in.';
+        }
+      } catch (err) {
+        errorEl.textContent = copy.error;
+      }
+      return;
+    }
+
+    if (mode === 'forgot') {
+      try {
+        await api('/auth/reset-password', {
+          method: 'POST',
+          body: JSON.stringify({ email }),
+        });
+        messageEl.textContent = 'If that email has an account, a reset link is on its way.';
+      } catch (err) {
+        errorEl.textContent = copy.error;
+      }
     }
   });
 }

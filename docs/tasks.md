@@ -16,8 +16,9 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 2 — Auth
 
-- [x] Build Login screen (username/password fields, "Log in" button, "Biology Dept · Cell Archive" monospace header)
+- [x] Build Login screen (email/password fields, "Log in" button, "Biology Dept · Cell Archive" monospace header)
 - [x] Wire login to Render `/auth/login`; store JWT in `localStorage`; route to Experiments screen on success
+- [x] "Create account" and "Forgot password?" links on the Login screen, each swapping in their own form; wired to new Render `POST /auth/signup` and `POST /auth/reset-password` endpoints
 
 ---
 
@@ -102,7 +103,9 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 ## Phase 11 — Python API (Render)
 
 - [x] Set up Python web API project (e.g., FastAPI) and deploy to Render
-- [x] Endpoint: `POST /auth/login` — accept `{ username, password }`, validate against Supabase Auth, return `{ token }`
+- [x] Endpoint: `POST /auth/login` — accept `{ email, password }`, validate against Supabase Auth, return `{ token }`
+- [x] Endpoint: `POST /auth/signup` — accept `{ email, password }`, create a Supabase Auth user, return `{ token }` (email confirmation disabled) or `{ message }` (confirmation required)
+- [x] Endpoint: `POST /auth/reset-password` — accept `{ email }`, trigger Supabase's password-reset email, return a generic confirmation message regardless of whether the email is registered
 - [x] Endpoint: `GET /experiments` — list experiments owned by the authenticated researcher, with `condition_count`
 - [x] Endpoint: `POST /experiments` — create an experiment (`name`, `date`, `dye`, `notes`), scoped to `created_by`
 - [x] Endpoint: `GET /experiments/{id}/conditions` — list conditions for an owned experiment, with nested `cells`/`counts`
@@ -152,4 +155,3 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [ ] Supabase Edge Function to trigger Python pipeline on `.tif` upload
 - [ ] Admin panel for user and experiment management
 - [ ] Mobile / responsive layout
-- [ ] Password reset UI

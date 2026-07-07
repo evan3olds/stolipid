@@ -478,3 +478,35 @@ Per user request, `render_display_image` (`api/imaging.py`) no longer applies th
 
 Not verifiable end-to-end locally (no live Render deployment or Supabase project in this environment, same limitation as prior `.tif`-pipeline work). By inspection: `Image.fromarray(normalized, mode="L")` with `normalized` already a 2D `uint8` array is a valid grayscale `PIL.Image`, and `PNG` supports `"L"` mode natively, so `encode_png`/Storage upload need no changes. Flagged to the user to confirm the rendered preview/cell images look correct (grayscale, not green) after deploying.
 - Screenshot-verified (not just a DOM dump, per the standing Phase 7 lesson) via Playwright driving the system's installed Chrome (`chromium-cli` and Node weren't available in this environment, so used the Python `playwright` package pointed at `chrome.exe` directly, no browser download needed) against a local `python -m http.server`: logged in with the `test`/`test` local account, navigated to the seeded experiment's "0 Hr Starved" condition, selected Cell 1 (needs count, no hand counts) → panel shows "Auto count 3" above "No counts yet."; selected Cell 3 (2 hand counts) → panel shows "Auto count 5" above the hand-count list (3, 2), with "Average hand count 2.5" still correct above it. No console errors. Confirms no layout overlap/collision between the new row and the existing Average/Hand counts rows
+
+---
+
+## Login screen — email label, create account, forgot password
+
+**Request:** the Login screen said "Username" instead of "Email", and had no way to create an account or reset a forgotten password.
+
+### Frontend (`app.js`, `style.css`)
+
+- `renderLogin(mode)` now takes a mode (`'login'` | `'signup'` | `'forgot'`) instead of always rendering the same fixed form. The username field is gone — all three modes share a single `type="email"` field labeled "Email" (`autocomplete="email"`), matching what the backend already expected (see below). `login`/`signup` also show a password field (`autocomplete="new-password"` for signup vs `current-password` for login); `forgot` shows only email
+- Below the submit button, `login` mode shows two new `.login-link` buttons — "Forgot password?" and "Create account" — that swap the form to the other two modes; `signup`/`forgot` show a single "Back to log in" link instead
+- `signup` posts to a new Render endpoint `POST /auth/signup`; if the response includes a `token` (Supabase project has email confirmation disabled) it logs straight in, otherwise shows "Check your email to confirm your account, then log in." in a new `.login-message` area
+- `forgot` posts to a new `POST /auth/reset-password`; always shows the same generic confirmation message regardless of outcome, so the UI itself doesn't leak whether an email is registered
+- `docs/test-accounts.json`'s fixture account changed from `{ username: "test" }` to `{ email: "test@example.com" }` to match; the local-account fallback check in `renderLogin` now matches on `email`
+- `style.css` — added `.login-message` (green confirmation text) and `.login-links`/`.login-link` (underlined inline text buttons, `--accent` colored)
+
+### Backend (`api/main.py`)
+
+- `LoginBody.username` renamed to `LoginBody.email` (the field was already being passed to Supabase as `email` — this was a display-only mismatch, not a behavior change)
+- Added `POST /auth/signup` (`SignupBody { email, password }`) — calls `supabase.auth.sign_up`; returns `{ token }` if Supabase returns a session immediately, else `{ message }` prompting email confirmation
+- Added `POST /auth/reset-password` (`ResetPasswordBody { email }`) — calls `supabase.auth.reset_password_for_email`, swallowing any exception so the response is identical whether or not the email exists
+
+### Verification
+
+- `python -m py_compile api/main.py` passes
+- Screenshot-verified all three modes (`login`, `signup`, `forgot`) via a temporary `_verify_login.html` harness (`renderLogin(mode)` called directly, served over `python -m http.server`, removed after use) — Paper theme renders correctly, no layout issues, links show/hide per mode as expected
+- Screenshot-verified the full local-account login round trip end-to-end: a second temporary harness (`_verify_login_flow.html`, also removed) pre-filled `test@example.com`/`test` and dispatched the form's `submit` event programmatically (headless Chrome can't type/click), confirming the `docs/test-accounts.json` email-based match still logs in and lands on the Experiments screen with both fixture experiments visible
+- Not verifiable end-to-end: the real `/auth/signup`/`/auth/reset-password` calls against live Supabase (no deployed Render/Supabase project in this environment) — flagged to the user to confirm behavior (especially whether their Supabase project has email confirmation enabled, which determines whether signup logs straight in or shows the "check your email" message) after deploying
+
+## Final step (per project convention)
+
+`docs/tasks.md` updated (Phase 2 checklist item added for the two links; Phase 11 endpoint list updated for the renamed/added auth endpoints; removed "Password reset UI" from the Future/out-of-scope list since it's now implemented). This entry appended to `docs/activity.md`. No plan was written to `docs/plan.md` ahead of time — this was a small, well-scoped UI + matching-endpoint change implemented directly rather than planned first.
