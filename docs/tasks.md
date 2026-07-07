@@ -110,12 +110,21 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Endpoint: `GET /conditions/{id}/cells` — list cells for an owned condition, with nested `counts`
 - [x] Endpoint: `POST /cells/{id}/counts` — accept `{ value }`, create a `counts` row (`cell_id`, `value`, `counted_by` from auth context, `created_at` default), return the created count object
 - [x] Endpoint: `DELETE /counts/{id}` — delete a hand count, scoped to the owning cell's experiment
-- [ ] Endpoint: accept `.tif` upload, load with `tifffile` or `Pillow`, normalize contrast, apply green false-color LUT (BODIPY channel), export as PNG
-- [ ] Endpoint: `POST /conditions/{id}/tif-preview` — accept a raw `.tif` upload (multipart), render the contrast-normalized/LUT PNG, return `{ preview_url }` for the Add Photos canvas (no DB writes — this is a preview only)
-- [ ] Endpoint: `POST /conditions/{id}/cells/from-tif` — accept the original `.tif` file plus a `boxes` JSON array (`{x, y, width, height}` as 0–100 percentages of the source image), crop one region per box, upload each crop to Supabase Storage (`cell-images` bucket), and create one `cells` row per box with `image_url` set
-- [ ] Upload rendered PNG to Supabase Storage (`cell-images` bucket) and write `image_url` to `cells` table
-- [ ] Endpoint: compute ICC per condition with `pingouin`; write result back to `conditions.icc` column
+- [x] Endpoint: accept `.tif` upload, load with `tifffile` or `Pillow`, normalize contrast, apply green false-color LUT (BODIPY channel), export as PNG (`api/imaging.py`)
+- [x] Endpoint: `POST /conditions/{id}/tif-preview` — accept a raw `.tif` upload (multipart), render the contrast-normalized/LUT PNG, return `{ preview_url }` for the Add Photos canvas (no DB writes — this is a preview only)
+- [x] Endpoint: `POST /conditions/{id}/cells/from-tif` — accept the original `.tif` file plus a `boxes` JSON array (`{x, y, width, height}` as 0–100 percentages of the source image), crop one region per box, upload each crop to Supabase Storage (`cell-images` bucket), and create one `cells` row per box with `image_url` set
+- [x] Upload rendered PNG to Supabase Storage (`cell-images` bucket) and write `image_url` to `cells` table
+- [x] Endpoint: compute ICC per condition with `pingouin`; write result back to `conditions.icc` column (auto-recomputed on every hand-count create/delete; also exposed as `POST /conditions/{id}/recompute-icc`)
 - [x] Wire frontend to POST to Render API endpoints (configure base URL as a constant)
+
+---
+
+## Phase 11c — Automated Droplet Count Suggestion
+
+- [x] Split the `.tif` render pipeline so the pre-quantization intensity plane is available for analysis, separate from the lossy 8-bit display PNG (`api/imaging.py`: `load_tif_plane`, `render_display_image`, `crop_array_percent`)
+- [x] `api/detection.py`: Gaussian blur → Otsu threshold → distance-transform watershed → `count_droplets(plane)`, splitting touching/overlapping droplets so each still gets its own count
+- [x] Wire into `POST /conditions/{id}/cells/from-tif`: compute a count automatically per box at cell-creation time, write to `cells.auto_count` (not a hand count — excluded from `cell.average`/`condition.icc`)
+- [ ] Frontend: surface `cells.auto_count` somewhere in the UI (Cells screen, Count screen, etc.) — not built yet, this phase only adds the backend column and computation
 
 ---
 
@@ -137,7 +146,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 ## Future (Out of Scope for v1)
 
 - [ ] CSV export of Raw Data table
-- [ ] Automated droplet detection via `cellpose` or `skimage`
+- [ ] Automated droplet detection via `cellpose` or `skimage` — **partially done**: Phase 11c added a `skimage`-based count suggestion (`cells.auto_count`), computed automatically, no frontend UI yet, and no marker/location coordinates (count only) — still open: `cellpose`, marker coordinates, and any frontend surfacing
 - [ ] Named inter-rater workflow (assign counts to specific researchers)
 - [ ] Per-cell ICC breakdowns and outlier flagging
 - [ ] Supabase Edge Function to trigger Python pipeline on `.tif` upload

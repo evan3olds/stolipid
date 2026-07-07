@@ -30,11 +30,12 @@ Four tables with this hierarchy:
 ```
 experiments (id, name, date, dye, notes, created_by)
   └── conditions (id, experiment_id, name, dye, starvation, notes, icc)
-        └── cells (id, condition_id, name, image_url)
+        └── cells (id, condition_id, name, image_url, auto_count)
               └── counts (id, cell_id, value, counted_by, created_at)
 ```
 - `cell.average` and `condition.mean` are computed in JS at query time, not stored
 - `condition.icc` is written by the Python pipeline and stored as a column
+- `cells.auto_count` is a machine-suggested droplet count (Gaussian blur → Otsu threshold → watershed segmentation), written by the Python pipeline at cell-creation time — not a hand count, not included in `cell.average`/`condition.icc`
 - Row-Level Security: researchers only read/write their own experiment data
 
 ### Python API (Render)

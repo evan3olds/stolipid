@@ -967,3 +967,163 @@ No Supabase credentials are available in the dev environment (`api/.env` is giti
 ## Final step (per project convention)
 
 After implementation: check the relevant Phase 11 items in `docs/tasks.md` (and add the previously-missing CRUD line items), append a Phase 11a entry to `docs/activity.md`.
+
+---
+---
+
+# Plan: Phase 11b — Render API: `.tif` Image Pipeline + ICC
+
+## Context
+
+Phase 11a implemented auth and the plain CRUD endpoints on `api/main.py` — experiments/conditions/cells reads/writes and hand-count create/delete, all scoped per-researcher. What's left in `docs/tasks.md` Phase 11 is the part that actually needs image processing and statistics, not just CRUD:
+
+- `.tif` → contrast-normalized, green-LUT PNG rendering (shared by two endpoints)
+- `POST /conditions/{id}/tif-preview` — render-only, no DB writes, used by the Add Photos canvas
+- `POST /conditions/{id}/cells/from-tif` — render + crop per box + upload each crop + create one `cells` row per box
+- ICC computation with `pingouin`, written to `conditions.icc`
+
+These are the last pieces standing between the app and a fully-functional real (non-`local:`) account. Every request/response shape below was already fixed by the frontend back in Phases 7/8 (`app.js`) — this task has no frontend changes, only wiring Render up to match what's already being called.
+
+Confirmed with user before writing this plan: the `cell-images` Supabase Storage bucket already exists and is **public**. This matters because the frontend loads both preview and cell images via plain `<img src="...">` (app.js:1200, app.js:1410) with no auth header — the browser can't attach a bearer token to an `<img>` fetch, so the URLs returned by these endpoints must be publicly fetchable. A public bucket means `.storage.from_("cell-images").get_public_url(path)` is sufficient; no signed-URL logic needed.
+
+## Exact shapes the frontend already assumes
+
+| Endpoint | Called at | Request | Response |
+|---|---|---|---|
+| `POST /conditions/{id}/tif-preview` | app.js:1198 | multipart: `file` (raw `.tif`) | `{ preview_url }` — no DB write |
+| `POST /conditions/{id}/cells/from-tif` | app.js:1316 | multipart: `file` (raw `.tif`) + `boxes` (JSON string: `[{x, y, width, height}]`, 0–100 percentages of the source image) | any 2xx (frontend doesn't consume the body — see `confirmAddPhotos()`, only checks success/failure) |
+
+Both go through `apiUpload()` (app.js:1045), which attaches the Bearer token manually (multipart can't go through the JSON-only `api()` helper) and throws on non-2xx.
+
+## Design
+
+### 1. `api/imaging.py` — pure image-processing functions, no Supabase/network dependency
+
+Split out from `main.py` because this is a genuinely different concern (numpy/array manipulation) from the HTTP/DB glue, and — unlike the DB-backed routes — these functions can be exercised in a real local test with no credentials, which is worth keeping easy to isolate.
+
+- `render_tif_to_image(tif_bytes: bytes) -> PIL.Image.Image`
+  - `tifffile.imread()` the bytes into a numpy array
+  - Reduce to a single 2D plane: if already 2D, use as-is; if 3D, assume the smaller trailing/leading axis is a channel or z-stack and take the first plane/channel (documented assumption — this pipeline targets single-channel BODIPY captures, not multi-channel composites or z-stacks; a shape that can't be reduced to 2D raises a clear `ValueError` that the route turns into a 400)
+  - Contrast-normalize: 1st/99.5th percentile stretch, clip, scale to `uint8` — a standard fluorescence "auto-contrast" that avoids a few hot/dead pixels blowing out the range
+  - Apply the green false-color LUT: build an `(H, W, 3)` `uint8` array with the normalized intensity in channel 1 (green) and 0 elsewhere, matching CLAUDE.md's "green false-color LUT (BODIPY channel)"
+  - Return a `PIL.Image` (`mode="RGB"`) — kept as an Image object, not encoded bytes, so `cells/from-tif` can crop it in-memory without a decode round-trip
+- `encode_png(image: PIL.Image.Image) -> bytes`
+- `crop_percent(image: PIL.Image.Image, x: float, y: float, width: float, height: float) -> PIL.Image.Image` — converts 0–100 percentages to a pixel rect against `image.size`, clamps to image bounds, `.crop(...)`
+
+### 2. Storage helper (in `main.py`, next to the existing `supabase` client)
+
+`upload_png(path: str, image: PIL.Image.Image) -> str` — encodes via `encode_png`, `supabase.storage.from_("cell-images").upload(path, png_bytes, {"content-type": "image/png"})`, returns `get_public_url(path)`. Paths: `previews/{condition_id}/{uuid4}.png` for previews, `cells/{condition_id}/{uuid4}.png` for cell crops — same bucket, prefixed so the two purposes don't collide, matching PRD §8.3's description of `cell-images` as the single bucket for "processed PNG exports."
+
+### 3. `POST /conditions/{id}/tif-preview`
+
+`file: UploadFile = File(...)`, scoped via the existing `owned_condition(condition_id, user.id)` (Phase 11a). Reads the upload, `render_tif_to_image`, uploads to `previews/{condition_id}/...`, returns `{ "preview_url": url }`. Invalid/unreadable `.tif` → 400. No DB writes, per the frontend's own comment at app.js:1198 (this is a preview only).
+
+### 4. `POST /conditions/{id}/cells/from-tif`
+
+`file: UploadFile = File(...)`, `boxes: str = Form(...)` (JSON-encoded array, parsed with a small `BoxPct` Pydantic model — `x, y, width, height: float`, validated 0–100). Scoped via `owned_condition`. Steps:
+1. `render_tif_to_image` once
+2. Look up the condition's current cell count (`supabase.table("cells").select("id", count="exact").eq("condition_id", ...)`) to continue the `Cell N` numbering — same convention the Phase 7 local-fixture path already uses in `app.js`'s `confirmAddPhotos()`
+3. For each box: `crop_percent`, `upload_png` to `cells/{condition_id}/...`, insert one `cells` row (`condition_id`, `name: f"Cell {n}"`, `image_url`)
+4. Return the list of created cell rows
+
+### 5. ICC computation
+
+**Trigger design (the one real judgment call here):** `docs/tasks.md` calls this an "endpoint," but nothing in `app.js` ever calls a dedicated ICC-trigger endpoint — the frontend just expects `conditions.icc` to already be populated whenever it fetches conditions (Phase 5's `iccQualityLabel()` reads `condition.icc` straight off the GET response). So `conditions.icc` has to be kept fresh automatically, not on-demand. Design:
+
+- A shared helper `recompute_condition_icc(condition_id)` in `main.py`:
+  - Fetches all cells + counts for the condition (same nested-select shape as `GET /conditions/{id}/cells`)
+  - Includes **only cells with exactly 3 counts** — pingouin's ANOVA-based ICC estimator wants a fully-crossed balanced design (every target rated by every rater), and a cell that hasn't completed the 3-count blinded protocol yet shouldn't be averaged into the condition's reliability score anyway
+  - Needs at least 2 such cells to compute anything; below that, sets `icc = None` (already handled by the existing `iccQualityLabel()` "—" fallback in `app.js`)
+  - Builds a long-format `pandas.DataFrame` (`cell_id`, `rater` ∈ {1,2,3} assigned by each cell's `created_at` order, `value`), calls `pingouin.intraclass_corr(data=df, targets='cell_id', raters='rater', ratings='value')`, takes the `ICC3k` row (two-way mixed, average-measures, consistency — the natural fit since `cell.average` is already the mean of the fixed 3 count slots, and CLAUDE.md/PRD never describe raters as randomly sampled from a larger population)
+  - `UPDATE conditions SET icc = ... WHERE id = condition_id`
+- Called automatically at the end of `POST /cells/{id}/counts` and `DELETE /counts/{id}` (Phase 11a) for the affected cell's condition, so ICC self-updates as counts come in — no frontend change needed
+- Also exposed as `POST /conditions/{id}/recompute-icc` (scoped via `owned_condition`) — satisfies tasks.md's literal "endpoint" item and gives a manual escape hatch, but isn't required for normal app usage
+
+### 6. Dependencies (`api/requirements.txt`)
+
+Add `tifffile`, `pillow`, `numpy`, `pingouin` (pulls in `pandas`/`scipy`/`statsmodels` transitively — a meaningfully heavier install than Phase 11a's; flagging since Render's free tier already has slow cold starts per CLAUDE.md, and this will also slow down build/deploy time, not just cold start).
+
+## Files Modified
+
+| File | Change |
+|---|---|
+| `api/imaging.py` (new) | `render_tif_to_image`, `encode_png`, `crop_percent` |
+| `api/main.py` | `upload_png` storage helper; `POST /conditions/{id}/tif-preview`; `POST /conditions/{id}/cells/from-tif`; `recompute_condition_icc`; `POST /conditions/{id}/recompute-icc`; call `recompute_condition_icc` from the existing counts create/delete routes |
+| `api/requirements.txt` | Add `tifffile`, `pillow`, `numpy`, `pingouin` |
+| `docs/tasks.md` | Check off the remaining Phase 11 items |
+| `docs/activity.md` | Append a Phase 11b entry |
+
+## Verification
+
+Unlike Phase 11a (pure CRUD, needed live Supabase to mean anything), the image-processing and ICC math here have **no Supabase dependency** and can be genuinely exercised locally:
+
+1. `api/imaging.py` — generate a synthetic test `.tif` in-memory with `tifffile`/`numpy` (a small array with a known gradient), run it through `render_tif_to_image` + `encode_png`, assert: output decodes as a valid PNG, correct dimensions, red/blue channels are all zero, green channel reflects the contrast stretch (min≈0, max≈255). Run `crop_percent` with known box percentages and assert the output size matches the expected pixel rect.
+2. ICC math — build a synthetic `pandas.DataFrame` with a known 3-rater/N-target structure (values chosen so the expected ICC is roughly known, e.g. near-identical raters → ICC near 1, wildly divergent raters → ICC near 0), call `pingouin.intraclass_corr` directly the same way `recompute_condition_icc` will, confirm it returns a sane `ICC3k` value and that the "only exactly-3-count cells, else None below 2 targets" filtering logic (tested as a standalone pure function) behaves correctly.
+3. Same `TestClient` + placeholder-env-var approach as Phase 11a for the two new HTTP routes: confirm 401 with no auth, 404 when the condition isn't owned, 422 on a malformed `boxes` JSON string, and that a deliberately corrupt `.tif` upload produces a clean 400 rather than a 500.
+4. Real end-to-end (an actual `.tif` through the deployed Render service, a real image appearing in the Add Photos canvas, a real condition's ICC populating after 3-count cells exist) still needs the user against the live Supabase project — same limitation as Phase 11a, flagged back to the user.
+
+## Deviations from this plan during implementation
+
+- `pg.intraclass_corr`'s `Type` column values turned out to be `"ICC(C,k)"` in the installed pingouin 0.6.1, not the `"ICC3k"` string this plan assumed (an older pingouin naming convention) — caught immediately by the local ICC test (a high-agreement dataset returned `None` instead of ~1) and fixed.
+- The ICC filtering/compute logic was factored into a standalone pure function `compute_icc(cells)` (called by `recompute_condition_icc`) specifically so verification step 2 above could actually call the same code path the app uses, rather than a hand-duplicated copy of the logic in the test.
+- Local venv setup hit two environment snags unrelated to the code: the disk was initially full ("No space left on device," resolved by the user freeing space), and the system's default `py` now resolves to Python 3.14, for which `pydantic_core` has no compatible wheel yet — the venv had to be pinned to `py -3.13`.
+- Verification step 3's 404/422/400 sub-cases (condition ownership, malformed boxes, corrupt `.tif`) weren't reachable through `TestClient` without a live Supabase backend, same limitation already noted for Phase 11a — only the 401 (no/bad auth) paths were actually exercised.
+
+## Final step (per project convention)
+
+After implementation: check the remaining Phase 11 items in `docs/tasks.md`, append a Phase 11b entry to `docs/activity.md`, append this plan to `docs/plan.md`.
+
+---
+---
+
+# Plan: Automated Droplet Count Suggestion (Gaussian blur → threshold → watershed)
+
+## Context
+
+PRD §12 (Future Considerations) lists "Automated counting: Integrate image analysis (e.g., `cellpose`, `skimage`) in the Python pipeline to suggest droplet locations" — explicitly out of v1 scope until now. The user wants to start building this using a classical (non-ML) pipeline: Gaussian blur → Otsu threshold → watershed segmentation, the standard `skimage` recipe for splitting touching/overlapping blob-like objects.
+
+This came up because the existing display pipeline (`api/imaging.py`'s `render_tif_to_image`, built in Phase 11b) is unsuitable as analysis input: it's an 8-bit, percentile-clipped, false-colored (green-channel-only) PNG built purely for the browser's `<img src>` — the percentile clip throws away real intensity data exactly where droplet boundaries live, and the original raw `.tif` isn't persisted anywhere to re-derive from later.
+
+**Decisions confirmed with the user before writing this plan:**
+- **Trigger & persistence:** runs automatically inside the existing `POST /conditions/{id}/cells/from-tif` endpoint, analyzing the image while it's still in memory — before it gets compressed into the lossy 8-bit display PNG. Sidesteps the "8 vs 16-bit PNG" question entirely: analysis operates on the raw float plane directly, never round-tripping through any PNG format. Result saved as a new column on `cells`.
+- **Output:** count only (an integer), not marker coordinates.
+- Column name: the user ran the schema change themselves and named it `auto_count` (this plan originally proposed `suggested_count`).
+
+## Design (as implemented)
+
+### 1. `api/imaging.py` — split the render pipeline
+
+`render_tif_to_image(tif_bytes)` split into `load_tif_plane(tif_bytes) -> np.ndarray` (raw float64 2D plane, no normalization) and `render_display_image(plane) -> Image.Image` (the existing percentile-stretch + green-LUT logic, now taking a plane). `render_tif_to_image` kept as a thin wrapper composing the two — `tif-preview` needed zero changes. Added `crop_array_percent(plane, x, y, width, height) -> np.ndarray`, sharing the same pixel-rect math as the existing `crop_percent` (factored into a shared `_crop_pixel_rect` helper) so the analysis crop and display crop stay spatially aligned.
+
+### 2. `api/detection.py` (new)
+
+`count_droplets(plane) -> int`: Gaussian blur → Otsu threshold → Euclidean distance transform → smoothed-distance-map peak-finding as watershed seeds → `skimage.segmentation.watershed` → `regionprops` filtered by minimum area. Pure function, no Supabase dependency.
+
+### 3. `api/main.py` — wired into `cells_from_tif`
+
+`load_tif_plane` once, `render_display_image(plane)` for display. Per box: `crop_percent` (display/upload, unchanged) + `crop_array_percent` + `count_droplets` (analysis) → `auto_count` included in the `cells` insert. Flows through existing `GET` endpoints automatically (both already `select("*", ...)` on `cells`) — no other endpoint changes needed.
+
+### 4. Schema
+
+`alter table cells add column auto_count integer;` — run directly by the user via the Supabase dashboard. `CLAUDE.md` updated to document the column and that it's excluded from `cell.average`/`condition.icc`.
+
+### 5. Dependencies
+
+Added `scipy` (explicit; was previously only transitive via `pingouin`) and `scikit-image` (new) to `api/requirements.txt`.
+
+## Verification
+
+1. `count_droplets` against synthetic Gaussian-bump images: 4 well-separated blobs → 4 (robust across 5 random noise seeds); a touching/overlapping pair → 2 (validated against a naive threshold+`regionprops` sanity check that returns 1 for the same input, confirming watershed is actually doing the splitting); flat/empty → 0.
+2. `load_tif_plane`/`render_display_image`/`crop_array_percent` alignment: `render_tif_to_image` still exactly equivalent to the new two-step composition; `crop_array_percent` agrees with `crop_percent` on pixel dimensions for identical boxes, including edge-clamp cases.
+3. `TestClient` regression pass confirming no Phase 11a/11b routes broke.
+4. Not verifiable locally: real `auto_count` values against actual microscopy `.tif`s, and the column round-tripping through the live Supabase table.
+
+## Deviations from this plan during implementation
+
+- Column named `auto_count`, not `suggested_count` as originally proposed — the user ran the `ALTER TABLE` themselves and chose the name.
+- The initial `count_droplets` implementation fed `peak_local_max` the raw (unsmoothed) distance transform. The local touching-pair test caught a real bug: the raw distance transform has a shallow local maximum right on the saddle ridge between two touching blobs (a classic watershed over-segmentation artifact), producing 3 seeds instead of 2 for a 2-droplet input. Fixed by smoothing the distance map (`scipy.ndimage.gaussian_filter`, `sigma=1.5`) before peak-finding, while still flooding the watershed on the *unsmoothed* distance map (smoothing that would blur real droplet boundaries).
+- Same environment pattern as Phase 11b: venv pinned to `py -3.13` (system default `py` resolves to 3.14, which lacks a `pydantic_core` wheel); this time the install had enough disk headroom already, no repeat of the earlier "No space left on device" issue.
+
+## Final step (per project convention)
+
+After implementation: add/check the relevant items in `docs/tasks.md`, append an activity entry to `docs/activity.md`, append this plan to `docs/plan.md`.
