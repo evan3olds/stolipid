@@ -114,6 +114,24 @@ def get_current_user(authorization: Optional[str] = Header(None)):
     return result.user
 
 
+class UpdatePasswordBody(BaseModel):
+    password: str
+
+
+@app.post("/auth/update-password")
+def update_password(body: UpdatePasswordBody, user=Depends(get_current_user)):
+    # get_current_user validates the bearer token (the recovery link's
+    # access_token) via supabase.auth.get_user, then this uses the
+    # service-role client to set the password by user id directly, since a
+    # recovery token's session isn't otherwise usable server-side for
+    # sign-in-as-user actions.
+    try:
+        supabase.auth.admin.update_user_by_id(user.id, {"password": body.password})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"message": "Password updated."}
+
+
 # ---- Ownership helpers ----
 # Render authenticates to Supabase with the service-role key, which bypasses
 # RLS, so the API itself must enforce that a researcher only sees their own

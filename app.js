@@ -184,6 +184,66 @@ function renderLogin(mode = 'login') {
   });
 }
 
+// ---- Password recovery ----
+// Supabase's reset-password email redirects here with the session in the URL
+// fragment (`#access_token=...&type=recovery&...`) rather than a query string,
+// so it's on the frontend to notice it and swap in a "set new password" form.
+
+function renderResetPassword(accessToken) {
+  app.innerHTML = `
+    <div class="login-screen">
+      <form class="login-card" id="reset-form">
+        <div class="login-eyebrow">Biology Dept &middot; Cell Archive</div>
+        <h1 class="login-title">Set a new password</h1>
+        <div class="login-field">
+          <label for="reset-password">New password</label>
+          <input id="reset-password" name="password" type="password" autocomplete="new-password" required minlength="6">
+        </div>
+        <div class="login-field">
+          <label for="reset-password-confirm">Confirm password</label>
+          <input id="reset-password-confirm" name="password-confirm" type="password" autocomplete="new-password" required minlength="6">
+        </div>
+        <button class="login-submit" type="submit">Set password</button>
+        <div class="login-message" id="reset-message"></div>
+        <div class="login-error" id="reset-error"></div>
+      </form>
+    </div>
+  `;
+
+  const form = document.getElementById('reset-form');
+  const errorEl = document.getElementById('reset-error');
+  const messageEl = document.getElementById('reset-message');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.textContent = '';
+    messageEl.textContent = '';
+
+    const password = document.getElementById('reset-password').value;
+    const confirm = document.getElementById('reset-password-confirm').value;
+    if (password !== confirm) {
+      errorEl.textContent = 'Passwords do not match.';
+      return;
+    }
+
+    try {
+      const res = await fetch(`${RENDER_API_URL}/auth/update-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      localStorage.setItem('token', accessToken);
+      navigate('experiments');
+    } catch (err) {
+      errorEl.textContent = 'Could not set new password. The reset link may have expired — request a new one.';
+    }
+  });
+}
+
 // ---- Authenticated shell (top bar + sidebar + subheader + content) ----
 
 let escHandler = null; // tracked so we can detach it before each re-render
@@ -2121,4 +2181,20 @@ function wireRawData() {
 }
 
 // Boot
-navigate(localStorage.getItem('token') ? 'experiments' : 'login');
+// Supabase auth-link redirects (password recovery, signup confirmation) land
+// here with the session in the URL hash rather than a route — check for that
+// before falling back to the normal logged-in/logged-out boot.
+(function boot() {
+  const hashParams = Object.fromEntries(new URLSearchParams(window.location.hash.slice(1)).entries());
+  if (hashParams.access_token) {
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    if (hashParams.type === 'recovery') {
+      renderResetPassword(hashParams.access_token);
+    } else {
+      localStorage.setItem('token', hashParams.access_token);
+      navigate('experiments');
+    }
+    return;
+  }
+  navigate(localStorage.getItem('token') ? 'experiments' : 'login');
+})();

@@ -524,3 +524,28 @@ Not verifiable end-to-end locally (no live Render deployment or Supabase project
 ### Verification
 
 Not verifiable end-to-end locally (no live Render/Supabase project in this environment, so no real `cell.image_url` with a non-8:5 aspect ratio to test against). By inspection: `img.naturalWidth`/`naturalHeight` reflect the actual PNG's pixel dimensions regardless of how the `<img>` is laid out, so setting the frame's `aspect-ratio` from those values makes `object-fit: cover` a no-op crop (uniform scale only) on the count screen, mirroring the Add Photos fix. Flagged to the user to confirm against a real cropped cell image after deploying.
+
+---
+
+## Bug fix — Password-reset email link didn't show a reset form
+
+**Report:** clicking the "reset your password" link in the email redirects to `https://evan3olds.github.io/stolipid/#access_token=...&expires_at=...&expires_in=3600&refresh_token=...`, but the app just showed the normal login screen — no way to actually set a new password.
+
+**Root cause:** `POST /auth/reset-password` correctly triggers `supabase.auth.reset_password_for_email`, and Supabase's default (implicit-flow) redirect puts the new session directly in the URL *fragment* rather than a query string or route. `app.js`'s boot line (`navigate(localStorage.getItem('token') ? 'experiments' : 'login')`) never looked at `window.location.hash` at all, so the token was silently ignored and the user always landed on the ordinary login screen with no indication anything had happened.
+
+**Fix:**
+- `app.js`: boot now parses `window.location.hash` first. If it contains `access_token`, the hash is stripped from the URL (`history.replaceState`) and then: `type=recovery` renders a new `renderResetPassword(accessToken)` screen (new password + confirm fields, client-side match check, posts to `/auth/update-password` with the recovery token as the bearer, then stores the token and navigates to Experiments on success); any other `access_token` (e.g. a signup-confirmation redirect) is treated as an already-valid session and logs the user straight in. With no `access_token` present, boot falls through to the existing logged-in/logged-out check unchanged.
+- `api/main.py`: added `POST /auth/update-password` (`UpdatePasswordBody { password }`). It reuses the existing `get_current_user` dependency to validate the bearer token (works for a recovery `access_token` the same way it works for a normal session token, since both are validated via `supabase.auth.get_user`), then sets the new password via the service-role admin client (`supabase.auth.admin.update_user_by_id`) rather than trying to establish a server-side session from the recovery token.
+
+### Verification
+
+Installed Playwright (`pip install playwright && playwright install chromium`) and drove the static site (`python -m http.server`) headlessly, one fresh browser context per case to force a real top-level navigation (a same-tab `page.goto` that only changes the hash is treated by Chromium as a same-document navigation and doesn't rerun the boot script — not representative of a real email link opening a fresh tab):
+- `#access_token=...&type=recovery` → shows the "Set a new password" form, no login form present, hash stripped from the URL, no `token` written to `localStorage` yet, no console/page errors
+- `#access_token=...&type=signup` → hash stripped, logs straight into the Experiments shell (topbar renders), `token` written to `localStorage`
+- No hash, no stored token → ordinary login screen with the "Forgot password?" link intact
+- Mismatched password/confirm on the reset form → client-side "Passwords do not match." error, no network call made
+- Not verifiable end-to-end: the real `/auth/update-password` call against live Supabase (no deployed Render/Supabase project in this environment) — flagged to the user to confirm after deploying, especially that the Supabase project's redirect URL allow-list includes the GitHub Pages origin.
+
+## Final step (per project convention)
+
+`docs/tasks.md` updated (Phase 2 checklist item added for the hash-redirect handling; Phase 11 endpoint list updated with `POST /auth/update-password`). This entry appended to `docs/activity.md`. No plan was written to `docs/plan.md` ahead of time — this was a small, well-scoped bug fix (missing redirect handling + one matching endpoint) implemented directly rather than planned first.
