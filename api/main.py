@@ -93,9 +93,11 @@ class ResetPasswordBody(BaseModel):
 def reset_password(body: ResetPasswordBody):
     try:
         supabase.auth.reset_password_for_email(body.email)
-    except Exception:
-        # Don't leak whether the email is registered.
-        pass
+    except Exception as e:
+        # Don't leak whether the email is registered to the client, but log
+        # server-side so delivery failures (bad SMTP config, redirect URL
+        # not in the allow list, rate limit) are actually visible somewhere.
+        print(f"reset_password_for_email failed for {body.email}: {e}")
     return {"message": "If that email has an account, a reset link is on its way."}
 
 
