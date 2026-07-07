@@ -854,3 +854,116 @@ Screenshot-verified (not just a DOM dump, per the standing Phase 7 lesson) via a
 ## Final step (per project convention)
 
 After implementation: check Phase 10 items in `docs/tasks.md`, append a Phase 10 entry to `docs/activity.md`, append this plan to `docs/plan.md`.
+
+---
+---
+
+# Plan: Phase 11a — Render API: Auth + Core CRUD Endpoints
+
+## Context
+
+The frontend (Phases 1–10, `app.js`) is fully built against a set of **assumed** Render API endpoint shapes documented incrementally in this file as each screen was built. Every screen already degrades gracefully (clean `.error-state`) when those endpoints aren't reachable, and a `local:` test-account path (`docs/test-accounts.json`) fully exercises the UI without the API.
+
+`api/main.py` currently only has a health check and an unscoped `GET /cells` smoke-test endpoint. `docs/tasks.md` Phase 11 lists 7 unchecked items, but that list — written before Phases 4–10 were built — only covers auth, the `.tif` image pipeline, counts, and ICC. It's missing the plain CRUD reads/writes for experiments/conditions/cells that Phases 4–6 already assumed and documented above. This task closes that gap: implement auth plus every non-image CRUD endpoint, so a real (non-`local:`) Supabase Auth account can log in and use the full workflow *except* uploading `.tif` photos and viewing computed ICC (those need `tifffile`/`Pillow`/`pingouin` image work and are a distinctly different, larger task — left for a follow-up).
+
+Confirmed with user before writing this plan:
+- The `experiments`/`conditions`/`cells`/`counts` tables and their RLS policies already exist in Supabase (created via the dashboard) — this task only writes application code, no schema/migration work.
+- Data must be scoped per-researcher: since Render uses the **service-role key** (bypasses RLS per CLAUDE.md), the API itself must filter every read/write by the authenticated user's id.
+- The login form's "Username" field is a Supabase Auth **email** (PRD §8.3 already states this) — `POST /auth/login` calls `supabase.auth.sign_in_with_password({"email": username, "password": password})`.
+
+## Exact endpoint shapes the frontend already assumes
+
+Traced directly from `app.js` call sites (line numbers as of Phase 11a):
+
+| Endpoint | Called at | Request | Response shape expected |
+|---|---|---|---|
+| `POST /auth/login` | app.js:116 | `{ username, password }` | `{ token }` — stored raw in `localStorage`, sent back as `Authorization: Bearer <token>` |
+| `GET /experiments` | app.js:394 | — | `[{ id, name, date, dye, notes, condition_count }]` |
+| `POST /experiments` | app.js:542 | `{ name, date, dye, notes }` | any 2xx JSON (frontend refetches via `initExperiments()`, doesn't use the response body) |
+| `GET /experiments/{id}/conditions` | app.js:648 | — | `[{ id, name, dye, starvation, notes, icc, cells: [{ id, name, image_url, counts: [{ id, value, counted_by, created_at }] }] }]` |
+| `POST /experiments/{id}/conditions` | app.js:807 | `{ name, dye, starvation, notes }` | any 2xx JSON (frontend refetches) |
+| `GET /conditions/{id}/cells` | app.js:889 | — | `[{ id, name, image_url, counts: [{ id, value, counted_by, created_at }] }]` |
+| `DELETE /counts/{id}` | app.js:993 | — | any 2xx (body ignored) |
+| `POST /cells/{id}/counts` | app.js:1468 | `{ value }` | any 2xx JSON (frontend only reads it to detect failure; see note below) |
+
+Note: `finishCount()` at app.js:1468 doesn't destructure the response — it just awaits success/failure — so the exact returned shape isn't load-bearing, but the API still returns the full created row per tasks.md's stated intent (`cell_id`, `value`, `counted_by`, `created_at`).
+
+All of these already go through the existing `api()` helper (`app.js:4`), which sends `Content-Type: application/json` and `Authorization: Bearer <token>` when a token is present, and throws on any non-2xx status — so error responses just need a non-2xx code; exact error body format isn't consumed by the frontend today.
+
+## Design
+
+### 1. Auth dependency (`api/main.py`)
+
+A FastAPI dependency `get_current_user(authorization: str = Header(None))`:
+- Extracts the bearer token, 401s if missing/malformed.
+- Calls `supabase.auth.get_user(token)` (gotrue's `get_user` takes the JWT as an explicit argument, so it's safe to call on the shared service-role client — it doesn't touch that client's own session state). Returns the Supabase user (`.id`, `.email`). 401s if invalid/expired.
+
+Used as a `Depends(get_current_user)` on every route below except `/` and `/auth/login`.
+
+### 2. Ownership helpers
+
+Since the service-role key bypasses RLS, application code must enforce "only your own experiment tree" manually. Small chain-lookup helpers, each raising `HTTPException(404)` if the row doesn't exist or isn't owned by `user_id` (404, not 403 — don't reveal existence of other researchers' data):
+
+- `owned_experiment(experiment_id, user_id)` — `experiments.select("*").eq("id", ...).eq("created_by", user_id).single()`
+- `owned_condition(condition_id, user_id)` — fetch condition, then verify its `experiment_id` via `owned_experiment`
+- `owned_cell(cell_id, user_id)` — fetch cell, then verify its `condition_id` via `owned_condition`
+
+`counts` DELETE needs the owning cell: fetch the count row for its `cell_id`, then `owned_cell`.
+
+This is a few extra round-trips per request but keeps each query simple and easy to verify — appropriate for prototype scale (a college research tool, not high-throughput).
+
+### 3. Routes to add, in `api/main.py`
+
+```
+POST   /auth/login
+GET    /experiments
+POST   /experiments
+GET    /experiments/{id}/conditions
+POST   /experiments/{id}/conditions
+GET    /conditions/{id}/cells
+POST   /cells/{id}/counts
+DELETE /counts/{id}
+```
+
+Pydantic request models: `LoginBody`, `ExperimentBody`, `ConditionBody`, `CountBody` — one field set each, matching the tables in the exact shapes above.
+
+**`GET /experiments`** — `condition_count` via PostgREST embedded count: `.select("*, conditions(count)")`, then flatten `row["conditions"][0]["count"]` into `condition_count` in the response (frontend wants a flat integer field, not the nested PostgREST shape).
+
+**`GET /experiments/{id}/conditions`** — after ownership check, one nested select pulls the whole subtree in a single query: `.table("conditions").select("*, cells(*, counts(*))").eq("experiment_id", id)`. This matches the shape Phase 5/6 already assumed.
+
+**`GET /conditions/{id}/cells`** — same pattern: `.table("cells").select("*, counts(*)").eq("condition_id", id)`.
+
+**`POST /experiments`** — insert with `created_by = user.id` (this is what makes per-researcher scoping possible at all — every later ownership check hinges on this column being set correctly on creation).
+
+**`POST /cells/{id}/counts`** — insert `{ cell_id, value, counted_by: user.id }` (`created_at` has a DB default per CLAUDE.md's schema).
+
+### 4. `GET /cells` placeholder
+
+Per `docs/activity.md`'s own note, this was a first smoke-test endpoint that doesn't match any shape the frontend assumes. Removed — `GET /conditions/{id}/cells` replaces it.
+
+### 5. What's explicitly NOT in this task
+
+- `POST /conditions/{id}/tif-preview`, `POST /conditions/{id}/cells/from-tif` — image rendering pipeline (`tifffile`/`Pillow`, LUT, cropping, Supabase Storage upload). Separate follow-up task.
+- ICC computation (`pingouin`) and writing `conditions.icc`. Separate follow-up task (depends on having real counts flowing in first, which this task provides).
+- Tightening CORS `allow_origins` — flagged in-file already, unrelated to this task's scope.
+
+## Files Modified
+
+| File | Change |
+|---|---|
+| `api/main.py` | Add `get_current_user` dependency, ownership helpers, Pydantic request models, and the 8 routes above; remove the placeholder `GET /cells` |
+| `api/requirements.txt` | No change expected — `supabase` client already covers `.auth.get_user()` |
+| `docs/tasks.md` | Check off the Phase 11 items this covers; add the previously-missing CRUD endpoint line items (flagged as an oversight, same as the Phase 2 plan did for `/auth/login`) so tasks.md matches what's actually assumed/built |
+| `docs/activity.md` | Append a Phase 11a entry: endpoints added, ownership-scoping approach, what's still stubbed (image pipeline + ICC) |
+
+## Verification
+
+No Supabase credentials are available in the dev environment (`api/.env` is gitignored and not present locally), so this can't be run end-to-end against the real project outside the deployed service. Verification plan:
+
+1. **Local smoke test without live credentials**: run `python -m py_compile api/main.py` (or import it with dummy `SUPABASE_URL`/`SUPABASE_SECRET_KEY` env vars set to placeholder strings) to confirm the app boots and every route registers, catching syntax/import errors before pushing.
+2. **Manual end-to-end check against the real deployment** (needs the user, since it requires real Supabase Auth credentials): after this pushes to `main` and Render redeploys, log into the live frontend with a real (non-`local:`) Supabase Auth account and confirm: login succeeds, Experiments/Conditions/Cells screens load real data, "Add experiment"/"New slide" create rows, hand-count Done/delete (×) round-trip through `POST /cells/{id}/counts` / `DELETE /counts/{id}`.
+3. Confirm a second Supabase Auth account only sees its own experiments (the per-researcher scoping this task adds) — needs two real accounts, so this is also a manual check.
+
+## Final step (per project convention)
+
+After implementation: check the relevant Phase 11 items in `docs/tasks.md` (and add the previously-missing CRUD line items), append a Phase 11a entry to `docs/activity.md`.

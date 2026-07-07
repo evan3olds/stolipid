@@ -318,3 +318,56 @@ Screenshot-verified via a temporary headless-Chrome harness (`_verify_rawdata.ht
 - `style.css` — added `.rawdata-sort-arrows` (stacked flex column, small gap) and `.rawdata-sort-arrow`/`.rawdata-sort-arrow.active`
 - Screenshot-verified: unsorted columns (Experiment, Condition, Cell, Count 1–3) show both muted arrows stacked; after clicking "Average" once, it shows only an accent-colored ▲ while every other column still shows its muted pair
 - Follow-up fix: at the original `gap: 1px`/`line-height: 0.6`, the two stacked arrows nearly touched and read as a single merged blob rather than two distinct triangles at normal table-header size (only visible by screenshotting at 10x device-scale-factor — invisible at a normal screenshot resolution). Increased to `gap: 3px` with `line-height: 1` on each arrow individually (removed the squeezing line-height from the wrapper) so the two triangles render as clearly separate shapes stacked one above the other
+
+---
+
+## Phase 11 — Python API (Render) — started
+
+**Status:** In progress. Project scaffolded and deployed with a live Supabase connection; individual endpoints assumed by Phases 4–9 are not implemented yet.
+
+### Project scaffold (`api/`)
+
+- `api/main.py` — FastAPI app with permissive CORS (`allow_origins=["*"]`, flagged in-file to tighten to the GitHub Pages origin later); a Supabase client created from `SUPABASE_URL`/`SUPABASE_SECRET_KEY` env vars; `GET /` health check; `GET /cells` (unscoped, returns all rows — a first smoke-test endpoint, not one of the shapes assumed by the frontend phases)
+- `api/requirements.txt` — `fastapi`, `uvicorn`, `supabase`, `python-multipart`
+- `api/.env.example` — documents the two required env vars
+
+### Render ↔ Supabase connection live
+
+- `SUPABASE_URL` and `SUPABASE_SECRET_KEY` set in Render's environment variables, so the deployed service can reach Supabase with the service-role key (server-to-server, per the CLAUDE.md architecture — the frontend still never talks to Supabase directly)
+
+### Not yet done
+
+- None of the specific endpoints assumed by Phases 4–9 exist yet: `POST /auth/login`, `POST /conditions/{id}/tif-preview`, `POST /conditions/{id}/cells/from-tif`, `POST /cells/{id}/counts`, ICC computation, or the `experiments`/`conditions` CRUD endpoints
+- `app.js`'s `RENDER_API_URL` constant has not been pointed at the live Render URL yet — the frontend still degrades to its error states / local test-account fixtures against this deployment
+- `GET /cells` is unscoped and doesn't match any endpoint shape the frontend assumes (Cells is always fetched scoped to a condition) — likely a placeholder to be replaced or removed once real endpoints land
+
+---
+
+## Phase 11a — Render API: Auth + Core CRUD Endpoints
+
+**Status:** Auth plus every non-image CRUD endpoint the frontend assumes is implemented in `api/main.py`. The `.tif` image pipeline (preview render, crop-to-cells) and ICC computation are still not built — separate follow-up task, since they need `tifffile`/`Pillow`/`pingouin` image work rather than plain CRUD.
+
+### Endpoints added (`api/main.py`)
+
+- `POST /auth/login` — `supabase.auth.sign_in_with_password({"email": username, "password": password})` (the login form's "Username" field is a Supabase Auth email, per PRD §8.3); returns `{ token: session.access_token }`; 401 on bad credentials
+- `get_current_user` dependency — reads the `Bearer` token, calls `supabase.auth.get_user(token)` to validate it and return the Supabase user; 401 on missing/malformed header or invalid/expired token (network errors talking to Supabase during validation also degrade to 401 rather than a 500)
+- `GET /experiments` / `POST /experiments` — list scoped to `created_by = user.id`; `condition_count` flattened out of a PostgREST embedded `conditions(count)` select; create sets `created_by` from the authenticated user
+- `GET /experiments/{id}/conditions` / `POST /experiments/{id}/conditions` — list does one nested select (`conditions(*, cells(*, counts(*)))`-shaped) to return the whole subtree in one round trip, matching the shape Phases 5/6 already assumed
+- `GET /conditions/{id}/cells` — same nested-select pattern for `cells(*, counts(*))`
+- `POST /cells/{id}/counts` / `DELETE /counts/{id}` — insert sets `counted_by` from the authenticated user; delete looks up the count's owning cell first for the ownership check
+
+### Per-researcher scoping
+
+Render authenticates to Supabase with the service-role key, which bypasses RLS (per CLAUDE.md), so `api/main.py` enforces "only your own experiment tree" in application code instead: `owned_experiment(id, user_id)` / `owned_condition(id, user_id)` / `owned_cell(id, user_id)` each walk up to the owning experiment and raise a 404 (not 403, to avoid revealing that a resource exists under someone else's account) if the row isn't there or isn't owned by the requesting user. Every route besides `/` and `/auth/login` calls one of these before touching data.
+
+### Removed
+
+- The placeholder `GET /cells` (unscoped, didn't match any shape the frontend assumes) — replaced by the real `GET /conditions/{id}/cells`.
+
+### Verification
+
+No Supabase credentials are available in the dev environment (`api/.env` is gitignored, not present locally), so this couldn't be run against the real project directly. Instead:
+
+- Built a throwaway venv, installed `api/requirements.txt`, and imported `main.py` with placeholder `SUPABASE_URL`/`SUPABASE_SECRET_KEY` env vars — confirmed the app boots and all 8 new routes register with the right methods/paths
+- Ran `TestClient` assertions against that same import: `GET /` → 200; `GET /experiments` and `POST /experiments` with no `Authorization` header → 401; `GET /experiments` with a garbage bearer token → 401 (including the case where `get_user()` fails on a network error against the placeholder URL — confirmed it degrades to 401 rather than crashing); `POST /auth/login` with a body missing `password` → 422 from Pydantic validation; `DELETE /counts/{id}` with a bad token → 401
+- Real end-to-end verification (login with a real Supabase Auth account, confirming per-researcher scoping with two accounts, full create/read/delete round trips against live data) still needs to happen against the actual Supabase project after this deploys to Render — flagged back to the user, not done in this session

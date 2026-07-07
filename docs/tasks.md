@@ -101,15 +101,21 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 11 — Python API (Render)
 
-- [ ] Set up Python web API project (e.g., FastAPI) and deploy to Render
-- [ ] Endpoint: `POST /auth/login` — accept `{ username, password }`, validate against Supabase Auth, return `{ token }`
+- [x] Set up Python web API project (e.g., FastAPI) and deploy to Render
+- [x] Endpoint: `POST /auth/login` — accept `{ username, password }`, validate against Supabase Auth, return `{ token }`
+- [x] Endpoint: `GET /experiments` — list experiments owned by the authenticated researcher, with `condition_count`
+- [x] Endpoint: `POST /experiments` — create an experiment (`name`, `date`, `dye`, `notes`), scoped to `created_by`
+- [x] Endpoint: `GET /experiments/{id}/conditions` — list conditions for an owned experiment, with nested `cells`/`counts`
+- [x] Endpoint: `POST /experiments/{id}/conditions` — create a condition on an owned experiment
+- [x] Endpoint: `GET /conditions/{id}/cells` — list cells for an owned condition, with nested `counts`
+- [x] Endpoint: `POST /cells/{id}/counts` — accept `{ value }`, create a `counts` row (`cell_id`, `value`, `counted_by` from auth context, `created_at` default), return the created count object
+- [x] Endpoint: `DELETE /counts/{id}` — delete a hand count, scoped to the owning cell's experiment
 - [ ] Endpoint: accept `.tif` upload, load with `tifffile` or `Pillow`, normalize contrast, apply green false-color LUT (BODIPY channel), export as PNG
 - [ ] Endpoint: `POST /conditions/{id}/tif-preview` — accept a raw `.tif` upload (multipart), render the contrast-normalized/LUT PNG, return `{ preview_url }` for the Add Photos canvas (no DB writes — this is a preview only)
 - [ ] Endpoint: `POST /conditions/{id}/cells/from-tif` — accept the original `.tif` file plus a `boxes` JSON array (`{x, y, width, height}` as 0–100 percentages of the source image), crop one region per box, upload each crop to Supabase Storage (`cell-images` bucket), and create one `cells` row per box with `image_url` set
-- [ ] Endpoint: `POST /cells/{id}/counts` — accept `{ value }`, create a `counts` row (`cell_id`, `value`, `counted_by` from auth context, `created_at` default), return the created count object
 - [ ] Upload rendered PNG to Supabase Storage (`cell-images` bucket) and write `image_url` to `cells` table
 - [ ] Endpoint: compute ICC per condition with `pingouin`; write result back to `conditions.icc` column
-- [ ] Wire frontend to POST to Render API endpoints (configure base URL as a constant)
+- [x] Wire frontend to POST to Render API endpoints (configure base URL as a constant)
 
 ---
 
