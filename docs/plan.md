@@ -1167,3 +1167,25 @@ Not verifiable end-to-end locally (no live Render/Supabase in this environment).
 ## Final step (per project convention)
 
 Activity entry appended to `docs/activity.md`. No `docs/tasks.md` items apply — this changes already-shipped Phase 11 rendering behavior, not a new checklist item.
+
+---
+
+# Bug fix — Count screen still showing a mis-cropped image
+
+**Report:** after the earlier Add Photos canvas-frame fix, the image is still not cropping properly and looks different on the cell count page.
+
+## Diagnosis
+
+The earlier fix only addressed `#canvas-frame` on the Add Photos screen (matching its aspect ratio to the source image while drawing boxes), which does make the crop percentages sent to the backend correct. `renderCountHTML`'s `#count-frame` — where the resulting `cell.image_url` crop is displayed for counting — reuses the same `.canvas-frame` CSS class but never set an aspect ratio, so it used the CSS default `aspect-ratio: 8 / 5`. A per-box crop's real aspect ratio is whatever the user drew, so `object-fit: cover` cropped it again just for display, making an already-correct crop look wrong on the count page.
+
+## Fix
+
+`app.js`, `wireCount()`: after mount, locate the `<img class="photo-preview-img">` inside `#count-frame` and set the frame's `aspect-ratio` inline from `img.naturalWidth`/`naturalHeight` (immediately if `img.complete`, else on `load`) — same technique as `addPhotoFile`'s Add Photos fix, applied to the second consumer of `.canvas-frame`. The SVG placeholder fallback (`local:` accounts / missing `image_url`) is untouched — its fixed 640×400 viewBox already matches the CSS default 8:5.
+
+## Verification
+
+Not verifiable end-to-end locally (no live Render/Supabase project, so no real non-8:5 `cell.image_url` to test against). By inspection: `naturalWidth`/`naturalHeight` reflect the PNG's real pixel dimensions independent of layout, so deriving the frame's `aspect-ratio` from them makes `object-fit: cover` a uniform scale with no cropping — mirroring the Add Photos fix. Flagged to the user to confirm against a real cropped cell image after deploying.
+
+## Final step (per project convention)
+
+Activity entry appended to `docs/activity.md`. No `docs/tasks.md` items apply — bug fix to already-shipped Phase 11 functionality.

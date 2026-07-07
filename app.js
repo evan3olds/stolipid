@@ -1567,6 +1567,21 @@ function wireCount() {
 
   const frame = document.getElementById('count-frame');
 
+  // cell.image_url is a crop from Add Photos, so its aspect ratio is
+  // whatever the drawn box was — not necessarily the frame's CSS default.
+  // Match the frame to the real image so object-fit: cover doesn't crop it
+  // again here (same fix as the Add Photos canvas-frame; see addPhotoFile).
+  const img = frame.querySelector('.photo-preview-img');
+  if (img) {
+    const applyAspectRatio = () => {
+      if (img.naturalWidth && img.naturalHeight) {
+        frame.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+      }
+    };
+    if (img.complete) applyAspectRatio();
+    else img.addEventListener('load', applyAspectRatio, { once: true });
+  }
+
   frame.addEventListener('click', e => {
     if (e.target.closest('.count-marker')) return;
     const rect = frame.getBoundingClientRect();

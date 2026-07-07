@@ -510,3 +510,17 @@ Not verifiable end-to-end locally (no live Render deployment or Supabase project
 ## Final step (per project convention)
 
 `docs/tasks.md` updated (Phase 2 checklist item added for the two links; Phase 11 endpoint list updated for the renamed/added auth endpoints; removed "Password reset UI" from the Future/out-of-scope list since it's now implemented). This entry appended to `docs/activity.md`. No plan was written to `docs/plan.md` ahead of time — this was a small, well-scoped UI + matching-endpoint change implemented directly rather than planned first.
+
+---
+
+## Bug fix — Count screen still showing a mis-cropped image
+
+**Report:** after the earlier Add Photos canvas-frame aspect-ratio fix, the image still looked wrong ("not cropping properly") specifically on the cell count page.
+
+**Root cause:** the earlier fix (see the "Add Photos crop cutting off part of the cell" entry above) only matched `#canvas-frame`'s aspect ratio to the source image while *drawing* boxes, which does make the crop sent to the backend correct. But `renderCountHTML`'s `#count-frame` — the counting screen that displays the resulting `cell.image_url` crop — reuses the same `.canvas-frame` class and never set an aspect ratio at all, so it fell back to the CSS default `aspect-ratio: 8 / 5`. Since a per-box crop's aspect ratio is whatever the user drew (rarely exactly 8:5), `object-fit: cover` cropped it *again* purely for display on the count screen — so even a correctly-cropped `cell.image_url` could appear to have part of the cell missing there.
+
+**Fix (`app.js`, `wireCount`):** after mount, find the `<img class="photo-preview-img">` inside `#count-frame` and set the frame's `aspect-ratio` inline from `img.naturalWidth`/`naturalHeight` (immediately if already `img.complete`, otherwise on `load`) — the same approach as `addPhotoFile`'s fix for the Add Photos canvas, applied to the second place that reuses `.canvas-frame` with a real image. The `local:` test-account / no-`image_url` fallback (`renderPhotoPreviewSVG`, fixed 640×400 = 8:5 viewBox) is untouched and still matches the CSS default, so no aspect mismatch there.
+
+### Verification
+
+Not verifiable end-to-end locally (no live Render/Supabase project in this environment, so no real `cell.image_url` with a non-8:5 aspect ratio to test against). By inspection: `img.naturalWidth`/`naturalHeight` reflect the actual PNG's pixel dimensions regardless of how the `<img>` is laid out, so setting the frame's `aspect-ratio` from those values makes `object-fit: cover` a no-op crop (uniform scale only) on the count screen, mirroring the Add Photos fix. Flagged to the user to confirm against a real cropped cell image after deploying.
