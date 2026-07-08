@@ -604,3 +604,28 @@ Asked the user what kind of processing; answer was both **rolling-ball backgroun
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated with the preprocessing step. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Hand-counting image was still too dim — bake enhancement into the stored PNG
+
+**Report:** after deploying, the linear min/max-normalized crop stored as `cells.image_url` still looked very dim to the user — a straight min/max stretch doesn't help when the histogram itself is skewed (mostly dim background/mid-tones with only sparse bright droplet peaks), since it stretches the *range*, not the *distribution*.
+
+**Decision:** two options existed — bake the already-proven `preprocess_for_detection` enhancement (rolling-ball background subtraction + CLAHE) directly into the stored/persisted image, or keep the stored image purely linear and add a display-only client-side enhancement instead (canvas auto-levels or CSS filter), leaving analysis untouched either way. Asked the user; chose to bake it into the stored PNG, reusing the already-tested code rather than writing new frontend image-manipulation logic.
+
+**`api/detection.py`:**
+- `preprocess_for_detection` now returns `uint16` consistently across all branches (previously the CLAHE path returned float64 in `[0, 1]` while the two degenerate-passthrough branches returned whatever range the input was in — fine when the only consumer was `count_droplets`, which doesn't care about absolute range, but inconsistent for something that now also has to be `encode_png_16`'d). The CLAHE branch now does `(enhanced * 65535).astype(np.uint16)`.
+- `count_droplets` no longer calls `preprocess_for_detection` internally — it now takes an already-processed array and just does Gaussian blur → Otsu → watershed. This avoids double-processing (CLAHE run once during storage, then run *again* inside detection) now that both consumers need the same enhanced array.
+
+**`api/main.py`:** `cells_from_tif` now calls `preprocess_for_detection(normalized_crop)` once per box, uploads that as `cells.image_url` via `encode_png_16`, and passes the same array to `count_droplets` — one enhancement pass, two consumers, no redundant work (same total per-box cost as before: one `rolling_ball` + one `equalize_adapthist` call, just relocated from inside `count_droplets` to the call site).
+
+### Verification
+
+- Re-ran the flat/empty/all-zero-crop edge cases through the new call pattern (`count_droplets(preprocess_for_detection(x))`): all still correctly return `0`.
+- Re-verified the PNG round-trip on the real sample crop: `encode_png_16(processed)` → decode is bit-exact, `dtype uint16`, `min/max 0/65535`.
+- Re-ran `count_droplets` on the now-consolidated `processed` array from the real crop: still `68`, matching the value from the prior (pre-consolidation) preprocessing entry — confirms the refactor is behavior-preserving, not just a rename.
+- Saved and viewed the actual PNG that will now be stored as `cells.image_url`: same clearly-more-legible image already validated in the prior entry (droplets visibly separated from background, not washed out or near-black).
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

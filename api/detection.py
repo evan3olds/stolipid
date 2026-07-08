@@ -15,32 +15,35 @@ CLAHE_CLIP_LIMIT = 0.01
 
 
 def preprocess_for_detection(plane: np.ndarray) -> np.ndarray:
-    """Rolling-ball background subtraction + CLAHE, applied only for
-    auto-count analysis. Transient — the stored cell PNG stays a plain
-    linear normalization (imaging.normalize_to_uint16); this step exists
-    to pull out droplets that a flat illumination gradient or low local
-    contrast would otherwise hide from thresholding."""
-    if plane.max() <= plane.min():
-        return plane.astype(np.float64)  # flat crop — let count_droplets's threshold_otsu guard handle it
+    """Rolling-ball background subtraction + CLAHE, returned as uint16.
+    This is now both the image stored for hand counting/viewing
+    (cells.image_url) and the direct input to count_droplets — one
+    enhancement pass feeds both consumers, run once per box in
+    cells_from_tif. Flattens uneven illumination and pulls out droplets
+    that low local contrast would otherwise hide."""
+    if plane.size == 0 or plane.max() <= plane.min():
+        return plane.astype(np.uint16)  # empty/flat crop — let count_droplets's threshold_otsu guard handle it
 
     background = rolling_ball(plane, radius=BACKGROUND_BALL_RADIUS_PX)
     flattened = np.clip(plane.astype(np.float64) - background, 0, 65535).astype(np.uint16)
     if flattened.max() <= flattened.min():
         # equalize_adapthist fabricates full-range contrast out of a flat
         # image (pure tiling artifact, not signal) — bail before that happens.
-        return flattened.astype(np.float64)
-    return equalize_adapthist(flattened, clip_limit=CLAHE_CLIP_LIMIT)
+        return flattened
+
+    enhanced = equalize_adapthist(flattened, clip_limit=CLAHE_CLIP_LIMIT)  # float64 in [0, 1]
+    return (enhanced * 65535).astype(np.uint16)
 
 
-def count_droplets(plane: np.ndarray) -> int:
-    """Background-flatten + contrast-enhance, then Gaussian blur -> Otsu
-    threshold -> distance-transform watershed. Watershed splits
-    touching/overlapping droplets so each still gets its own count, which a
-    plain threshold+label would merge into one blob."""
-    if plane.size == 0:
+def count_droplets(processed: np.ndarray) -> int:
+    """Gaussian blur -> Otsu threshold -> distance-transform watershed on an
+    already background-flattened/contrast-enhanced plane (see
+    preprocess_for_detection). Watershed splits touching/overlapping
+    droplets so each still gets its own count, which a plain threshold+label
+    would merge into one blob."""
+    if processed.size == 0:
         return 0
 
-    processed = preprocess_for_detection(plane)
     blurred = gaussian(processed, sigma=1.0, preserve_range=True)
 
     try:

@@ -1250,3 +1250,30 @@ Follow-on to the 16-bit normalized-crop work above: with the stored `cells.image
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Hand-counting image was still too dim — bake enhancement into the stored PNG
+
+## Context
+
+After deploying the linear min/max-normalized crop as `cells.image_url`, the user reported it was still too dim for hand counting — a linear stretch fixes a *clipped range* but not a *skewed distribution* (mostly dim pixels, sparse bright droplet peaks), which is what was actually going on. Asked the user whether to bake the already-proven `preprocess_for_detection` enhancement (rolling-ball + CLAHE) into the stored image, or add a separate display-only client-side enhancement and leave the stored/analysis image untouched. Chose to bake it in — reuse tested code over writing new frontend image manipulation.
+
+## Approach
+
+`api/detection.py`:
+- `preprocess_for_detection` now always returns `uint16` (previously inconsistent: `float64` in `[0,1]` from the CLAHE branch vs. passthrough range from the two degenerate branches — didn't matter when the only consumer was `count_droplets`, but does now that the same array gets `encode_png_16`'d for storage).
+- `count_droplets` no longer calls `preprocess_for_detection` internally — takes an already-processed array. Avoids running CLAHE twice (once for storage, again inside detection) now that both consumers share one array.
+
+`api/main.py`: `cells_from_tif` calls `preprocess_for_detection` once per box; the result feeds both `encode_png_16` → `upload_png` (→ `cells.image_url`) and `count_droplets`. Same total per-box cost as before (one `rolling_ball` + one `equalize_adapthist` call), just relocated from inside `count_droplets` to the call site.
+
+## Verification
+
+- Re-ran flat/empty/all-zero-crop edge cases through the new `count_droplets(preprocess_for_detection(x))` call pattern: all still return 0.
+- PNG round-trip on the real sample crop still bit-exact; `dtype uint16`, `min/max 0/65535`.
+- `count_droplets` on the consolidated `processed` array still returns 68 for the real crop — matches the prior entry's value, confirming this was a behavior-preserving refactor, not a silent change.
+- Viewed the actual PNG that now gets stored: same clearly-more-legible image already validated visually in the prior preprocessing entry.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
