@@ -130,6 +130,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] `api/detection.py`: Gaussian blur → Otsu threshold → distance-transform watershed → `count_droplets(plane)`, splitting touching/overlapping droplets so each still gets its own count
 - [x] Wire into `POST /conditions/{id}/cells/from-tif`: compute a count automatically per box at cell-creation time, write to `cells.auto_count` (not a hand count — excluded from `cell.average`/`condition.icc`)
 - [x] Frontend: surface `cells.auto_count` on the Cells screen detail panel, shown above the "Hand counts" list
+- [x] `cells_from_tif`'s per-box crop switched from the 8-bit percentile-stretched display crop to a lossless 16-bit min/max-normalized crop (`normalize_to_uint16` + `encode_png_16` in `api/imaging.py`): this is now the single image stored as `cells.image_url` (used for both hand counting and viewing) and the base `count_droplets` runs on — no separate raw-plane analysis crop needed since the normalization is a non-clipping monotonic transform. `tif-preview`'s whole-frame render is unchanged (still 8-bit percentile-clip, box-drawing only)
 
 ---
 

@@ -13,10 +13,10 @@ from supabase import create_client
 from detection import count_droplets
 from imaging import (
     crop_array_percent,
-    crop_percent,
     encode_png,
+    encode_png_16,
     load_tif_plane,
-    render_display_image,
+    normalize_to_uint16,
     render_tif_to_image,
 )
 
@@ -174,8 +174,7 @@ def owned_cell(cell_id: str, user_id: str) -> dict:
 # loaded by the browser via plain <img src>, which can't carry an auth
 # header, so the returned URL must be publicly fetchable.
 
-def upload_png(path: str, image) -> str:
-    png_bytes = encode_png(image)
+def upload_png(path: str, png_bytes: bytes) -> str:
     supabase.storage.from_("cell-images").upload(
         path, png_bytes, file_options={"content-type": "image/png"}
     )
@@ -289,7 +288,7 @@ def tif_preview(condition_id: str, file: UploadFile = File(...), user=Depends(ge
         image = render_tif_to_image(tif_bytes)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    url = upload_png(f"previews/{condition_id}/{uuid.uuid4()}.png", image)
+    url = upload_png(f"previews/{condition_id}/{uuid.uuid4()}.png", encode_png(image))
     return {"preview_url": url}
 
 
@@ -319,7 +318,6 @@ def cells_from_tif(
         plane = load_tif_plane(tif_bytes)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    image = render_display_image(plane)
 
     count_response = (
         supabase.table("cells")
@@ -331,11 +329,14 @@ def cells_from_tif(
 
     created_cells = []
     for box in box_list:
-        crop = crop_percent(image, box.x, box.y, box.width, box.height)
-        url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", crop)
+        raw_crop = crop_array_percent(plane, box.x, box.y, box.width, box.height)
+        # Linear min/max stretch, not render_display_image's percentile clip:
+        # this crop is now both the stored hand-count/viewing image and the
+        # base auto-count models run on, so nothing can be discarded here.
+        normalized_crop = normalize_to_uint16(raw_crop)
+        url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", encode_png_16(normalized_crop))
 
-        analysis_crop = crop_array_percent(plane, box.x, box.y, box.width, box.height)
-        auto_count = count_droplets(analysis_crop)
+        auto_count = count_droplets(normalized_crop)
 
         response = (
             supabase.table("cells")

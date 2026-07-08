@@ -51,6 +51,25 @@ def encode_png(image: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
+def normalize_to_uint16(plane: np.ndarray) -> np.ndarray:
+    """Linear min/max stretch to fill the 16-bit range. Unlike
+    render_display_image's percentile clip, this is a strictly monotonic
+    transform of the crop's own actual min/max — no data is discarded, so
+    detection.count_droplets (Otsu threshold + watershed) gives the same
+    result on the normalized crop as on the raw plane."""
+    low, high = plane.min(), plane.max()
+    if high <= low:
+        return np.zeros_like(plane, dtype=np.uint16)
+    stretched = (plane - low) / (high - low)
+    return (stretched * 65535).astype(np.uint16)
+
+
+def encode_png_16(plane: np.ndarray) -> bytes:
+    buffer = io.BytesIO()
+    Image.fromarray(plane.astype(np.uint16)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
 def _crop_pixel_rect(img_width: int, img_height: int, x: float, y: float, width: float, height: float):
     left = int(round(np.clip(x, 0, 100) / 100 * img_width))
     top = int(round(np.clip(y, 0, 100) / 100 * img_height))
@@ -63,11 +82,6 @@ def _crop_pixel_rect(img_width: int, img_height: int, x: float, y: float, width:
     bottom = min(bottom, img_height)
 
     return left, top, right, bottom
-
-
-def crop_percent(image: Image.Image, x: float, y: float, width: float, height: float) -> Image.Image:
-    left, top, right, bottom = _crop_pixel_rect(image.width, image.height, x, y, width, height)
-    return image.crop((left, top, right, bottom))
 
 
 def crop_array_percent(plane: np.ndarray, x: float, y: float, width: float, height: float) -> np.ndarray:

@@ -546,6 +546,29 @@ Installed Playwright (`pip install playwright && playwright install chromium`) a
 - Mismatched password/confirm on the reset form → client-side "Passwords do not match." error, no network call made
 - Not verifiable end-to-end: the real `/auth/update-password` call against live Supabase (no deployed Render/Supabase project in this environment) — flagged to the user to confirm after deploying, especially that the Supabase project's redirect URL allow-list includes the GitHub Pages origin.
 
+---
+
+## Cell crop pipeline — 16-bit normalized PNG replaces display-stretched crop
+
+**Request:** hand counting and the Cells-screen viewing image should both run off the same stored per-cell PNG that also serves as the base image for auto-count models, instead of today's split (an 8-bit percentile-stretched display crop for viewing, and a separate raw-plane crop used only transiently for `count_droplets`). Per-model processing (e.g. the existing Gaussian blur/Otsu/watershed) stays transient — computed at count time, never persisted — but the "minimal" normalization baked into the stored PNG had to be picked carefully, since after this change there's no raw `.tif` left to fall back to if it clips data.
+
+**Approach (`api/imaging.py`):**
+- `normalize_to_uint16(plane)` — linear min/max stretch of the crop's own actual min→max to fill the full 16-bit range. Chosen over a percentile clip (what `render_display_image` still does for `tif-preview`) specifically because it's a strictly monotonic, non-clipping transform: no pixel data is discarded, so `count_droplets`'s Otsu threshold + watershed give the identical result on the normalized crop as on the raw plane (verified below), while still giving good per-crop contrast for hand counting.
+- `encode_png_16(plane)` — `Image.fromarray(plane.astype(np.uint16))` (PIL infers 16-bit grayscale `"I;16"` mode from the dtype) → PNG bytes. PNG natively supports 16 bits/channel, so this is lossless.
+- Removed `crop_percent` (PIL-based crop of the display-rendered image) — dead code once `cells_from_tif` no longer builds a separate display crop.
+
+**`api/main.py`:**
+- `upload_png(path, png_bytes)` now takes raw bytes instead of a `PIL.Image`, so callers pick their own encoder (`encode_png` for the still-8-bit `tif-preview` render, `encode_png_16` for cell crops). `tif-preview` itself is unchanged — still `render_display_image`'s percentile-clip 8-bit render, since it's only ever used for drawing boxes, never for counting or analysis.
+- `cells_from_tif`: per box, `crop_array_percent(plane, ...)` → `normalize_to_uint16` → `encode_png_16` → `upload_png` (this becomes `cells.image_url`, used for both hand counting and the Cells-screen thumbnail), and `count_droplets` now runs on that same `normalized_crop` array rather than a separate raw crop — one crop, one image, feeding both consumers.
+
+### Verification
+
+Confirmed against a real microscopy capture (`assets/Image_43391.tif`, user-provided): `2048×2048`, `uint16`, actual value range `147–21973` (well inside `0–65535`, no clipping needed for the full-frame case either).
+- `Image.fromarray(uint16_array)` → PNG → decode round-trips bit-exact (`np.array_equal` True) — confirmed both with an explicit `mode="I;16"` (which triggers a Pillow 13 deprecation warning) and the mode-less form that infers `"I;16"` from dtype (no warning) — used the latter in `encode_png_16`.
+- Rendered an actual normalized crop (center 30% of the sample frame) to a real PNG and viewed it directly: droplets are clearly visible with strong per-droplet contrast against the cell body, confirming the per-crop min/max stretch produces a usable image for hand counting, not a washed-out or near-black one.
+- Ran the full new code path (`load_tif_plane` → `crop_array_percent` → `normalize_to_uint16` → `encode_png_16` → decode) against that same crop: decoded PNG bytes exactly match the in-memory `normalized_crop` array, and `count_droplets(normalized_crop) == count_droplets(raw_crop)` (57 == 57), confirming the monotonic-transform invariance claim holds in practice, not just in theory.
+- Not verifiable locally: real upload/`image_url` round-trip through Supabase Storage, and browser `<img>` rendering of a 16-bit PNG served from a real URL (viewed the PNG file directly in this environment, not via an `<img>` tag against a live URL) — flagged to the user to confirm hand-counting images still display correctly after deploying.
+
 ## Final step (per project convention)
 
-`docs/tasks.md` updated (Phase 2 checklist item added for the hash-redirect handling; Phase 11 endpoint list updated with `POST /auth/update-password`). This entry appended to `docs/activity.md`. No plan was written to `docs/plan.md` ahead of time — this was a small, well-scoped bug fix (missing redirect handling + one matching endpoint) implemented directly rather than planned first.
+`docs/tasks.md` updated (Phase 11c note added on the crop pipeline switching to a shared normalized-16-bit-PNG base). This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md` retroactively (implemented directly after confirming the normalization approach and scope with the user via two targeted questions, rather than a separate upfront planning pass) — this was a well-scoped pipeline change to two existing files (`api/imaging.py`, `api/main.py`), not a new feature needing broader design.

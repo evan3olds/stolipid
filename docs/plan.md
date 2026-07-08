@@ -1189,3 +1189,36 @@ Not verifiable end-to-end locally (no live Render/Supabase project, so no real n
 ## Final step (per project convention)
 
 Activity entry appended to `docs/activity.md`. No `docs/tasks.md` items apply — bug fix to already-shipped Phase 11 functionality.
+
+---
+
+# Cell crop pipeline — 16-bit normalized PNG replaces display-stretched crop
+
+## Context
+
+User wants hand counting to run on the same PNG stored for viewing (`cells.image_url`), and for that same image to become the base auto-count models operate on — collapsing today's two-track `cells_from_tif` design (an 8-bit percentile-stretched display crop for `image_url`, plus a separate raw-plane crop passed to `count_droplets` and never persisted). Per-model processing (blur, threshold, etc.) stays transient, computed at count time and not stored — only the base crop changes.
+
+The open design question was what "minimal image processing" means for the stored crop, since after this change there's no raw `.tif` to fall back to if that step throws away data. Two options existed: keep `render_display_image`'s percentile clip (1st/99.5th) at 16-bit depth, or a plain linear min/max stretch. Confirmed with the user (`AskUserQuestion`): linear min/max stretch, since it's a non-clipping, strictly monotonic transform — no pixel data lost, and Otsu threshold + watershed give the same result on it as on the raw plane. Also confirmed scope: `tif-preview` (whole-frame render for the Add Photos box-drawing canvas) is unaffected, since it's never used for counting or analysis.
+
+## Approach
+
+`api/imaging.py`:
+- New `normalize_to_uint16(plane)`: `(plane - plane.min()) / (plane.max() - plane.min()) * 65535` → `uint16`; degenerate flat crop → all zeros.
+- New `encode_png_16(plane)`: `Image.fromarray(plane.astype(np.uint16))` (dtype alone is enough for PIL to infer 16-bit grayscale `"I;16"` — no explicit `mode=` needed) → PNG bytes.
+- Remove `crop_percent` (PIL-Image-based crop) — no longer has a caller once `cells_from_tif` stops building a separate display crop.
+
+`api/main.py`:
+- `upload_png(path, png_bytes: bytes)`: takes raw bytes instead of a `PIL.Image`, so each call site encodes with whichever function matches its image (`encode_png` for `tif-preview`'s still-8-bit render, `encode_png_16` for cell crops).
+- `cells_from_tif`: drop the `image = render_display_image(plane)` line. Per box: `crop_array_percent(plane, ...)` → `normalize_to_uint16` → `encode_png_16` → `upload_png` (→ `cells.image_url`); `count_droplets` runs on that same `normalized_crop`, not a separately-cropped raw plane.
+
+## Verification
+
+- Confirmed the sample TIF the user added (`assets/Image_43391.tif`) is `uint16`, `147–21973` — the easy, no-rescale-needed case, and representative of real fluorescence-camera output generally.
+- `Image.fromarray(uint16_array)` → PNG → decode is bit-exact (`np.array_equal` True); used the mode-less form since explicit `mode="I;16"` triggers a Pillow 13 deprecation warning.
+- Rendered a real normalized crop and viewed the actual PNG file: strong per-droplet contrast, clearly usable for hand counting (not washed out or near-black).
+- Ran the full new path end-to-end against the sample TIF: decoded PNG bytes match the in-memory array exactly, and `count_droplets(normalized_crop) == count_droplets(raw_crop)` (57 == 57) — confirms the monotonic-transform invariance claim in practice.
+- Not verifiable locally: real Supabase Storage upload/`image_url` round-trip, and `<img>` rendering of a 16-bit PNG from a real served URL (only verified the file directly, not via a live URL in a browser) — flagged to the user to confirm after deploying.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md` (written retroactively alongside the activity entry, after the normalization/scope questions were resolved with the user — small enough in surface area, two existing files, that a separate upfront planning pass wasn't needed before starting).
