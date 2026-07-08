@@ -1277,3 +1277,39 @@ After deploying the linear min/max-normalized crop as `cells.image_url`, the use
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Bug fix — stored hand-counting image was blurry after baking CLAHE in
+
+## Context
+
+User reported the stored `cells.image_url` looked "very blurry" right after the previous change baked `preprocess_for_detection` into storage. Needed to determine whether this was a real pixel-level effect or a perceptual/display one before touching any code.
+
+## Diagnosis
+
+Measured width-at-half-max (FWHM) of a real droplet peak at each pipeline stage: baseline (plain `normalize_to_uint16`) = 5px; after `preprocess_for_detection` at the shipped `CLAHE_CLIP_LIMIT=0.01` = 9px. Confirmed this is real: rolling-ball background subtraction leaves a soft skirt around each peak (geometric consequence of a ball rolling under a narrow spike), and CLAHE's local contrast stretch pulls that skirt up toward full brightness within each tile — genuinely widening the visible footprint, not a rendering artifact.
+
+Tried two alternatives before settling on tuning CLAHE directly: global (non-adaptive) `equalize_hist` — far worse, FWHM 30px and auto-count 228 (amplifies noise globally with nothing to contain it locally); plain gamma correction — auto-count dropped below baseline (51 vs 57), since a uniform curve doesn't selectively lift *locally* dim regions the way CLAHE does.
+
+## Approach
+
+Swept `CLAHE_CLIP_LIMIT` (0.01 / 0.005 / 0.002) against both FWHM and real-crop auto-count, rendered each to a real PNG, and presented the trade-off numerically and visually to the user:
+
+| clip_limit | FWHM | auto_count | |
+|---|---|---|---|
+| 0.01 (old default) | 9px | 68 | brightest, most smeared |
+| 0.005 | 7px | 81 | balanced |
+| 0.002 | 5px (= baseline) | 85 | sharpest, dimmer |
+
+User chose 0.005. Changed `CLAHE_CLIP_LIMIT` in `api/detection.py` from `0.01` to `0.005`, with a comment recording the FWHM measurements as the rationale (skimage's own default of 0.01 is what caused the problem — worth flagging clearly so it isn't "corrected" back to the default later).
+
+## Verification
+
+- Re-ran flat/all-zero-crop edge cases with the new value: still 0.
+- Re-verified PNG round-trip at `clip_limit=0.005`: bit-exact, `uint16`, `min/max 0/65535`.
+- Confirmed final shipped pipeline's `count_droplets` returns 81 (up from 68 at the old default, 57 with no preprocessing).
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

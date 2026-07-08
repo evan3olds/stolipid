@@ -11,7 +11,11 @@ from skimage.segmentation import watershed
 MIN_DROPLET_AREA_PX = 4
 MIN_PEAK_DISTANCE_PX = 3
 BACKGROUND_BALL_RADIUS_PX = 25  # larger than a droplet, smaller than the frame's illumination gradient
-CLAHE_CLIP_LIMIT = 0.01
+# 0.01 (skimage's default) visibly widens each droplet's footprint (FWHM
+# 5px -> 9px on a real sample crop) by pulling the soft skirt left by
+# rolling-ball subtraction up toward full brightness. 0.005 keeps most of
+# the brightness gain (FWHM 7px) without that smeared look.
+CLAHE_CLIP_LIMIT = 0.005
 
 
 def preprocess_for_detection(plane: np.ndarray) -> np.ndarray:

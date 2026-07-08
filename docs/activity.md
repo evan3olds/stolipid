@@ -629,3 +629,23 @@ Asked the user what kind of processing; answer was both **rolling-ball backgroun
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Bug fix — stored hand-counting image was blurry after baking CLAHE in
+
+**Report:** immediately after the above change, the user reported the newly-stored `cells.image_url` looked "very blurry."
+
+**Root cause, confirmed quantitatively (not just visually):** measured width-at-half-max of a real droplet peak before/after `preprocess_for_detection` — 5px baseline vs. 9px with `CLAHE_CLIP_LIMIT=0.01` (skimage's default, what Phase 11c originally shipped). Rolling-ball background subtraction leaves a soft, wide low-level "skirt" around each true peak (a ball rolling under a narrow spike can't fully hug it, so the residual after subtraction isn't a clean cutoff). CLAHE then locally stretches contrast within each tile, pulling that skirt up toward full brightness — which is real signal widening, not a display/rendering artifact. Ruled out two alternative fixes empirically: global (non-adaptive) `equalize_hist` was far worse (FWHM 30px, count 228 — amplifies noise non-locally with no tile boundary to contain it), and plain gamma correction actually reduced auto-count below baseline (51 vs. 57) since a uniform curve doesn't reveal *locally* dim regions the way CLAHE does.
+
+**Fix:** swept `CLAHE_CLIP_LIMIT` (0.01 → 0.005 → 0.002) against both peak FWHM and real-crop auto-count, presented the three-way trade-off to the user with concrete numbers and rendered images for each. `0.005` keeps most of the brightness gain (auto-count 81 vs. 57 baseline, vs. 85 at the sharpest setting) while pulling FWHM back from 9px to 7px — chosen over `0.01` (brightest but most smeared) and `0.002` (sharpest, closest to baseline width, but visibly dimmer, closer to the original complaint).
+
+### Verification
+
+- Re-ran the flat/all-zero-crop edge cases with the new value: still `0`.
+- Re-verified the PNG round-trip on the real sample crop at `clip_limit=0.005`: bit-exact, `uint16`, `min/max 0/65535`.
+- Confirmed `count_droplets` on the final shipped pipeline returns `81` (up from the `68` at the old `0.01` default, and `57` with no preprocessing at all).
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
