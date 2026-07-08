@@ -131,6 +131,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Wire into `POST /conditions/{id}/cells/from-tif`: compute a count automatically per box at cell-creation time, write to `cells.auto_count` (not a hand count — excluded from `cell.average`/`condition.icc`)
 - [x] Frontend: surface `cells.auto_count` on the Cells screen detail panel, shown above the "Hand counts" list
 - [x] `cells_from_tif`'s per-box crop switched from the 8-bit percentile-stretched display crop to a lossless 16-bit min/max-normalized crop (`normalize_to_uint16` + `encode_png_16` in `api/imaging.py`): this is now the single image stored as `cells.image_url` (used for both hand counting and viewing) and the base `count_droplets` runs on — no separate raw-plane analysis crop needed since the normalization is a non-clipping monotonic transform. `tif-preview`'s whole-frame render is unchanged (still 8-bit percentile-clip, box-drawing only)
+- [x] `api/detection.py`: added `preprocess_for_detection` (rolling-ball background subtraction + CLAHE), run transiently before the existing Gaussian blur → Otsu → watershed chain — never persisted back to `cells.image_url`. Prototype defaults (`BACKGROUND_BALL_RADIUS_PX`, `CLAHE_CLIP_LIMIT`) not yet calibrated against real hand-count data; known narrow trade-off at the tightest touching-droplet separations, accepted for now (see `docs/activity.md`)
 
 ---
 

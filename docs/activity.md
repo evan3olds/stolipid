@@ -572,3 +572,35 @@ Confirmed against a real microscopy capture (`assets/Image_43391.tif`, user-prov
 ## Final step (per project convention)
 
 `docs/tasks.md` updated (Phase 11c note added on the crop pipeline switching to a shared normalized-16-bit-PNG base). This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md` retroactively (implemented directly after confirming the normalization approach and scope with the user via two targeted questions, rather than a separate upfront planning pass) — this was a well-scoped pipeline change to two existing files (`api/imaging.py`, `api/main.py`), not a new feature needing broader design.
+
+---
+
+## Deploy note — Render storage RLS error was a stale instance, not a code issue
+
+After the above deploy, `cells_from_tif`'s Storage upload failed with `storage3.exceptions.StorageApiError: {'statusCode': 403, ... 'new row violates row-level security policy'}`. Investigated as a possible key-misconfiguration (`SUPABASE_SECRET_KEY` on Render actually being the anon key rather than service_role): user decoded the JWT's `role` claim locally (without sharing the key) and confirmed `service_role`, ruling that out. Root cause turned out to be a stale/un-redeployed Render instance — a manual redeploy fixed it with no code changes. Noting this since the `.upload()` call itself was byte-for-byte unchanged by the 16-bit-PNG work above, which was the first clue it wasn't a regression from that change.
+
+---
+
+## Auto-count preprocessing — background flattening + CLAHE before thresholding
+
+**Request:** now that `cells_from_tif`'s crop is a plain linear-normalized PNG (see above) shared between hand-counting/viewing and the auto-count base image, the auto-count model needs its own additional processing before thresholding — transient, computed at count time, never persisted back to the stored PNG (per the user's original framing: "additional image processing techniques will only be used for different auto count models but not kept").
+
+Asked the user what kind of processing; answer was both **rolling-ball background subtraction** (flattens uneven illumination/out-of-focus glow across the frame, which otherwise skews Otsu's assumption of a roughly bimodal histogram) and **CLAHE** (local contrast enhancement, to pull out droplets that are dim relative to their immediate surroundings even if the crop overall has decent contrast).
+
+**`api/detection.py`:**
+- New `preprocess_for_detection(plane)`: `skimage.restoration.rolling_ball(plane, radius=BACKGROUND_BALL_RADIUS_PX)` (new constant, `25`px — larger than a droplet, smaller than the frame's illumination-gradient scale) subtracted from the plane and clipped to `[0, 65535]`, then `skimage.exposure.equalize_adapthist(..., clip_limit=CLAHE_CLIP_LIMIT)` (new constant, `0.01`, skimage's own default). Both new constants carry the same "prototype default, not yet calibrated" caveat as the existing `MIN_DROPLET_AREA_PX`/`MIN_PEAK_DISTANCE_PX`.
+- `count_droplets` calls `preprocess_for_detection` as its first step, before the existing Gaussian blur → Otsu → watershed chain (all unchanged). No call-site changes needed in `api/main.py` — `cells_from_tif` still just calls `count_droplets(normalized_crop)`.
+- **Bug caught during verification and fixed before shipping:** `equalize_adapthist` on a genuinely flat/constant input (e.g. an all-background crop with no droplets) fabricates full-range contrast out of nothing — std `0.31` on an all-zero test array — which caused `count_droplets` to hallucinate droplets (56!) on what should unambiguously be a 0-count crop. This is a pure tiling/numerical artifact of adaptive histogram equalization, not signal. Fixed with an explicit degenerate-input guard in `preprocess_for_detection` (checked both before and after the background-subtraction step) that skips CLAHE and returns the flat array as-is, letting `count_droplets`'s existing `threshold_otsu` `ValueError` catch handle it exactly as before.
+
+### Verification
+
+- Confirmed `rolling_ball`/`equalize_adapthist` are available in the installed `scikit-image` (0.26.0); `rolling_ball` takes ~1.3s on a ~615×615 real crop, `equalize_adapthist` ~0.05s — acceptable per-box cost at cell-creation time.
+- Re-ran the flat-crop, empty-array, and all-zero-crop edge cases (previously guaranteed to return 0) after the fix: all three correctly return `0` again.
+- Re-ran the documented Phase 11c synthetic regression tests: 4 well-separated Gaussian-bump blobs → `count_droplets` still returns `4`; a naive threshold+`regionprops` pass (no watershed) on a touching pair still merges into a single region (`1`), confirming watershed is still doing real work.
+- Investigated an apparent touching-pair regression (a hand-built synthetic pair collapsed from a claimed "2" to "1"): turned out the ad hoc test parameters didn't actually reproduce a genuine 2-way split under the *original* pre-preprocessing algorithm either (also collapsed to 1 peak) — not a real regression, just a flawed synthetic test. Rebuilt the comparison properly by sweeping blob separation and checking both algorithms against the same inputs: for separations 12–20px, original and preprocessed both correctly return `2`, identically. At the very tightest separations (10–11px — right at the original algorithm's own splitting limit), CLAHE's local contrast maximization saturates the shallow saddle between the two blobs enough that they merge into `1` where the original algorithm still split them into `2`.
+- On the real sample crop (`assets/Image_43391.tif`, center 30%), auto-count went from `57` (no preprocessing) to `68` (with preprocessing) — visually confirmed via a saved PNG that the additional droplets are real, previously-dim features near the cell edges that background flattening + local contrast made distinguishable, not noise.
+- Presented this net trade-off to the user directly (broad gain finding dim droplets vs. a narrow loss at the tightest touching-droplet separations) and asked how to proceed. Decision: keep current defaults (`BACKGROUND_BALL_RADIUS_PX=25`, `CLAHE_CLIP_LIMIT=0.01`) rather than guess-tune further without real hand-count data to calibrate against — consistent with the existing "not yet calibrated" caveat already on this module's other constants.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated with the preprocessing step. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

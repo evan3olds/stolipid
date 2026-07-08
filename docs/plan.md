@@ -1222,3 +1222,31 @@ The open design question was what "minimal image processing" means for the store
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md` (written retroactively alongside the activity entry, after the normalization/scope questions were resolved with the user — small enough in surface area, two existing files, that a separate upfront planning pass wasn't needed before starting).
+
+---
+
+# Auto-count preprocessing — background flattening + CLAHE before thresholding
+
+## Context
+
+Follow-on to the 16-bit normalized-crop work above: with the stored `cells.image_url` now shared between hand-counting/viewing and the auto-count base image, the user wants the auto-count model to run its own additional processing on top of that shared crop — transient (computed at count time, not persisted back to the PNG), since future/different auto-count models may want different processing recipes. Asked which techniques; user chose both rolling-ball background subtraction and CLAHE.
+
+## Approach
+
+`api/detection.py`:
+- `preprocess_for_detection(plane)`: `rolling_ball` background subtraction (radius `25`px, new `BACKGROUND_BALL_RADIUS_PX` constant) subtracted and clipped to `uint16` range, then `equalize_adapthist` (CLAHE, `clip_limit=0.01`, new `CLAHE_CLIP_LIMIT` constant).
+- `count_droplets` calls it as the first step before the existing Gaussian blur → Otsu → watershed chain. No caller changes needed elsewhere.
+- Kept preprocessing inside `count_droplets`'s own module rather than a separate call site in `api/main.py`, since there's only one auto-count model today — no premature abstraction for a plural "models" system that doesn't exist yet.
+
+## Verification
+
+- Timed both new steps on a real ~615×615 crop: `rolling_ball` ~1.3s, `equalize_adapthist` ~0.05s — acceptable per-box at cell-creation time.
+- **Bug found and fixed before shipping:** `equalize_adapthist` fabricates full-range contrast (std 0.31) out of a genuinely flat/all-zero input — a tiling artifact of adaptive histogram equalization, not real signal — which made `count_droplets` hallucinate 56 droplets on an empty crop that should return 0. Fixed with a degenerate-input guard (checked pre- and post-background-subtraction) in `preprocess_for_detection` that skips CLAHE and falls through to `count_droplets`'s existing `threshold_otsu` `ValueError` → 0 path.
+- Re-ran all previously-documented Phase 11c synthetic tests after the fix: flat/empty/all-zero crops → 0; 4 well-separated blobs → 4; naive threshold+`regionprops` (no watershed) on a touching pair → 1 (still shows watershed is doing real work).
+- Investigated an apparent touching-pair regression from an ad hoc synthetic test; found the test itself was flawed (didn't reproduce a genuine split under the *original* algorithm either). Rebuilt it properly by sweeping blob separation: original and preprocessed both return 2 identically for separations 12–20px; only at the tightest 10–11px separation (at the original algorithm's own splitting limit) does CLAHE's local contrast maximization saturate the shallow saddle enough to merge them into 1.
+- Real sample crop: auto-count 57 → 68 with preprocessing; visually confirmed the additional 11 are real dim droplets near the cell edges that background flattening + local contrast enhancement pulled out, not noise.
+- Presented the net trade-off (broad gain on dim droplets vs. narrow loss at the tightest touching separations) to the user; decided to keep current defaults rather than guess-tune without real hand-count data to calibrate against.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
