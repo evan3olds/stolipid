@@ -649,3 +649,28 @@ Asked the user what kind of processing; answer was both **rolling-ball backgroun
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## `count_droplets` reworked to an ALDQ-style pipeline
+
+**Request:** the user reported the auto-count image processing "isn't the best" and asked for it to follow the ALDQ counting model instead: iterative edge-sharpening via a band-pass filter and difference-of-Gaussians (DoG), then local-maxima counting, edge detection, and watershed.
+
+**`api/detection.py`:** `count_droplets` no longer does Gaussian blur → Otsu → distance-transform watershed. New chain, still operating on the already-`preprocess_for_detection`'d array (unchanged):
+- **Iterative DoG band-pass sharpening** (`SHARPEN_ITERATIONS=3`): each pass runs `skimage.filters.difference_of_gaussians(sharpened, DOG_LOW_SIGMA_PX=1.0, DOG_HIGH_SIGMA_PX=6.0)` — DoG *is* a band-pass filter (rejects both sub-pixel noise below the low sigma and structure wider than a droplet above the high sigma) — and adds that edge response back onto the running image (unsharp-mask style, `SHARPEN_STRENGTH=1.0` weight), so droplet boundaries get progressively crisper across iterations.
+- **Local-maxima seeding:** `peak_local_max` now runs directly on the sharpened image (`PEAK_THRESHOLD_REL=0.1`, `MIN_PEAK_DISTANCE_PX=3`, restricted to the Otsu-thresholded foreground mask) instead of on a smoothed distance transform — one seed per droplet center.
+- **Edge-detection watershed:** `skimage.filters.sobel(sharpened)` supplies the watershed elevation map (flooding halts at high-gradient droplet edges) in place of the old `-distance` landscape.
+- Otsu thresholding is still used to build the foreground `mask` that bounds both peak-finding and the watershed flood — same role it played before, just applied to the sharpened image instead of a lightly Gaussian-blurred one.
+- Removed now-unused imports (`scipy.ndimage`, `skimage.filters.gaussian`); added `difference_of_gaussians`, `sobel`.
+
+### Verification
+
+- Confirmed `difference_of_gaussians` and `sobel` are available in the installed `scikit-image` (0.26.0).
+- Synthetic smoke test, 6 well-separated Gaussian-bump blobs on a noisy background: `count_droplets` returns `6` (exact match), and correctly returns `0` on an empty array and on a flat/constant crop (Otsu's `ValueError` guard still fires).
+- Swept center-to-center spacing on a synthetic touching pair (blob sigma 3, i.e. ~3px radius): merges into `1` at 7px spacing, correctly splits into `2` at 8px and above.
+- Compared against the *old* algorithm on the same extreme near-coincident pair (6px spacing, heavy overlap): old algorithm also collapsed to `1` — confirms the new pipeline isn't regressing behavior at the hardest cases, just changing the mechanism.
+- Did not yet re-run against the real sample crop (`assets/Image_43391.tif`) or against real hand-count data — the new constants (`DOG_LOW_SIGMA_PX`, `DOG_HIGH_SIGMA_PX`, `SHARPEN_ITERATIONS`, `SHARPEN_STRENGTH`, `PEAK_THRESHOLD_REL`) are prototype defaults only, consistent with this module's existing "not yet calibrated" caveats.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

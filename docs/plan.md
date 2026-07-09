@@ -1313,3 +1313,34 @@ User chose 0.005. Changed `CLAHE_CLIP_LIMIT` in `api/detection.py` from `0.01` t
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# `count_droplets` reworked to an ALDQ-style pipeline
+
+## Context
+
+User reported the auto-count image processing "isn't the best" and asked for it to match the ALDQ counting model: iterations of sharpening edges using a band-pass filter and difference of Gaussians, then counting local maxima, edge detection, and watershed. This replaces the existing Gaussian blur → Otsu threshold → distance-transform watershed chain in `api/detection.py`'s `count_droplets`.
+
+## Approach
+
+`preprocess_for_detection` (rolling-ball background subtraction + CLAHE) is unchanged — it's a separate concern (feeds both the stored display image and `count_droplets`'s input) and the user's request was specifically about the counting algorithm.
+
+Read "band-pass filter" and "difference of Gaussians" as the same operation — DoG is the standard band-pass filter used in blob detection — and "iterations of sharpening edges" as repeated unsharp-mask passes that recompute the DoG on the progressively-sharpened image each time, so droplet edges get crisper each round:
+
+1. **Sharpen** (`SHARPEN_ITERATIONS=3` passes): `sharpened += SHARPEN_STRENGTH * difference_of_gaussians(sharpened, DOG_LOW_SIGMA_PX=1.0, DOG_HIGH_SIGMA_PX=6.0)`. Low sigma rejects pixel noise, high sigma rejects structure wider than a droplet (droplet FWHM ~5-9px per `preprocess_for_detection`'s existing comments).
+2. **Local maxima**: `peak_local_max` directly on the sharpened image, restricted to an Otsu-thresholded foreground mask — one seed per droplet center, replacing the old smoothed-distance-transform approach.
+3. **Edge detection + watershed**: `sobel(sharpened)` as the watershed elevation map (flooding stops at high-gradient edges), replacing the old `-distance` landscape. Markers from step 2, mask from Otsu (same role as before).
+
+Kept the Otsu-based mask since watershed still needs a foreground/background boundary to bound the flood — the user's description didn't call for removing thresholding, just changing how sharpening/seeding/flooding works.
+
+## Verification
+
+- Confirmed `difference_of_gaussians` and `sobel` exist in the installed scikit-image (0.26.0).
+- Synthetic smoke test: 6 well-separated blobs → exact count of 6; empty array and flat/constant crop → 0.
+- Spacing sweep on a synthetic touching pair: splits correctly at ≥8px center spacing (droplet radius ~3px), merges at 7px — same failure point as the *old* algorithm on the same extreme case, so not a regression, just a different mechanism reaching the same hard-case limit.
+- Did not re-run against the real sample crop or real hand-count data yet — new constants are prototype defaults, not yet calibrated, consistent with this module's existing caveats.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

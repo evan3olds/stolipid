@@ -35,7 +35,7 @@ experiments (id, name, date, dye, notes, created_by)
 ```
 - `cell.average` and `condition.mean` are computed in JS at query time, not stored
 - `condition.icc` is written by the Python pipeline and stored as a column
-- `cells.auto_count` is a machine-suggested droplet count (Gaussian blur → Otsu threshold → watershed segmentation), written by the Python pipeline at cell-creation time — not a hand count, not included in `cell.average`/`condition.icc`
+- `cells.auto_count` is a machine-suggested droplet count (iterative difference-of-Gaussians band-pass sharpening → local-maxima seeding → edge-detection watershed), written by the Python pipeline at cell-creation time — not a hand count, not included in `cell.average`/`condition.icc`
 - Row-Level Security: researchers only read/write their own experiment data
 
 ### Python API (Render)

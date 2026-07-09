@@ -1,8 +1,7 @@
 import numpy as np
-from scipy import ndimage as ndi
 from skimage.exposure import equalize_adapthist
 from skimage.feature import peak_local_max
-from skimage.filters import gaussian, threshold_otsu
+from skimage.filters import difference_of_gaussians, sobel, threshold_otsu
 from skimage.measure import label, regionprops
 from skimage.restoration import rolling_ball
 from skimage.segmentation import watershed
@@ -16,6 +15,13 @@ BACKGROUND_BALL_RADIUS_PX = 25  # larger than a droplet, smaller than the frame'
 # rolling-ball subtraction up toward full brightness. 0.005 keeps most of
 # the brightness gain (FWHM 7px) without that smeared look.
 CLAHE_CLIP_LIMIT = 0.005
+
+# count_droplets: iterative difference-of-Gaussians (DoG) band-pass sharpening.
+DOG_LOW_SIGMA_PX = 1.0  # rejects pixel-level sensor noise
+DOG_HIGH_SIGMA_PX = 6.0  # rejects structure wider than a droplet (droplet FWHM ~5-9px, see preprocess_for_detection)
+SHARPEN_ITERATIONS = 3
+SHARPEN_STRENGTH = 1.0  # weight of each iteration's band-pass edge response added back into the image
+PEAK_THRESHOLD_REL = 0.1  # fraction of the sharpened image's dynamic range a local maximum must clear to seed a droplet
 
 
 def preprocess_for_detection(plane: np.ndarray) -> np.ndarray:
@@ -40,40 +46,49 @@ def preprocess_for_detection(plane: np.ndarray) -> np.ndarray:
 
 
 def count_droplets(processed: np.ndarray) -> int:
-    """Gaussian blur -> Otsu threshold -> distance-transform watershed on an
-    already background-flattened/contrast-enhanced plane (see
-    preprocess_for_detection). Watershed splits touching/overlapping
-    droplets so each still gets its own count, which a plain threshold+label
-    would merge into one blob."""
+    """Iterative DoG band-pass sharpening -> local-maxima seeding ->
+    edge-detection watershed on an already background-flattened/contrast-
+    enhanced plane (see preprocess_for_detection).
+
+    Each iteration runs a difference-of-Gaussians band-pass over the
+    current image — subtracting a heavily-blurred copy from a
+    lightly-blurred one rejects both pixel noise and structure wider than a
+    droplet — and adds that edge response back in (unsharp-mask style), so
+    droplet boundaries get progressively crisper and touching droplets
+    separate before segmentation.
+
+    Local maxima of the sharpened image seed one watershed marker per
+    droplet center, and a Sobel gradient of the sharpened image supplies
+    the watershed elevation map, so flooding halts at droplet edges rather
+    than merging touching/overlapping droplets into one blob."""
     if processed.size == 0:
         return 0
 
-    blurred = gaussian(processed, sigma=1.0, preserve_range=True)
+    sharpened = processed.astype(np.float64)
+    for _ in range(SHARPEN_ITERATIONS):
+        edges = difference_of_gaussians(sharpened, DOG_LOW_SIGMA_PX, DOG_HIGH_SIGMA_PX)
+        sharpened = sharpened + SHARPEN_STRENGTH * edges
 
     try:
-        thresh = threshold_otsu(blurred)
+        thresh = threshold_otsu(sharpened)
     except ValueError:
         return 0  # flat/constant crop, no meaningful threshold
-    mask = blurred > thresh
+    mask = sharpened > thresh
 
     if not mask.any():
         return 0
 
-    distance = ndi.distance_transform_edt(mask)
-    # Smooth the distance map before peak-finding: the raw transform often
-    # has a shallow local maximum right on the saddle ridge between two
-    # touching blobs (its distance-to-background is only marginally lower
-    # than the two true centers), which peak_local_max would otherwise
-    # count as a third, spurious droplet.
-    smoothed_distance = ndi.gaussian_filter(distance, sigma=1.5)
-    coords = peak_local_max(smoothed_distance, min_distance=MIN_PEAK_DISTANCE_PX, labels=mask)
+    coords = peak_local_max(
+        sharpened, min_distance=MIN_PEAK_DISTANCE_PX, threshold_rel=PEAK_THRESHOLD_REL, labels=mask
+    )
     if coords.size == 0:
         return 0
 
-    seed_mask = np.zeros(distance.shape, dtype=bool)
+    seed_mask = np.zeros(sharpened.shape, dtype=bool)
     seed_mask[tuple(coords.T)] = True
     markers = label(seed_mask)
 
-    labels = watershed(-distance, markers, mask=mask)
+    elevation = sobel(sharpened)
+    labels = watershed(elevation, markers, mask=mask)
 
     return sum(1 for r in regionprops(labels) if r.area >= MIN_DROPLET_AREA_PX)
