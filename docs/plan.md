@@ -1385,3 +1385,29 @@ Removed the now-dead CLAHE/DoG/Sobel code (`preprocess_for_detection`'s CLAHE st
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Threshold pushed stricter to try to separate clumped droplets
+
+## Context
+
+User reported droplets are "all clumping together and not becoming distinct" and asked whether thresholding could be adjusted so more of the image turns black — i.e. a stricter cutoff.
+
+## Approach
+
+Added a scaling factor to `threshold_binary` rather than replacing Otsu outright: `THRESHOLD_FACTOR = 1.3` multiplies `threshold_otsu(flattened)` before the `flattened > thresh` cutoff, so the mask keeps only brighter pixels as foreground. Otsu still auto-computes the base split per-crop; the factor just raises the bar above what Otsu alone would pick.
+
+Before shipping, tested against two synthetic clumps (a 4-blob tight overlap, and a 3-droplet clump with a visible saddle) to check whether this would actually address the reported symptom. It didn't fully: raising the factor shrinks the foreground mask uniformly but doesn't split a connected blob into multiple watershed regions unless the shrinking happens to break the connected component apart. In both synthetic cases `auto_count` stayed at `1` across the whole factor sweep. Debugging further (printing the distance transform's raw local maxima) showed the real constraint is `MIN_PEAK_DISTANCE_PX=3` in `count_droplets` — it merges distance-transform peaks that are within 3px of each other into a single watershed seed, independent of how strict the threshold is. Confirmed by rerunning with `min_distance=1` on the identical thresholded mask: peaks went from 1 to the correct 3, and `auto_count` followed.
+
+Presented this trade-off to the user directly (threshold changes area, peak-distance changes splitting) with the concrete synthetic numbers, and asked whether to also lower `MIN_PEAK_DISTANCE_PX`. They chose to ship only the threshold change for now, to see how it performs against real data before touching the second parameter — consistent with this module's pattern of incremental, user-confirmed tuning rather than changing multiple knobs at once.
+
+## Verification
+
+- Synthetic sweep of `THRESHOLD_FACTOR` (1.0 → 3.0) on two clump shapes: foreground pixel count drops monotonically as expected.
+- Confirmed the underlying distance-transform peaks are real (not a test artifact) via direct `peak_local_max` calls at different `min_distance` values on the same mask.
+- Not yet verified against real microscopy data — `THRESHOLD_FACTOR=1.3` is a prototype default, consistent with this module's existing "not yet calibrated" caveats on `BACKGROUND_BALL_RADIUS_PX` and the watershed constants.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

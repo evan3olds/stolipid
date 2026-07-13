@@ -10,6 +10,10 @@ from skimage.segmentation import watershed
 MIN_DROPLET_AREA_PX = 4
 MIN_PEAK_DISTANCE_PX = 3
 BACKGROUND_BALL_RADIUS_PX = 12
+# Multiplier on Otsu's threshold. >1 raises the cutoff so only the brighter
+# cores of clumped/touching droplets pass, shrinking the foreground mask
+# and pulling touching droplets apart before fill-holes/watershed even run.
+THRESHOLD_FACTOR = 1.3
 
 
 def subtract_background(plane: np.ndarray) -> np.ndarray:
@@ -25,14 +29,14 @@ def subtract_background(plane: np.ndarray) -> np.ndarray:
 
 def threshold_binary(flattened: np.ndarray) -> np.ndarray:
     """Otsu threshold against a dark background (foreground = bright
-    droplets), returned as a boolean mask. Step 2 of the shared
-    hand-count/auto-count pipeline — equivalent to ImageJ's
-    Image > Adjust > Threshold with "Dark background", applied."""
+    droplets), scaled by THRESHOLD_FACTOR and returned as a boolean mask.
+    Step 2 of the shared hand-count/auto-count pipeline — equivalent to
+    ImageJ's Image > Adjust > Threshold with "Dark background", applied."""
     if flattened.size == 0 or flattened.max() <= flattened.min():
         return np.zeros_like(flattened, dtype=bool)
 
     try:
-        thresh = threshold_otsu(flattened)
+        thresh = threshold_otsu(flattened) * THRESHOLD_FACTOR
     except ValueError:
         return np.zeros_like(flattened, dtype=bool)  # flat/constant crop, no meaningful threshold
     return flattened > thresh

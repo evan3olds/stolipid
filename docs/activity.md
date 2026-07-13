@@ -699,3 +699,25 @@ Asked the user what kind of processing; answer was both **rolling-ball backgroun
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Threshold pushed stricter to try to separate clumped droplets
+
+**Report:** user said droplets are "all clumping together and not becoming distinct" and asked whether thresholding could be changed so more of the image turns black.
+
+**`api/detection.py`:** added `THRESHOLD_FACTOR = 1.3` and applied it in `threshold_binary` as `threshold_otsu(flattened) * THRESHOLD_FACTOR` before the `flattened > thresh` cutoff — raises the bar for what counts as foreground, so only brighter droplet cores pass and more of the frame is classified as background.
+
+**Investigated before shipping:** synthetic tests (a tight 4-blob overlapping clump, and a 3-droplet clump with a visible saddle between peaks) showed that raising `THRESHOLD_FACTOR` alone shrinks the foreground mask uniformly (measured foreground pixel count dropping steadily from factor 1.0 → 3.0) but does not split genuinely touching droplets into separate connected components or separate watershed regions — `auto_count` stayed at `1` across the whole factor sweep in both synthetic cases. Traced the real bottleneck to `MIN_PEAK_DISTANCE_PX=3` in `count_droplets`: printed the distance-transform's local maxima directly and found 3 real peaks in the 3-droplet clump, but `peak_local_max(distance, min_distance=3, ...)` collapsed them to 1 seed; re-running with `min_distance=1` correctly recovered 3 peaks and `auto_count=3` on the identical mask. So the threshold controls *how much area* is foreground, while `MIN_PEAK_DISTANCE_PX` controls *whether watershed splits* that foreground into multiple regions — independent levers, and the user's symptom (clumped, indistinct droplets) is more directly explained by the latter.
+
+**Presented this to the user** with the concrete numbers above and asked whether to also lower `MIN_PEAK_DISTANCE_PX`. They chose to ship only the `THRESHOLD_FACTOR` change for now and evaluate it against real data before touching the peak-distance parameter.
+
+### Verification
+
+- Synthetic sweep (`THRESHOLD_FACTOR` 1.0 → 3.0) on a 4-blob tight overlapping clump and a 3-droplet clump with a saddle: foreground pixel count decreases monotonically as expected; connected-component count and `auto_count` both stayed unchanged in these synthetic cases (as expected, since the real fix for splitting is `MIN_PEAK_DISTANCE_PX`, deliberately not touched this round).
+- Confirmed via direct `peak_local_max` calls at `min_distance=1` vs `3` that the distance-transform peaks genuinely exist at the droplet scale used in `MIN_DROPLET_AREA_PX`/`MIN_PEAK_DISTANCE_PX`'s existing prototype defaults — this isn't a synthetic-test artifact.
+- Not yet verified: effect of `THRESHOLD_FACTOR=1.3` on the real sample crop or real hand-count data; still a prototype default, not calibrated.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
