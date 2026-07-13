@@ -1438,3 +1438,52 @@ Did not add a frontend display for `source_filename` — the request was framed 
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# `cells.source_filename` surfaced on the Cells screen sidebar
+
+## Context
+
+Follow-up to the prior entry (`cells.source_filename` added as backend metadata): user asked to actually show the original `.tif` filename on the sidebar for a cell, i.e. the Cells screen's `#detail-panel`.
+
+## Approach
+
+`renderDetail` in `app.js` (inside `wireCells`) already builds the sidebar's HTML from a `cell` object and conditionally includes rows for optional fields (`cell.auto_count` is the existing precedent). Followed that pattern: added a conditional `detail-row` for `cell.source_filename`, positioned above "Average hand count" since it's identifying metadata about the cell rather than a count statistic, using the same CSS classes as the rest of the panel so no new styles were needed.
+
+Since local dev mode (`local:` token) uses hardcoded test data rather than a live API response, added `source_filename` to a couple of the test cells so the new UI is actually exercisable without a real backend/database.
+
+## Verification
+
+Per this project's "screenshot-verify UI layout" convention, ran the app rather than just trusting the diff: no project-specific run skill existed for this static site, so served it with `python -m http.server` and drove it with Playwright's Python API (this environment didn't have `chromium-cli`, the normally-preferred driver, installed). Navigated the real click path — Experiments → a condition → Cells → click a cell card — and confirmed via an actual screenshot (not just innerHTML) that "Source file: Image_43391.tif" renders in the sidebar in the right position with the right styling, and that it's correctly absent for a cell without a source filename. No console errors during the run.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Watershed moved before the hand-count image too, not just auto-count
+
+## Context
+
+User asked to run watershed before the hand-count image as well. Previously `preprocess_for_hand_count` (stored as `cells.image_url`) stopped after background subtraction + threshold — deliberately, per an earlier explicit instruction that the hand-count image should be "taken after the first two steps" of the 5-step spec. This request reverses that: the hand-count image should now include watershed's droplet separation too, presumably because the clumping the user reported earlier is exactly what watershed is meant to fix, and it wasn't visible in the image researchers actually look at.
+
+## Approach
+
+The two pipelines (`preprocess_for_hand_count`'s 2-step version and `count_droplets`'s full 5-step version) already shared their first two steps as separate functions (`subtract_background`, `threshold_binary`). Extending the hand-count image through watershed meant they'd now be identical end-to-end, so rather than keeping two near-duplicate functions, consolidated into one shared segmentation step: `segment_droplets(plane)` runs the full chain once and returns a labeled region array; `render_hand_count_image(labels)` and `count_droplets(labels)` are both thin views over that same result (a binary render and a filtered region count, respectively).
+
+The key mechanical change enabling the visual effect: `watershed(..., watershed_line=True)`. Without it, skimage's watershed assigns every mask pixel a nonzero label with no visible boundary between adjacent regions — fine for `count_droplets`, which only cares about region identity via `regionprops`, but useless for a human-facing image where two touching droplets need an actual visible gap to look separated. `watershed_line=True` burns that 1px gap in as label `0`, which is what makes `render_hand_count_image` show two blobs instead of one merged shape.
+
+Restructuring this way also fixed a real performance issue introduced by the earlier ImageJ-pipeline rework: since `preprocess_for_hand_count` and `count_droplets` used to each independently call `subtract_background` (i.e. `rolling_ball`, the most expensive step in the whole pipeline), `cells_from_tif` was paying that cost twice per box. With `segment_droplets` computed once and shared, it's back to once per box.
+
+## Verification
+
+- Confirmed with a synthetic well-separated 2-droplet pair that `segment_droplets`'s raw label output has a visible 1px zero-valued line between the two regions, and that `render_hand_count_image` renders that line as black in the binary output — the actual behavior the user asked for.
+- Re-ran the tight 3-droplet clump from the `THRESHOLD_FACTOR` investigation to confirm this change doesn't accidentally paper over the previously-identified `MIN_PEAK_DISTANCE_PX` limitation: it doesn't — clumps where the distance transform never produces multiple markers still render as one unbroken blob, since there's nothing for `watershed_line` to split between. That's expected and unchanged; still a known follow-up if the user wants it addressed.
+- `python -m py_compile api/detection.py api/main.py`: passes.
+- Not yet verified against a real sample crop or real hand-count data — still consistent with this module's "prototype defaults, not yet calibrated" status.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

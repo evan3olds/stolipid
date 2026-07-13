@@ -747,3 +747,50 @@ Until that column exists, every `cells_from_tif` insert will fail once this code
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## `cells.source_filename` surfaced on the Cells screen sidebar
+
+**Request:** show the original `.tif` filename (added as `cells.source_filename` in the prior entry) on the sidebar for a cell.
+
+**`app.js`:** `wireCells`'s `renderDetail` (the function that fills `#detail-panel`, a `.detail-panel` sidebar fixed at 260px, sticky in the Cells screen layout) gained a conditional `detail-row` for `cell.source_filename`, placed right under the cell name and above "Average hand count" — reads as identifying metadata before the count stats. Renders as a "Source file" label with the filename as the value, using the same `.detail-row`/`.detail-label`/`.detail-value` classes as the existing rows. Guarded with `cell.source_filename ? ... : ''` so it's omitted entirely for cells with no source file (e.g. any hand-entered/legacy cell predating this column) rather than showing an empty row.
+
+Also added `source_filename: 'Image_43391.tif'` to two of the hardcoded local dev-mode test cells (`test-cell-001`, `test-cell-003`) so the new row is visible when testing with a `local:` token and no live backend.
+
+### Verification
+
+Ran the app for real rather than just reading the diff, per this project's screenshot-verification convention:
+- Served the static site locally (`python -m http.server`), drove it with headless Playwright (`chromium-cli` wasn't available in this environment, so used Playwright's Python bindings directly as the documented fallback): set a `local:` token in `localStorage`, navigated Experiments → "Serum Starvation Timecourse" → "0 Hr Starved" → Cells.
+- Clicked "Cell 1" (has `source_filename` in the test data) — sidebar shows a "SOURCE FILE" row with `Image_43391.tif` above "AVERAGE HAND COUNT", matching the intended placement.
+- Confirmed via screenshot (not just DOM dump) that the row renders with correct styling, consistent with the rest of the panel.
+- Confirmed "Cell 2" (no `source_filename` in test data) correctly omits the row — no empty/blank "Source file" line.
+- `console --errors` equivalent (Playwright console listener) showed no console errors during the full navigation.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Watershed moved before the hand-count image too, not just auto-count
+
+**Request:** run watershed before generating the hand-count image as well — previously `preprocess_for_hand_count` stopped after background subtraction + threshold (steps 1-2), so the stored `cells.image_url` never benefited from the fill-holes/watershed separation that `count_droplets` used internally.
+
+**`api/detection.py`:** collapsed the two previously-separate pipelines into one shared segmentation:
+- `segment_droplets(plane)` — the full chain (subtract_background → threshold_binary → binary_fill_holes → distance-transform watershed), now called `watershed(-distance, markers, mask=filled, watershed_line=True)` (added `watershed_line=True`, previously omitted). This is the actual mechanism that makes the visual difference: it burns a 1px background gap into the labeled array everywhere two regions meet, rather than assigning every foreground pixel a label with no visible seam. Returns the raw int label array (0 = background/split line, 1..N = one label per droplet).
+- `render_hand_count_image(labels)` — replaces `preprocess_for_hand_count`; takes the label array (not a raw plane) and renders `(labels > 0)` as a binary uint16 image. Since `segment_droplets` already put a gap between touching droplets, this rendering shows them as visually separate blobs.
+- `count_droplets(labels)` — also now takes the label array directly instead of a plane, dropping its own internal copy of steps 1-4 (previously duplicated from `preprocess_for_hand_count`/the old `count_droplets`).
+
+**`api/main.py`:** `cells_from_tif` now calls `segment_droplets(normalized_crop)` once per box and derives both `hand_count_crop` (via `render_hand_count_image`) and `auto_count` (via `count_droplets`) from that single result, instead of running the full pipeline twice. This also fixes a real inefficiency introduced by the ImageJ-pipeline rework two entries back: `rolling_ball` (the most expensive step, ~1.3s per crop per earlier measurements) was running once inside each function — twice total per box — since `preprocess_for_hand_count` and `count_droplets` each called `subtract_background` independently.
+
+### Verification
+
+- Synthetic 3-droplet tight clump (same one used in the `THRESHOLD_FACTOR` investigation, where `MIN_PEAK_DISTANCE_PX=3` collapses all 3 into a single distance-transform peak): confirmed `segment_droplets` still returns a single connected label here — `watershed_line=True` only draws a split where there are ≥2 markers to divide between, so this doesn't fix that known limitation (still gated by `MIN_PEAK_DISTANCE_PX`, unchanged by this request).
+- Synthetic 2-blob pair spaced 12px apart (known to split under the existing defaults): printed the raw label array and confirmed a visible 1px `0`-valued line separates label `1` from label `2`. Printed `render_hand_count_image`'s output over the same region and confirmed that gap renders as black (`0`) in the binary image — i.e. the stored hand-count PNG will show two visually distinct blobs, not one.
+- `python -m py_compile detection.py main.py`: passes.
+- Not yet verified: real sample crop or real hand-count data: still prototype defaults throughout this module.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

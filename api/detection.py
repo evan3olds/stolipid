@@ -42,44 +42,52 @@ def threshold_binary(flattened: np.ndarray) -> np.ndarray:
     return flattened > thresh
 
 
-def preprocess_for_hand_count(plane: np.ndarray) -> np.ndarray:
-    """Background-subtracted + binary-thresholded image (steps 1-2 of the
-    shared pipeline, see count_droplets for the rest), stored for hand
-    counting/viewing (cells.image_url). Returned as uint16 (0 or 65535)."""
-    flattened = subtract_background(plane)
-    mask = threshold_binary(flattened)
-    return mask.astype(np.uint16) * 65535
-
-
-def count_droplets(plane: np.ndarray) -> int:
-    """Background subtraction -> dark-background threshold -> fill holes ->
-    mask -> watershed (see preprocess_for_hand_count for steps 1-2, shared
-    with the stored hand-count image).
+def segment_droplets(plane: np.ndarray) -> np.ndarray:
+    """Full pipeline, shared by both the stored hand-count image and the
+    auto-count: background subtraction -> dark-background threshold -> fill
+    holes -> distance-transform watershed -> labeled regions.
 
     Filling holes closes out-of-focus droplet centers that threshold_binary
     would otherwise leave as gaps in the mask. A Euclidean distance
     transform of the filled mask seeds one watershed marker per droplet
     center (its local maxima), and flooding the inverted distance map halts
     at droplet edges — ImageJ's Process > Binary > Watershed — so touching
-    droplets separate before counting connected regions."""
+    droplets separate into distinct regions. `watershed_line=True` burns a
+    1px background gap into those splits, so render_hand_count_image can
+    show separated droplets rather than one merged blob.
+
+    Returns an int label array: 0 is background (including watershed split
+    lines), 1..N is one label per droplet region."""
     if plane.size == 0:
-        return 0
+        return np.zeros(plane.shape, dtype=int)
 
     flattened = subtract_background(plane)
     mask = threshold_binary(flattened)
     if not mask.any():
-        return 0
+        return np.zeros(plane.shape, dtype=int)
 
     filled = ndi.binary_fill_holes(mask)
 
     distance = ndi.distance_transform_edt(filled)
     coords = peak_local_max(distance, min_distance=MIN_PEAK_DISTANCE_PX, labels=filled)
     if coords.size == 0:
-        return 0
+        return np.zeros(plane.shape, dtype=int)
 
     markers = np.zeros(distance.shape, dtype=int)
     markers[tuple(coords.T)] = np.arange(1, len(coords) + 1)
 
-    labels = watershed(-distance, markers, mask=filled)
+    return watershed(-distance, markers, mask=filled, watershed_line=True)
 
+
+def render_hand_count_image(labels: np.ndarray) -> np.ndarray:
+    """Binary uint16 (0 or 65535) rendering of segment_droplets's output,
+    stored for hand counting/viewing (cells.image_url). Watershed's split
+    lines are already burned in as background, so droplets that were
+    touching/clumped in the raw image appear visually separated here."""
+    return (labels > 0).astype(np.uint16) * 65535
+
+
+def count_droplets(labels: np.ndarray) -> int:
+    """Counts droplet regions from segment_droplets's output — the same
+    watershed segmentation used to render the stored hand-count image."""
     return sum(1 for r in regionprops(labels) if r.area >= MIN_DROPLET_AREA_PX)
