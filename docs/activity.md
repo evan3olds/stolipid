@@ -794,3 +794,27 @@ Ran the app for real rather than just reading the diff, per this project's scree
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Count screen: red dot markers + zoom-in for closely-clustered droplets
+
+**Request:** the user asked to change the numbered count markers to small red dots, and add a zoom feature to the Count screen to help distinguish small droplets that sit close together.
+
+**`app.js`:** `renderMarkerHTML` now renders a bare `<button class="count-marker">` with no index number (`aria-label="Remove marker"` instead of `Remove marker N`) — dropped the per-marker index entirely since the dot is no longer labeled. Added `countState.zoom` (range 100%–300%, step 50%, via `COUNT_ZOOM_MIN/MAX/STEP`), a `count-zoom-controls` pill (`−` / level / `+`) fixed to the bottom-right of the screen, and `setCountZoom()` which resizes `#count-frame`'s real `width`/`max-width` (not a CSS transform) so the existing click-to-place `getBoundingClientRect()` math keeps working unchanged at any zoom level. Also refactored `addMarkerAt`/`removeMarker` to patch the DOM directly (`insertAdjacentHTML`/`.remove()` + a `updateCountTotal()` text update) instead of calling `refreshCount()`'s full `innerHTML` re-render on every click — a full re-render would have reset the canvas's scroll/pan position and zoom-control focus on every single marker placed, which defeats the point of zooming in to count a tight cluster.
+
+**`style.css`:** `.count-marker` shrunk to a small solid red circle (no text/number styling). Added `.count-zoom-controls`/`.count-zoom-btn`/`.count-zoom-level`. Found and fixed a real bug while verifying: `.canvas-frame` (shared with Add Photos) had no `flex-shrink`, so flexbox's default `flex-shrink: 1` silently squeezed the zoomed frame back down to fit `.count-canvas` — it never actually overflowed, so zooming had no visible effect and there was nothing to pan. Added `flex-shrink: 0`. Also added `.count-canvas.is-zoomed { align-items/justify-content: flex-start }`, toggled whenever zoom > 100%: `.count-canvas`'s default centered flex alignment is a known trap once a child overflows (the browser can't scroll to a negative offset to reach the centered content's near edge), which would have made part of a zoomed-in image permanently unreachable by scrolling.
+
+### Verification
+
+Ran the app for real, not just read the diff (`node`/`chromium-cli` weren't available in this environment; used Playwright's Python bindings instead, which were installed): served the static site locally, set a `local:` token, called `navigate('count', { cell })` directly for a test cell, and drove the screen with the mouse.
+- Screenshot confirms markers render as small solid red dots (no numbers) — including two placed close together, both individually visible.
+- First implementation attempt didn't actually zoom (`frameRectW` stayed capped at the container's width even at 200%/300%) — caught this via direct DOM measurement (`getBoundingClientRect`/`scrollWidth` before vs. after adding `flex-shrink: 0`), not just a screenshot glance, since the frame was still exactly filling the container either way.
+- After the fix: measured `#count-frame`'s rendered width growing correctly with zoom (880px → 1320px → 1760px at 100/150/200%), and confirmed `.count-canvas` genuinely overflows (`scrollWidth` 1808 vs `clientWidth` 1280 at 200%) and pans via `scrollLeft` (0 → 528 reachable). Vertical overflow instead grows the whole page (`.count-canvas` has no fixed height), confirmed via `document.documentElement.scrollHeight` growing past `window.innerHeight` — expected, not a bug.
+- Confirmed clicking a marker to remove it preserves zoom level and doesn't trigger a full-screen re-render (zoom read back unchanged immediately after removal).
+- Confirmed zoom buttons correctly disable at both the 100% floor and 300% ceiling.
+- `console --errors` equivalent (Playwright console listener) showed no console errors through the full interaction.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 8 updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

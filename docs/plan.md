@@ -1487,3 +1487,28 @@ Restructuring this way also fixed a real performance issue introduced by the ear
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Count screen: red dot markers + zoom-in for closely-clustered droplets
+
+## Context
+
+User asked for two changes to the Count screen: turn the numbered count markers into small red dots, and add a zoom feature so small droplets sitting close together can be counted accurately.
+
+## Approach
+
+- **Red dots:** drop the per-marker index number entirely — `.count-marker` becomes a small solid red circle with no text content, since the number was only ever there to label the button, not convey information the user needs once it's an unlabeled tally mark.
+- **Zoom:** resize `#count-frame`'s real `width`/`max-width` via inline styles (100%–300%, 50% steps) rather than a CSS `transform: scale()`. This keeps the existing click-to-place math (`getBoundingClientRect()`-based percentage offsets) correct at any zoom level with no changes, since the element's actual rendered box is what changes, not just its visual appearance. `.count-canvas`'s existing `overflow: auto` then provides panning for free once the frame genuinely overflows it.
+- Refactored marker add/remove away from the screen's full `innerHTML` re-render (`refreshCount()`) to targeted DOM patches, since re-rendering the whole screen on every click would otherwise reset scroll position and zoom controls mid-count — directly undermining the reason to zoom in in the first place (counting a tight cluster one click at a time).
+
+## Verification
+
+- Ran the app end-to-end via Playwright's Python bindings (no `node`/`chromium-cli` in this environment) rather than just reading the diff, per this project's screenshot-verification convention.
+- Caught a real bug this way: the first pass didn't actually zoom anything — `.canvas-frame`'s default `flex-shrink: 1` let `.count-canvas` (a flex container) silently shrink the "zoomed" frame back down to fit, so it never overflowed and there was nothing to pan. Found via direct `getBoundingClientRect()`/`scrollWidth` measurement, not just eyeballing a screenshot (visually the frame still filled its space either way). Fixed with `flex-shrink: 0`.
+- Also fixed a related flexbox trap: `.count-canvas`'s default centered alignment (`align-items`/`justify-content: center`) makes part of an overflowing child unreachable by scroll (the browser can't scroll to the negative offset needed to reach the centered content's near edge). Added `.count-canvas.is-zoomed { align-items/justify-content: flex-start }`, toggled whenever zoom > 100%.
+- After both fixes: measured the frame's rendered width scaling correctly (880px → 1320px → 1760px across 100/150/200%), confirmed genuine horizontal overflow and panning via `scrollLeft` (`.count-canvas` scrolls horizontally; vertical overflow instead grows the whole page since `.count-canvas` has no fixed height — expected, not a bug), confirmed marker removal preserves zoom state (no full re-render), and confirmed the zoom buttons disable correctly at the 100% floor and 300% ceiling. No console errors through the full interaction.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 8 updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

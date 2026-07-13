@@ -1538,10 +1538,14 @@ function wireAddPhotos() {
 // like Login and Add Photos do (see navigate()). Screen-local state, reset
 // every time the screen mounts.
 
-let countState = null; // { cell, markers: [{ id, x, y }] }
+let countState = null; // { cell, markers: [{ id, x, y }], zoom }
+
+const COUNT_ZOOM_MIN = 1;
+const COUNT_ZOOM_MAX = 3;
+const COUNT_ZOOM_STEP = 0.5;
 
 function renderCount() {
-  countState = { cell: state.cell, markers: [] };
+  countState = { cell: state.cell, markers: [], zoom: COUNT_ZOOM_MIN };
   refreshCount();
 }
 
@@ -1550,16 +1554,18 @@ function refreshCount() {
   wireCount();
 }
 
+function renderMarkerHTML(m) {
+  return `<button class="count-marker" data-marker-id="${escHtml(m.id)}" style="left:${m.x}%; top:${m.y}%;" aria-label="Remove marker"></button>`;
+}
+
 function renderCountHTML() {
-  const { cell, markers } = countState;
+  const { cell, markers, zoom } = countState;
 
   const image = cell.image_url
     ? `<img class="photo-preview-img" src="${escHtml(cell.image_url)}" alt="Processed fluorescence image of ${escHtml(cell.name)}">`
     : renderPhotoPreviewSVG(cell.id);
 
-  const markerEls = markers.map((m, i) => `
-    <button class="count-marker" data-marker-id="${escHtml(m.id)}" style="left:${m.x}%; top:${m.y}%;" aria-label="Remove marker ${i + 1}">${i + 1}</button>
-  `).join('');
+  const markerEls = markers.map(renderMarkerHTML).join('');
 
   return `
     <div class="count-screen">
@@ -1574,24 +1580,61 @@ function renderCountHTML() {
         </div>
       </header>
       <div class="count-error" id="count-error"></div>
-      <div class="count-canvas">
-        <div class="canvas-frame" id="count-frame">
+      <div class="count-canvas${zoom > COUNT_ZOOM_MIN ? ' is-zoomed' : ''}">
+        <div class="canvas-frame" id="count-frame" style="width:${zoom * 100}%; max-width:${zoom * 55}rem;">
           ${image}
           ${markerEls}
         </div>
+      </div>
+      <div class="count-zoom-controls">
+        <button class="count-zoom-btn" id="count-zoom-out" aria-label="Zoom out">−</button>
+        <span class="count-zoom-level" id="count-zoom-level">${Math.round(zoom * 100)}%</span>
+        <button class="count-zoom-btn" id="count-zoom-in" aria-label="Zoom in">+</button>
       </div>
     </div>
   `;
 }
 
 function addMarkerAt(xPct, yPct) {
-  countState.markers.push({ id: genLocalId('marker'), x: clamp(xPct, 0, 100), y: clamp(yPct, 0, 100) });
-  refreshCount();
+  const marker = { id: genLocalId('marker'), x: clamp(xPct, 0, 100), y: clamp(yPct, 0, 100) };
+  countState.markers.push(marker);
+  const frame = document.getElementById('count-frame');
+  frame.insertAdjacentHTML('beforeend', renderMarkerHTML(marker));
+  wireMarkerButton(frame.lastElementChild);
+  updateCountTotal();
 }
 
 function removeMarker(id) {
   countState.markers = countState.markers.filter(m => m.id !== id);
-  refreshCount();
+  document.querySelector(`.count-marker[data-marker-id="${id}"]`)?.remove();
+  updateCountTotal();
+}
+
+function updateCountTotal() {
+  const totalEl = document.querySelector('.count-total');
+  if (totalEl) totalEl.textContent = `Total: ${countState.markers.length}`;
+}
+
+function wireMarkerButton(btn) {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    removeMarker(btn.dataset.markerId);
+  });
+}
+
+// Zoom is applied by resizing #count-frame's real width/max-width (not a
+// CSS transform), so getBoundingClientRect()-based click math in wireCount
+// keeps working unchanged, and .count-canvas's existing overflow: auto
+// gives free panning around the enlarged image via scroll/trackpad.
+function setCountZoom(zoom) {
+  countState.zoom = clamp(zoom, COUNT_ZOOM_MIN, COUNT_ZOOM_MAX);
+  const frame = document.getElementById('count-frame');
+  frame.style.width = `${countState.zoom * 100}%`;
+  frame.style.maxWidth = `${countState.zoom * 55}rem`;
+  document.querySelector('.count-canvas').classList.toggle('is-zoomed', countState.zoom > COUNT_ZOOM_MIN);
+  document.getElementById('count-zoom-level').textContent = `${Math.round(countState.zoom * 100)}%`;
+  document.getElementById('count-zoom-out').disabled = countState.zoom <= COUNT_ZOOM_MIN;
+  document.getElementById('count-zoom-in').disabled = countState.zoom >= COUNT_ZOOM_MAX;
 }
 
 async function finishCount() {
@@ -1656,12 +1699,16 @@ function wireCount() {
     addMarkerAt(xPct, yPct);
   });
 
-  frame.querySelectorAll('.count-marker').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      removeMarker(btn.dataset.markerId);
-    });
+  frame.querySelectorAll('.count-marker').forEach(wireMarkerButton);
+
+  document.getElementById('count-zoom-out').addEventListener('click', () => {
+    setCountZoom(countState.zoom - COUNT_ZOOM_STEP);
   });
+  document.getElementById('count-zoom-in').addEventListener('click', () => {
+    setCountZoom(countState.zoom + COUNT_ZOOM_STEP);
+  });
+  document.getElementById('count-zoom-out').disabled = countState.zoom <= COUNT_ZOOM_MIN;
+  document.getElementById('count-zoom-in').disabled = countState.zoom >= COUNT_ZOOM_MAX;
 }
 
 // ---- Graph screen ----

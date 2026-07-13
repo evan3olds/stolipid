@@ -74,9 +74,10 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 ## Phase 8 — Count Screen
 
 - [x] Dark-mode full-screen layout displaying the processed fluorescence image
-- [x] Crosshair cursor; click to place a numbered marker on a lipid droplet
+- [x] Crosshair cursor; click to place a small red dot marker on a lipid droplet
 - [x] Click an existing marker to remove it
 - [x] Running total in top bar ("Total: N")
+- [x] Zoom in/out controls (100%–300%) to separate small, closely-clustered droplets; canvas pans via scroll
 - [x] "Done" → write count to `counts` table; "Cancel" → discard and return
 
 ---
