@@ -674,3 +674,28 @@ Asked the user what kind of processing; answer was both **rolling-ball backgroun
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## `api/detection.py` reworked to an explicit ImageJ-style binary pipeline
+
+**Request:** the user specified a concrete 5-step pipeline for both hand-count and auto-count images: (1) rolling-ball background subtraction, radius 12px, (2) threshold to binary with dark background, (3) binary fill holes, (4) binary convert to mask, (5) binary watershed. The stored hand-count image should stop after step 2 (background subtraction + threshold), not run the full chain.
+
+**`api/detection.py`:** replaced the ALDQ DoG/CLAHE pipeline entirely with four functions:
+- `subtract_background(plane)` — `rolling_ball(plane, radius=BACKGROUND_BALL_RADIUS_PX)`; `BACKGROUND_BALL_RADIUS_PX` dropped from `25` to `12` per the user's spec.
+- `threshold_binary(flattened)` — Otsu threshold, foreground = pixels above threshold (bright droplets on dark background), returned as a boolean mask. Replaces the old inline Otsu call inside `count_droplets`.
+- `preprocess_for_hand_count(plane)` (renamed from `preprocess_for_detection`) — chains `subtract_background` → `threshold_binary` only (steps 1-2), returned as uint16 `0`/`65535`. This is now what's stored as `cells.image_url`: a binary black-and-white image, not grayscale — a deliberate behavior change per the user's instruction, not an oversight.
+- `count_droplets(plane)` — runs its own full 5-step chain from the raw normalized crop (not from `preprocess_for_hand_count`'s output, since the two diverge after step 2): `subtract_background` → `threshold_binary` → `scipy.ndimage.binary_fill_holes` → Euclidean distance transform of the filled mask → `peak_local_max` on the distance transform seeds one watershed marker per droplet center → `watershed(-distance, markers, mask=filled)`. This is the standard ImageJ "Process > Binary > Watershed" construction (flood the inverted distance map, not an intensity/gradient landscape).
+- Removed now-dead CLAHE and DoG/Sobel code and constants (`CLAHE_CLIP_LIMIT`, `DOG_LOW_SIGMA_PX`, `DOG_HIGH_SIGMA_PX`, `SHARPEN_ITERATIONS`, `SHARPEN_STRENGTH`, `PEAK_THRESHOLD_REL`) and unused imports (`equalize_adapthist`, `difference_of_gaussians`, `sobel`, `label`); added `scipy.ndimage`.
+
+**`api/main.py`:** `cells_from_tif` now calls `preprocess_for_hand_count(normalized_crop)` for the stored/uploaded image and `count_droplets(normalized_crop)` separately for the auto-count — two consumers off the same normalized crop, each running its own portion of the shared pipeline (previously both shared one fully-processed array).
+
+### Verification
+
+- Synthetic smoke test (4 well-separated Gaussian blobs, one pair close together, on a noisy background): `preprocess_for_hand_count` returns a `uint16` array with only two values (`0`, `65535`), confirming it's a true binary image. `count_droplets` runs end-to-end without error and returns a plausible count.
+- Confirmed `scipy` is already in `api/requirements.txt` (`scipy.ndimage` is a new import but not a new dependency).
+- Did not yet re-run against the real sample crop (`assets/Image_43391.tif`) or against real hand-count data to calibrate `BACKGROUND_BALL_RADIUS_PX=12` or the watershed peak-distance defaults — consistent with this module's existing "not yet calibrated" caveats. Flagged to the user: the stored hand-count image is now binary black-and-white rather than grayscale, which may look different from what researchers are used to — worth confirming it's still usable for hand counting once deployed.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

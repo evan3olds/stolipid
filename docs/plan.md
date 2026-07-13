@@ -1344,3 +1344,44 @@ Kept the Otsu-based mask since watershed still needs a foreground/background bou
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# `api/detection.py` reworked to an explicit ImageJ-style binary pipeline
+
+## Context
+
+User specified a concrete 5-step image-processing pipeline to replace the ALDQ DoG/CLAHE approach, for both hand-count and auto-count images:
+
+1. Subtract background — rolling ball radius 12px
+2. Threshold to binary, dark background
+3. Binary fill holes
+4. Binary convert to mask
+5. Binary watershed
+
+The stored hand-count image (`cells.image_url`) should stop after step 2, not run the full chain.
+
+## Approach
+
+Split the pipeline into named steps rather than one monolithic function, since the hand-count and auto-count consumers now diverge partway through:
+
+- `subtract_background(plane)` — `rolling_ball(plane, radius=12)` (radius constant dropped from the old `25`).
+- `threshold_binary(flattened)` — Otsu threshold, `flattened > thresh` (dark background = foreground is the bright side of the threshold), returned as a boolean mask.
+- `preprocess_for_hand_count(plane)` — `subtract_background` → `threshold_binary`, steps 1-2 only, returned as uint16 `0`/`65535`. Replaces `preprocess_for_detection` as the function whose output is stored as `cells.image_url`.
+- `count_droplets(plane)` — full chain: `subtract_background` → `threshold_binary` → `scipy.ndimage.binary_fill_holes` (step 3; also serves as step 4's "convert to mask" since the filled result is already a clean boolean array) → distance-transform watershed (step 5): `distance_transform_edt` of the filled mask, `peak_local_max` on the distance transform for one marker per droplet center, `watershed(-distance, markers, mask=filled)`. This is the standard skimage recipe for ImageJ's Process > Binary > Watershed.
+
+`count_droplets` takes the raw normalized crop and runs the full chain itself rather than accepting `preprocess_for_hand_count`'s output, since steps 3-5 need the boolean mask from step 2, not the uint16 display image — recomputing steps 1-2 inside `count_droplets` is cheap relative to `rolling_ball`'s own cost and keeps the two functions independently correct rather than coupling them through an intermediate representation.
+
+`api/main.py`'s `cells_from_tif` calls both functions separately off the same `normalized_crop`.
+
+Removed the now-dead CLAHE/DoG/Sobel code (`preprocess_for_detection`'s CLAHE step, the old sharpen-iteration loop, `sobel` elevation map) and their constants, since the user's 5-step spec doesn't use any of them.
+
+## Verification
+
+- Synthetic smoke test (4 Gaussian blobs, one close pair, noisy background): `preprocess_for_hand_count` output has exactly two unique values (`0`, `65535`) — confirmed binary. `count_droplets` runs end-to-end without error and returns a plausible count.
+- `scipy` already in `api/requirements.txt`; `scipy.ndimage` is a new import, not a new dependency.
+- Not yet verified: real sample crop, real hand-count calibration of `BACKGROUND_BALL_RADIUS_PX=12` or watershed peak-distance defaults, or how the now-binary stored hand-count image actually looks/reads for a researcher doing manual counting — flagged to the user as worth confirming post-deploy since this is a visible behavior change (grayscale → binary) to the stored image, not just an internal algorithm swap.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

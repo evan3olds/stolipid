@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from supabase import create_client
 
-from detection import count_droplets, preprocess_for_detection
+from detection import count_droplets, preprocess_for_hand_count
 from imaging import (
     crop_array_percent,
     encode_png,
@@ -331,15 +331,16 @@ def cells_from_tif(
     for box in box_list:
         raw_crop = crop_array_percent(plane, box.x, box.y, box.width, box.height)
         # normalize_to_uint16: linear min/max stretch, not render_display_image's
-        # percentile clip — nothing discarded before background/contrast
-        # enhancement. preprocess_for_detection's output is what's actually
-        # stored and counted: one enhancement pass feeds both the
-        # hand-count/viewing image and count_droplets.
+        # percentile clip — nothing discarded before the shared background
+        # subtraction/threshold pipeline (see api/detection.py). The stored
+        # hand-count image is that pipeline's first two steps
+        # (preprocess_for_hand_count); count_droplets continues from the
+        # same normalized crop through fill-holes/mask/watershed.
         normalized_crop = normalize_to_uint16(raw_crop)
-        processed_crop = preprocess_for_detection(normalized_crop)
-        url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", encode_png_16(processed_crop))
+        hand_count_crop = preprocess_for_hand_count(normalized_crop)
+        url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", encode_png_16(hand_count_crop))
 
-        auto_count = count_droplets(processed_crop)
+        auto_count = count_droplets(normalized_crop)
 
         response = (
             supabase.table("cells")
