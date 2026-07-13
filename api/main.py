@@ -349,6 +349,7 @@ def cells_from_tif(
                 "name": f"Cell {next_number}",
                 "image_url": url,
                 "auto_count": auto_count,
+                "source_filename": file.filename,
             })
             .execute()
         )

@@ -30,12 +30,13 @@ Four tables with this hierarchy:
 ```
 experiments (id, name, date, dye, notes, created_by)
   └── conditions (id, experiment_id, name, dye, starvation, notes, icc)
-        └── cells (id, condition_id, name, image_url, auto_count)
+        └── cells (id, condition_id, name, image_url, auto_count, source_filename)
               └── counts (id, cell_id, value, counted_by, created_at)
 ```
 - `cell.average` and `condition.mean` are computed in JS at query time, not stored
 - `condition.icc` is written by the Python pipeline and stored as a column
-- `cells.auto_count` is a machine-suggested droplet count (iterative difference-of-Gaussians band-pass sharpening → local-maxima seeding → edge-detection watershed), written by the Python pipeline at cell-creation time — not a hand count, not included in `cell.average`/`condition.icc`
+- `cells.auto_count` is a machine-suggested droplet count (rolling-ball background subtraction → dark-background Otsu threshold → binary fill-holes → distance-transform watershed), written by the Python pipeline at cell-creation time — not a hand count, not included in `cell.average`/`condition.icc`
+- `cells.source_filename` is the original uploaded `.tif` filename, written by the Python pipeline at cell-creation time (one source file can produce multiple cells, one per annotated box)
 - Row-Level Security: researchers only read/write their own experiment data
 
 ### Python API (Render)

@@ -1411,3 +1411,30 @@ Presented this trade-off to the user directly (threshold changes area, peak-dist
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# `cells.source_filename` — original .tif name stored as metadata
+
+## Context
+
+User asked to store the original `.tif` filename as metadata on a cell. `cells_from_tif` (`api/main.py`) already accepts the upload as a FastAPI `UploadFile`, so the original client filename was already available in-request via `.filename` — no new upload plumbing needed, just capturing and persisting it.
+
+## Approach
+
+Added `"source_filename": file.filename` to the insert dict in `cells_from_tif`'s per-box loop. Since one `.tif` upload can produce several cells (one per annotated box), every cell created from that upload gets the same `source_filename` — intentional, since they genuinely do share one source file.
+
+The `cells` table lives in Supabase directly; this repo has no SQL migrations directory, so there's no version-controlled place to make the schema change. This environment also only has placeholder Supabase credentials, not real ones, so the column can't be added programmatically from here. Gave the user the exact `ALTER TABLE cells ADD COLUMN source_filename text;` to run themselves — this has to land before the updated `cells_from_tif` is deployed, or inserts will start failing (unknown column).
+
+Updated the schema descriptions in `CLAUDE.md` and `docs/PRD.md` to list the new column, and in `CLAUDE.md` also corrected a stale description of `cells.auto_count`'s algorithm left over from the earlier ImageJ-pipeline rework (it still described the old DoG/CLAHE approach).
+
+Did not add a frontend display for `source_filename` — the request was framed as storing metadata, not surfacing it in the UI, so left that as a follow-up question rather than assuming scope.
+
+## Verification
+
+- `python -m py_compile api/main.py`: passes.
+- No live-database verification possible in this environment (no real Supabase credentials) — flagged as an open gap the user needs to close (run the `ALTER TABLE`) before this can be deployed and actually tested end-to-end.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

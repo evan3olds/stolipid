@@ -721,3 +721,29 @@ Asked the user what kind of processing; answer was both **rolling-ball backgroun
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## `cells.source_filename` — original .tif name stored as metadata
+
+**Request:** the user asked to store the original `.tif` filename as metadata on a cell.
+
+**`api/main.py`:** `cells_from_tif` already receives the upload as a FastAPI `UploadFile`, which carries the client's original filename on `.filename`. Added `"source_filename": file.filename` to the per-box insert dict alongside the existing `condition_id`/`name`/`image_url`/`auto_count` fields — one `.tif` can produce multiple cells (one per annotated box), and all of them get the same source filename, which is correct since they really do all come from the same uploaded file.
+
+**Schema:** the `cells` table itself lives in Supabase and isn't version-controlled as SQL in this repo (no migrations directory exists). This environment only has placeholder Supabase credentials (`api/.env.example`), not real ones, so the column can't be added here — flagged to the user with the exact statement to run themselves before deploying:
+```sql
+ALTER TABLE cells ADD COLUMN source_filename text;
+```
+Until that column exists, every `cells_from_tif` insert will fail once this code ships.
+
+**Docs:** updated the schema description in `CLAUDE.md` (cells table field list, plus fixed a stale line that still described `auto_count`'s algorithm as the old DoG/CLAHE pipeline instead of the current rolling-ball/threshold/watershed one from the ImageJ-style rework) and `docs/PRD.md`'s `cells` table SQL block (which also didn't list `auto_count` yet — added both missing columns while touching that line).
+
+### Verification
+
+- `python -m py_compile main.py`: passes.
+- Did not verify the actual insert against a live Supabase instance (no real credentials available) — this is a genuine gap until the user runs the `ALTER TABLE` and deploys.
+- Not done: no frontend display of `source_filename` was added (Cells screen detail panel still only shows `auto_count`/hand counts) — the user's request was to store it as metadata, not necessarily surface it in the UI; worth asking if they also want it shown.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

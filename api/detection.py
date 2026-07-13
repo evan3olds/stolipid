@@ -13,7 +13,7 @@ BACKGROUND_BALL_RADIUS_PX = 12
 # Multiplier on Otsu's threshold. >1 raises the cutoff so only the brighter
 # cores of clumped/touching droplets pass, shrinking the foreground mask
 # and pulling touching droplets apart before fill-holes/watershed even run.
-THRESHOLD_FACTOR = 1.3
+THRESHOLD_FACTOR = 1.5
 
 
 def subtract_background(plane: np.ndarray) -> np.ndarray:
