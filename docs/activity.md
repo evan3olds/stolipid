@@ -888,3 +888,29 @@ Ran the real app, not just a code read — Node/npm/chromium-cli aren't availabl
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 6d added and checked off. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Raw Data screen: "Export CSV" button
+
+**Request:** add an "Export CSV" button near the top right of the Raw Data screen that downloads the table as a CSV file.
+
+### `app.js`
+
+- `renderRawDataHTML()` — wrapped the existing filter input in a new `.rawdata-toolbar` flex row alongside a new `<button id="rawdata-export">Export CSV</button>`, right-aligned via `justify-content: space-between`
+- `csvField(value)` — CSV-escapes a single value (wraps in quotes and doubles embedded quotes if it contains a comma, quote, or newline; `null`/`undefined` become an empty field, matching the table's `—` treatment)
+- `rawDataToCSV(rows)` — builds a CSV string using `RAWDATA_COLUMNS`' labels as the header row and `rawDataSortValue()` (already used for sorting) to read each column's raw value per row — reuses the existing column/value plumbing rather than duplicating it
+- `downloadRawDataCSV()` — exports `visibleRawDataRows()` (i.e. whatever the user currently has filtered/sorted into view, not the unfiltered full set) as a `Blob`, triggers the download via a throwaway `<a download>` element, and revokes the object URL after the click. Filename is `raw-data-YYYY-MM-DD.csv` (today's date)
+- `wireRawData()` — added a click listener on `#rawdata-export` calling `downloadRawDataCSV()`
+
+### `style.css`
+
+Added `.rawdata-toolbar` (flex row, filter left / button right) and `.rawdata-export-btn`, styled identically to the existing `.detail-open-btn` accent button (solid `--accent` background, same padding/radius/hover brightness) rather than inventing a new button style.
+
+### Verification
+
+No Chrome/Chromium or Playwright install is present in this environment (unlike several earlier phases, which had one) — actual on-screen/download verification wasn't possible this session. Instead:
+- `node --check app.js` passes
+- Brace count in `style.css` balanced (237 open / 237 close)
+- Isolated the exact CSV-building logic (`csvField`/`rawDataToCSV`/`rawDataSortValue`/`rawDataCountAt`, copied verbatim) into a standalone Node script and ran it against synthetic rows: a value containing a comma and one containing an embedded double-quote both got correctly quoted/escaped (`"Serum, Starvation"`, `"0 Hr ""Starved"""`), and a cell with zero counts produced empty fields (`,,,,`) rather than literal `—` or `null` text
+- **Not verified:** the button's actual on-page position/styling, and that a real browser click triggers a file download — recommend opening `index.html` locally, going to Raw Data, and confirming the button sits top-right of the table and downloads a working `.csv` before treating this as fully verified.
