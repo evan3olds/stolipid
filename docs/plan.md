@@ -1579,22 +1579,21 @@ Serve the site locally (`python -m http.server`) and drive it with Playwright's 
 
 ---
 
-# Plan: Login boot-popup (Render cold-start notice)
+# Plan: Login "Loading..." message with boot notice (Render cold-start)
 
 ## Context
 
-Render's free tier spins the API down after inactivity; the first request after idle can take 30-60s to wake it. The user asked that if login takes longer than 3 seconds, a popup tell them to wait 1-2 minutes while the site boots up.
+Render's free tier spins the API down after inactivity; the first request after idle can take 30-60s to wake it. The user asked for the login button to show "Loading..." immediately on click, then — if the request is still pending 3 seconds later — add a message telling them to wait 1-2 minutes while the site boots up. An earlier pass implemented this as a separate modal popup; that was superseded before landing in favor of updating the login form's existing inline message text instead, which is simpler and needs no new UI element.
 
 ## Approach
 
-- `app.js` — add `showBootPopup()`/`hideBootPopup()` helpers that inject/remove a small overlay (mirrors the existing `.modal-backdrop`/`.modal` pattern rather than inventing a new UI system)
-- In the login submit handler's real-API branch (`mode === 'login'`, after the local `test-accounts.json` shortcut has already returned), start `setTimeout(showBootPopup, 3000)` right before the `api('/auth/login', ...)` call, and clear the timer + hide the popup in a `finally` so it's dismissed on both success and failure
-- `style.css` — add `.boot-popup-backdrop`/`.boot-popup`, styled like the existing modal but with a higher `z-index`
+- `app.js` — in `renderLogin`'s `mode === 'login'` submit handler, set `messageEl.textContent = 'Loading...'` immediately (before the local `test-accounts.json` shortcut check), then before the real `api('/auth/login', ...)` call start `setTimeout(..., 3000)` that upgrades `messageEl` to add the wait notice; clear the timer in a `finally` and reset `messageEl` to `''` on error
+- No separate popup/modal element or extra CSS — reuses the existing `.login-message` div/styling
 
 ## Verification
 
-Read through the control flow to confirm the timer always gets cleared. Not screenshot-verified against a real cold Render instance (can't force a 30-60s cold start in this environment) — recommend the user do a manual check after a period of Render inactivity.
+Read through the control flow to confirm the timer always gets cleared and `messageEl` doesn't end up stuck on stale text after an error. Not screenshot-verified against a real cold Render instance (can't force a 30-60s cold start in this environment) — recommend the user do a manual check after a period of Render inactivity.
 
 ## Final step (per project convention)
 
-`docs/tasks.md` Phase 2 item added and checked off. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+`docs/tasks.md` Phase 2 item updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
