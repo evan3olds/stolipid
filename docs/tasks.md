@@ -145,6 +145,15 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ---
 
+## Phase 6d — Card Edit/Remove (Experiments, Conditions, Cells)
+
+- [x] Three-dot menu (top-right of every folder card on Experiments, Conditions, and Cells) with Edit and Remove actions
+- [x] Edit opens a modal pre-filled with the item's metadata (Experiment: name/date/dye/notes; Condition: name/dye/starvation/notes; Cell: name only) and saves via a new `PUT` endpoint
+- [x] Remove opens a confirmation modal ("Delete X and all of its …? This cannot be undone.") before calling a new `DELETE` endpoint
+- [x] Render: `PUT`/`DELETE /experiments/{id}`, `PUT`/`DELETE /conditions/{id}`, `PUT`/`DELETE /cells/{id}` — deletes manually cascade (counts → cells → conditions) since no DB-level `ON DELETE CASCADE` is confirmed; cell deletion also recomputes the owning condition's ICC
+
+---
+
 ## Phase 12 — Static Content Screens
 
 - [ ] Help screen: list of help cards (title + body); content editable in app config

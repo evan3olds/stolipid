@@ -222,6 +222,43 @@ def create_experiment(body: ExperimentBody, user=Depends(get_current_user)):
     return response.data[0]
 
 
+@app.put("/experiments/{experiment_id}")
+def update_experiment(experiment_id: str, body: ExperimentBody, user=Depends(get_current_user)):
+    owned_experiment(experiment_id, user.id)
+    response = (
+        supabase.table("experiments")
+        .update({
+            "name": body.name,
+            "date": body.date,
+            "dye": body.dye,
+            "notes": body.notes,
+        })
+        .eq("id", experiment_id)
+        .execute()
+    )
+    return response.data[0]
+
+
+@app.delete("/experiments/{experiment_id}")
+def delete_experiment(experiment_id: str, user=Depends(get_current_user)):
+    owned_experiment(experiment_id, user.id)
+    condition_ids = [
+        row["id"]
+        for row in supabase.table("conditions").select("id").eq("experiment_id", experiment_id).execute().data
+    ]
+    if condition_ids:
+        cell_ids = [
+            row["id"]
+            for row in supabase.table("cells").select("id").in_("condition_id", condition_ids).execute().data
+        ]
+        if cell_ids:
+            supabase.table("counts").delete().in_("cell_id", cell_ids).execute()
+            supabase.table("cells").delete().in_("condition_id", condition_ids).execute()
+        supabase.table("conditions").delete().eq("experiment_id", experiment_id).execute()
+    supabase.table("experiments").delete().eq("id", experiment_id).execute()
+    return {"status": "deleted"}
+
+
 # ---- Conditions ----
 
 class ConditionBody(BaseModel):
@@ -260,7 +297,42 @@ def create_condition(experiment_id: str, body: ConditionBody, user=Depends(get_c
     return response.data[0]
 
 
+@app.put("/conditions/{condition_id}")
+def update_condition(condition_id: str, body: ConditionBody, user=Depends(get_current_user)):
+    owned_condition(condition_id, user.id)
+    response = (
+        supabase.table("conditions")
+        .update({
+            "name": body.name,
+            "dye": body.dye,
+            "starvation": body.starvation,
+            "notes": body.notes,
+        })
+        .eq("id", condition_id)
+        .execute()
+    )
+    return response.data[0]
+
+
+@app.delete("/conditions/{condition_id}")
+def delete_condition(condition_id: str, user=Depends(get_current_user)):
+    owned_condition(condition_id, user.id)
+    cell_ids = [
+        row["id"]
+        for row in supabase.table("cells").select("id").eq("condition_id", condition_id).execute().data
+    ]
+    if cell_ids:
+        supabase.table("counts").delete().in_("cell_id", cell_ids).execute()
+        supabase.table("cells").delete().eq("condition_id", condition_id).execute()
+    supabase.table("conditions").delete().eq("id", condition_id).execute()
+    return {"status": "deleted"}
+
+
 # ---- Cells ----
+
+class CellUpdateBody(BaseModel):
+    name: str
+
 
 @app.get("/conditions/{condition_id}/cells")
 def list_cells(condition_id: str, user=Depends(get_current_user)):
@@ -272,6 +344,27 @@ def list_cells(condition_id: str, user=Depends(get_current_user)):
         .execute()
     )
     return response.data
+
+
+@app.put("/cells/{cell_id}")
+def update_cell(cell_id: str, body: CellUpdateBody, user=Depends(get_current_user)):
+    owned_cell(cell_id, user.id)
+    response = (
+        supabase.table("cells")
+        .update({"name": body.name})
+        .eq("id", cell_id)
+        .execute()
+    )
+    return response.data[0]
+
+
+@app.delete("/cells/{cell_id}")
+def delete_cell(cell_id: str, user=Depends(get_current_user)):
+    cell = owned_cell(cell_id, user.id)
+    supabase.table("counts").delete().eq("cell_id", cell_id).execute()
+    supabase.table("cells").delete().eq("id", cell_id).execute()
+    recompute_condition_icc(cell["condition_id"])
+    return {"status": "deleted"}
 
 
 # ---- .tif image pipeline ----

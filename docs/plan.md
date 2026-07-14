@@ -1538,3 +1538,41 @@ Kept a private `_fill_and_watershed(mask, watershed_line)` helper for the fill-h
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+---
+
+# Plan: Phase 6d — Three-dot edit/remove menu on Experiments, Conditions, and Cells cards
+
+## Context
+
+Experiments, Conditions, and Cells all render as `.folder-card` grids (`renderExperimentsHTML`/`renderConditionsHTML`/`renderCellsHTML` in `app.js`) with an "Add"-style modal per screen (`openAddExperimentModal`/`openAddConditionModal`, plus `navigate('addphotos')` for Cells) but no way to edit or delete an existing item once created. The user asked for a three-dot menu at the top-right of each card with Edit (metadata popup) and Remove (confirmation popup) actions, across all three screens.
+
+No `PUT`/`DELETE` endpoints exist yet for `experiments`/`conditions`/`cells` themselves (only `DELETE /counts/{id}` exists, for individual hand counts) — these need to be added to `api/main.py`.
+
+## What to build
+
+### `api/main.py` — new endpoints
+
+- `PUT /experiments/{id}` (reuses `ExperimentBody`) / `DELETE /experiments/{id}` — delete manually cascades `counts` → `cells` → `conditions` → the experiment, since DB-level cascade isn't confirmed
+- `PUT /conditions/{id}` (reuses `ConditionBody`) / `DELETE /conditions/{id}` — cascades `counts` → `cells` → the condition
+- `PUT /cells/{id}` (new `CellUpdateBody`, `name` only — the rest of a cell's fields are pipeline-written) / `DELETE /cells/{id}` — deletes `counts` then the cell, then calls `recompute_condition_icc`
+- All reuse `owned_experiment`/`owned_condition`/`owned_cell` for the same 404-not-403 ownership check every other route uses
+
+### `app.js` — shared card-menu machinery, then per-screen wiring
+
+- `cardMenuHTML(id)` / `wireCardMenus(grid, { onEdit, onRemove })` / `closeAllCardMenus` / `openConfirmModal({ title, message, confirmLabel, onConfirm })` — one shared implementation, reused by all three screens rather than duplicated three times. The dropdown toggle uses `stopPropagation` so it doesn't also trigger the card's own click-to-select; a single document-level "click closes any open menu" listener is torn down/reattached per render, same pattern as `wireShell`'s `escHandler`
+- `openEditExperimentModal`/`openEditConditionModal`/`openEditCellModal` — each mirrors its screen's existing Add-modal pattern (same fields, same local-test-vs-API branching) but pre-fills from the existing item and calls `PUT` instead of `POST`
+- `deleteExperiment`/`deleteCondition`/`deleteCell` — call the new `DELETE` endpoint (or mutate the `TEST_EXPERIMENTS`/`TEST_CONDITIONS` fixtures directly for local test accounts), then re-run the screen's `init*()` to refresh
+
+### `style.css`
+
+`.card-menu`/`.card-menu-btn`/`.card-menu-dropdown`/`.card-menu-item`/`.card-menu-item-danger` for the menu itself; `.modal-confirm-message`/`.modal-danger` for the reusable confirm modal (reuses `.modal`/`.modal-form`/`.modal-actions` rather than a new modal variant); `padding-right` added to `.folder-name` so long names don't run under the new button.
+
+## Verification
+
+Serve the site locally (`python -m http.server`) and drive it with Playwright's Python bindings against a real Chrome install (`channel="chrome"`) — no Node/npm/chromium-cli in this environment. Log in with the local test account, and on each of Experiments/Conditions/Cells: open the ⋮ menu, Edit → confirm fields prefill and Save updates the card, Remove → confirm the confirmation modal names the right item and removal actually removes it. Screenshot at each step (not just a DOM dump, per the standing project lesson from the Phase 7 refinement) and check for console errors.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 6d added and checked off. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

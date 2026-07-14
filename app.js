@@ -478,6 +478,104 @@ const TEST_CONDITIONS = {
   ],
 };
 
+// ---- Card menu (three-dot edit/remove, shared by experiments/conditions/cells) ----
+
+function cardMenuHTML(id) {
+  const safeId = escHtml(String(id));
+  return `
+    <div class="card-menu">
+      <button type="button" class="card-menu-btn" data-id="${safeId}" aria-label="More options" aria-haspopup="true" aria-expanded="false">&#8942;</button>
+      <div class="card-menu-dropdown" data-id="${safeId}">
+        <button type="button" class="card-menu-item" data-action="edit">Edit</button>
+        <button type="button" class="card-menu-item card-menu-item-danger" data-action="remove">Remove</button>
+      </div>
+    </div>
+  `;
+}
+
+function closeAllCardMenus(grid) {
+  grid.querySelectorAll('.card-menu-dropdown.open').forEach(d => d.classList.remove('open'));
+  grid.querySelectorAll('.card-menu-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+}
+
+// Tracked so the previous screen's outside-click listener is detached before
+// a new one is attached, mirroring the escHandler pattern in wireShell.
+let cardMenuDocHandler = null;
+
+function wireCardMenus(grid, { onEdit, onRemove }) {
+  if (cardMenuDocHandler) document.removeEventListener('click', cardMenuDocHandler);
+  cardMenuDocHandler = () => closeAllCardMenus(grid);
+  document.addEventListener('click', cardMenuDocHandler);
+
+  grid.querySelectorAll('.card-menu-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const dropdown = btn.nextElementSibling;
+      const wasOpen = dropdown.classList.contains('open');
+      closeAllCardMenus(grid);
+      if (!wasOpen) {
+        dropdown.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+    });
+  });
+
+  grid.querySelectorAll('.card-menu-dropdown').forEach(dropdown => {
+    const id = dropdown.dataset.id;
+    dropdown.querySelector('[data-action="edit"]').addEventListener('click', e => {
+      e.stopPropagation();
+      closeAllCardMenus(grid);
+      onEdit(id);
+    });
+    dropdown.querySelector('[data-action="remove"]').addEventListener('click', e => {
+      e.stopPropagation();
+      closeAllCardMenus(grid);
+      onRemove(id);
+    });
+  });
+}
+
+// Generic "are you sure?" modal, reused for every remove action.
+function openConfirmModal({ title, message, confirmLabel = 'Remove', onConfirm }) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">${escHtml(title)}</div>
+      <div class="modal-form">
+        <p class="modal-confirm-message">${escHtml(message)}</p>
+        <div class="modal-error" id="modal-error"></div>
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" id="modal-cancel">Cancel</button>
+          <button type="button" class="modal-save modal-danger" id="modal-confirm">${escHtml(confirmLabel)}</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const removeModal = () => backdrop.remove();
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) removeModal(); });
+  document.getElementById('modal-cancel').addEventListener('click', removeModal);
+
+  document.getElementById('modal-confirm').addEventListener('click', async () => {
+    const confirmBtn = document.getElementById('modal-confirm');
+    const errEl = document.getElementById('modal-error');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Removing…';
+    errEl.textContent = '';
+
+    try {
+      await onConfirm();
+      removeModal();
+    } catch {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = confirmLabel;
+      errEl.textContent = 'Could not remove. Check the API connection.';
+    }
+  });
+}
+
 // ---- Experiments screen ----
 
 function escHtml(str) {
@@ -530,6 +628,7 @@ function renderExperimentsHTML(experiments) {
         const condLabel = `${condCount} condition${condCount !== 1 ? 's' : ''}`;
         return `
           <div class="folder-card" data-id="${escHtml(String(exp.id))}" role="button" tabindex="0">
+            ${cardMenuHTML(exp.id)}
             <div class="folder-name">${escHtml(exp.name)}</div>
             <div class="folder-meta">
               ${exp.dye ? `<span class="folder-meta-item">${escHtml(exp.dye)}</span>` : ''}
@@ -601,7 +700,34 @@ function wireExperiments(experiments) {
     });
   });
 
+  wireCardMenus(grid, {
+    onEdit: id => {
+      const exp = experiments.find(e => String(e.id) === String(id));
+      if (exp) openEditExperimentModal(exp, () => initExperiments());
+    },
+    onRemove: id => {
+      const exp = experiments.find(e => String(e.id) === String(id));
+      if (!exp) return;
+      openConfirmModal({
+        title: 'Remove experiment',
+        message: `Delete "${exp.name}" and all of its conditions, cells, and counts? This cannot be undone.`,
+        onConfirm: () => deleteExperiment(exp.id),
+      });
+    },
+  });
+
   wireExperimentsAction();
+}
+
+async function deleteExperiment(id) {
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    const idx = TEST_EXPERIMENTS.findIndex(e => String(e.id) === String(id));
+    if (idx !== -1) TEST_EXPERIMENTS.splice(idx, 1);
+    delete TEST_CONDITIONS[id];
+  } else {
+    await api(`/experiments/${id}`, { method: 'DELETE' });
+  }
+  initExperiments();
 }
 
 function wireExperimentsAction() {
@@ -667,6 +793,77 @@ function openAddExperimentModal(onSuccess) {
           notes: document.getElementById('modal-notes').value,
         }),
       });
+      removeModal();
+      onSuccess();
+    } catch {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      errEl.textContent = 'Could not save. Check the API connection.';
+    }
+  });
+
+  document.getElementById('modal-name').focus();
+}
+
+function openEditExperimentModal(exp, onSuccess) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">Edit experiment</div>
+      <form class="modal-form" id="modal-form">
+        <div class="modal-field">
+          <label for="modal-name">Name</label>
+          <input id="modal-name" type="text" required autocomplete="off" value="${escHtml(exp.name || '')}">
+        </div>
+        <div class="modal-field">
+          <label for="modal-date">Date</label>
+          <input id="modal-date" type="date" required value="${escHtml(exp.date || '')}">
+        </div>
+        <div class="modal-field">
+          <label for="modal-dye">Dye</label>
+          <input id="modal-dye" type="text" autocomplete="off" placeholder="e.g. BODIPY" value="${escHtml(exp.dye || '')}">
+        </div>
+        <div class="modal-field">
+          <label for="modal-notes">Notes</label>
+          <textarea id="modal-notes" rows="3">${escHtml(exp.notes || '')}</textarea>
+        </div>
+        <div class="modal-error" id="modal-error"></div>
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" id="modal-cancel">Cancel</button>
+          <button type="submit" class="modal-save" id="modal-save">Save</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const removeModal = () => backdrop.remove();
+
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) removeModal(); });
+  document.getElementById('modal-cancel').addEventListener('click', removeModal);
+
+  document.getElementById('modal-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const saveBtn = document.getElementById('modal-save');
+    const errEl = document.getElementById('modal-error');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    errEl.textContent = '';
+
+    const updated = {
+      name:  document.getElementById('modal-name').value,
+      date:  document.getElementById('modal-date').value,
+      dye:   document.getElementById('modal-dye').value,
+      notes: document.getElementById('modal-notes').value,
+    };
+
+    try {
+      if (localStorage.getItem('token')?.startsWith('local:')) {
+        Object.assign(exp, updated);
+      } else {
+        await api(`/experiments/${exp.id}`, { method: 'PUT', body: JSON.stringify(updated) });
+      }
       removeModal();
       onSuccess();
     } catch {
@@ -783,6 +980,7 @@ function renderConditionsHTML(conditions) {
         const cellCount = (cond.cells || []).length;
         return `
           <div class="folder-card" data-id="${escHtml(String(cond.id))}" role="button" tabindex="0">
+            ${cardMenuHTML(cond.id)}
             <div class="folder-name">${escHtml(cond.name)}</div>
             <div class="folder-meta">
               ${cond.dye ? `<span class="folder-meta-item">${escHtml(cond.dye)}</span>` : ''}
@@ -864,7 +1062,34 @@ function wireConditions(conditions) {
     });
   });
 
+  wireCardMenus(grid, {
+    onEdit: id => {
+      const cond = conditions.find(c => String(c.id) === String(id));
+      if (cond) openEditConditionModal(cond, () => initConditions());
+    },
+    onRemove: id => {
+      const cond = conditions.find(c => String(c.id) === String(id));
+      if (!cond) return;
+      openConfirmModal({
+        title: 'Remove condition',
+        message: `Delete "${cond.name}" and all of its cells and counts? This cannot be undone.`,
+        onConfirm: () => deleteCondition(cond.id),
+      });
+    },
+  });
+
   wireConditionsAction();
+}
+
+async function deleteCondition(id) {
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    const conditions = TEST_CONDITIONS[state.experiment?.id] || [];
+    const idx = conditions.findIndex(c => String(c.id) === String(id));
+    if (idx !== -1) conditions.splice(idx, 1);
+  } else {
+    await api(`/conditions/${id}`, { method: 'DELETE' });
+  }
+  initConditions();
 }
 
 function wireConditionsAction() {
@@ -932,6 +1157,78 @@ function openAddConditionModal(onSuccess) {
           notes:      document.getElementById('modal-notes').value,
         }),
       });
+      removeModal();
+      onSuccess();
+    } catch {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      errEl.textContent = 'Could not save. Check the API connection.';
+    }
+  });
+
+  document.getElementById('modal-name').focus();
+}
+
+function openEditConditionModal(cond, onSuccess) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">Edit condition</div>
+      <form class="modal-form" id="modal-form">
+        <div class="modal-field">
+          <label for="modal-name">Name</label>
+          <input id="modal-name" type="text" required autocomplete="off" value="${escHtml(cond.name || '')}">
+        </div>
+        <div class="modal-field">
+          <label for="modal-dye">Dye</label>
+          <input id="modal-dye" type="text" autocomplete="off" placeholder="e.g. BODIPY" value="${escHtml(cond.dye || '')}">
+        </div>
+        <div class="modal-field">
+          <label for="modal-starvation">Starvation length (hours)</label>
+          <input id="modal-starvation" type="number" min="0" step="1" value="${cond.starvation != null ? escHtml(String(cond.starvation)) : ''}">
+        </div>
+        <div class="modal-field">
+          <label for="modal-notes">Notes</label>
+          <textarea id="modal-notes" rows="3">${escHtml(cond.notes || '')}</textarea>
+        </div>
+        <div class="modal-error" id="modal-error"></div>
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" id="modal-cancel">Cancel</button>
+          <button type="submit" class="modal-save" id="modal-save">Save</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const removeModal = () => backdrop.remove();
+
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) removeModal(); });
+  document.getElementById('modal-cancel').addEventListener('click', removeModal);
+
+  document.getElementById('modal-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const saveBtn = document.getElementById('modal-save');
+    const errEl = document.getElementById('modal-error');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    errEl.textContent = '';
+
+    const starvationVal = document.getElementById('modal-starvation').value;
+    const updated = {
+      name:       document.getElementById('modal-name').value,
+      dye:        document.getElementById('modal-dye').value,
+      starvation: starvationVal === '' ? null : Number(starvationVal),
+      notes:      document.getElementById('modal-notes').value,
+    };
+
+    try {
+      if (localStorage.getItem('token')?.startsWith('local:')) {
+        Object.assign(cond, updated);
+      } else {
+        await api(`/conditions/${cond.id}`, { method: 'PUT', body: JSON.stringify(updated) });
+      }
       removeModal();
       onSuccess();
     } catch {
@@ -1024,6 +1321,7 @@ function renderCellsHTML(cells) {
         const tier = (cell.counts || []).length === 0 ? 'needs' : 'counted';
         return `
           <div class="folder-card" data-id="${escHtml(String(cell.id))}" role="button" tabindex="0">
+            ${cardMenuHTML(cell.id)}
             <div class="cell-thumbnail">${renderCellThumbnailSVG(cell)}</div>
             <div class="folder-name">${escHtml(cell.name)}</div>
             <div class="folder-meta">
@@ -1149,7 +1447,91 @@ function wireCells(cells) {
     });
   });
 
+  wireCardMenus(grid, {
+    onEdit: id => {
+      const cell = cells.find(c => String(c.id) === String(id));
+      if (cell) openEditCellModal(cell, () => initCells());
+    },
+    onRemove: id => {
+      const cell = cells.find(c => String(c.id) === String(id));
+      if (!cell) return;
+      openConfirmModal({
+        title: 'Remove cell',
+        message: `Delete "${cell.name}" and all of its hand counts? This cannot be undone.`,
+        onConfirm: () => deleteCell(cell.id),
+      });
+    },
+  });
+
   wireCellsAction();
+}
+
+async function deleteCell(id) {
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    const conditions = TEST_CONDITIONS[state.experiment?.id] || [];
+    const cond = conditions.find(c => String(c.id) === String(state.condition?.id));
+    if (cond) {
+      const idx = (cond.cells || []).findIndex(c => String(c.id) === String(id));
+      if (idx !== -1) cond.cells.splice(idx, 1);
+    }
+  } else {
+    await api(`/cells/${id}`, { method: 'DELETE' });
+  }
+  initCells();
+}
+
+function openEditCellModal(cell, onSuccess) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">Edit cell</div>
+      <form class="modal-form" id="modal-form">
+        <div class="modal-field">
+          <label for="modal-name">Name</label>
+          <input id="modal-name" type="text" required autocomplete="off" value="${escHtml(cell.name || '')}">
+        </div>
+        <div class="modal-error" id="modal-error"></div>
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" id="modal-cancel">Cancel</button>
+          <button type="submit" class="modal-save" id="modal-save">Save</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const removeModal = () => backdrop.remove();
+
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) removeModal(); });
+  document.getElementById('modal-cancel').addEventListener('click', removeModal);
+
+  document.getElementById('modal-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const saveBtn = document.getElementById('modal-save');
+    const errEl = document.getElementById('modal-error');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    errEl.textContent = '';
+
+    const name = document.getElementById('modal-name').value;
+
+    try {
+      if (localStorage.getItem('token')?.startsWith('local:')) {
+        cell.name = name;
+      } else {
+        await api(`/cells/${cell.id}`, { method: 'PUT', body: JSON.stringify({ name }) });
+      }
+      removeModal();
+      onSuccess();
+    } catch {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      errEl.textContent = 'Could not save. Check the API connection.';
+    }
+  });
+
+  document.getElementById('modal-name').focus();
 }
 
 function wireCellsAction() {

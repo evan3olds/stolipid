@@ -845,3 +845,46 @@ Ran the app for real, not just read the diff (`node`/`chromium-cli` weren't avai
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Phase 6d — Three-dot edit/remove menu on Experiments, Conditions, and Cells cards
+
+**Request:** add a three-dot menu to the top-right of every card on the Experiments, Conditions, and Cells screens, with an Edit action (metadata popup) and a Remove action (confirmation popup before deleting).
+
+### `app.js` — shared card-menu machinery
+
+Added one shared block (`cardMenuHTML`, `wireCardMenus`, `closeAllCardMenus`, `openConfirmModal`) reused by all three screens rather than three separate implementations:
+- `cardMenuHTML(id)` — the `⋮` button + dropdown markup, injected as the first child of each `.folder-card` div (absolutely positioned, so it doesn't affect card layout/height)
+- `wireCardMenus(grid, { onEdit, onRemove })` — toggles the dropdown open/closed per card (`stopPropagation` so it doesn't also trigger the card's own click-to-select handler), and installs a single document-level "click outside closes any open menu" listener, torn down and reattached on every screen re-render via a tracked `cardMenuDocHandler` (same detach-before-reattach discipline as `wireShell`'s `escHandler`)
+- `openConfirmModal({ title, message, confirmLabel, onConfirm })` — a generic reusable "are you sure?" modal (reuses the existing `.modal`/`.modal-form`/`.modal-error`/`.modal-actions` classes rather than introducing a parallel modal system), used by all three Remove flows
+
+### Per-screen wiring
+
+- **Experiments:** `openEditExperimentModal(exp, onSuccess)` mirrors `openAddExperimentModal` but pre-fills Name/Date/Dye/Notes and calls the new `PUT /experiments/{id}`; `deleteExperiment(id)` calls the new `DELETE /experiments/{id}` (or splices `TEST_EXPERIMENTS`/deletes the `TEST_CONDITIONS[id]` entry for local test accounts)
+- **Conditions:** `openEditConditionModal`/`deleteCondition` — same pattern, `PUT`/`DELETE /conditions/{id}`, fields Name/Dye/Starvation/Notes
+- **Cells:** `openEditCellModal`/`deleteCell` — same pattern but only `name` is user-editable (per CLAUDE.md, `image_url`/`auto_count`/`source_filename` are pipeline-written, not user metadata), `PUT`/`DELETE /cells/{id}`
+
+### `api/main.py` — new endpoints
+
+- `PUT /experiments/{id}` / `DELETE /experiments/{id}` — delete manually cascades (`counts` for all cells under the experiment's conditions → those `cells` → those `conditions` → the experiment itself), since there's no confirmed DB-level `ON DELETE CASCADE` on these tables
+- `PUT /conditions/{id}` / `DELETE /conditions/{id}` — delete cascades `counts` → `cells` → the condition
+- `PUT /cells/{id}` (body `{ name }`) / `DELETE /cells/{id}` — delete removes the cell's `counts` first, then the cell, then calls `recompute_condition_icc` on the owning condition (removing a cell can change which cells have 3 counts, which changes ICC eligibility)
+- All six routes reuse the existing `owned_experiment`/`owned_condition`/`owned_cell` ownership helpers, same 404-not-403 posture as every other endpoint
+
+### `style.css`
+
+Added `.card-menu`/`.card-menu-btn`/`.card-menu-dropdown`/`.card-menu-item`/`.card-menu-item-danger` (small `⋮` button top-right of each card, dropdown below it), `.modal-confirm-message`/`.modal-danger` (red confirm button on the reusable confirm modal), and `padding-right` on `.folder-name` so a long card name doesn't run under the new menu button.
+
+### Verification
+
+Ran the real app, not just a code read — Node/npm/chromium-cli aren't available in this environment, but Python's `playwright` package and a real Chrome install are, so served the site over `python -m http.server` and drove it with Playwright's sync API (`channel="chrome"`), screenshotting at each step:
+- Logged in with the local test account → Experiments: opened the ⋮ menu on a card (screenshot confirms it renders inline, not clipped or overlapping the card body), clicked Edit — confirmed the modal pre-fills the real experiment name, saved a renamed value, and confirmed the card re-rendered with the new name
+- Clicked Remove on a second experiment — confirmed the confirmation modal's message names the correct experiment and warns about cascading deletes, confirmed clicking Remove actually removed it (card count 2 → 1)
+- Repeated the same Edit-prefill / Remove-confirms-and-removes sequence one level down on Conditions, then again on Cells (including confirming the ⋮ button stays legible sitting on top of the fluorescence thumbnail image)
+- `console --errors` equivalent (Playwright console/pageerror listeners) showed no errors across the whole run
+- Not verified against the real Render API / Supabase (no live credentials in this environment) — the local test-account path exercises the full UI flow; the new `PUT`/`DELETE` endpoints themselves were only checked by reading the code and confirming `python -m py_compile` / FastAPI route registration, not by hitting live data
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 6d added and checked off. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
