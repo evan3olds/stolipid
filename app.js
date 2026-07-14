@@ -2547,9 +2547,12 @@ function visibleRawDataRows() {
 function renderRawDataHTML() {
   return `
     <div class="rawdata-screen">
-      <input type="text" class="rawdata-filter" id="rawdata-filter"
-             placeholder="Filter by experiment, condition, or cell…"
-             value="${escHtml(rawDataState.filterText)}">
+      <div class="rawdata-toolbar">
+        <input type="text" class="rawdata-filter" id="rawdata-filter"
+               placeholder="Filter by experiment, condition, or cell…"
+               value="${escHtml(rawDataState.filterText)}">
+        <button type="button" class="rawdata-export-btn" id="rawdata-export">Export CSV</button>
+      </div>
       <div class="rawdata-table-wrap">
         <table class="rawdata-table">
           <thead>
@@ -2607,11 +2610,40 @@ function refreshRawDataTable() {
   });
 }
 
+// Quotes any field containing a comma, quote, or newline; doubles embedded quotes.
+function csvField(value) {
+  const s = value == null ? '' : String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function rawDataToCSV(rows) {
+  const lines = [RAWDATA_COLUMNS.map(col => csvField(col.label)).join(',')];
+  rows.forEach(row => {
+    lines.push(RAWDATA_COLUMNS.map(col => csvField(rawDataSortValue(row, col.key))).join(','));
+  });
+  return lines.join('\r\n');
+}
+
+function downloadRawDataCSV() {
+  const csv = rawDataToCSV(visibleRawDataRows());
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `raw-data-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function wireRawData() {
   document.getElementById('rawdata-filter').addEventListener('input', (e) => {
     rawDataState.filterText = e.target.value;
     refreshRawDataTable();
   });
+
+  document.getElementById('rawdata-export').addEventListener('click', downloadRawDataCSV);
 
   function toggleSort(key) {
     if (rawDataState.sortKey === key) {
