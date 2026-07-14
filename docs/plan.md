@@ -1576,3 +1576,25 @@ Serve the site locally (`python -m http.server`) and drive it with Playwright's 
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 6d added and checked off. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Plan: Login boot-popup (Render cold-start notice)
+
+## Context
+
+Render's free tier spins the API down after inactivity; the first request after idle can take 30-60s to wake it. The user asked that if login takes longer than 3 seconds, a popup tell them to wait 1-2 minutes while the site boots up.
+
+## Approach
+
+- `app.js` — add `showBootPopup()`/`hideBootPopup()` helpers that inject/remove a small overlay (mirrors the existing `.modal-backdrop`/`.modal` pattern rather than inventing a new UI system)
+- In the login submit handler's real-API branch (`mode === 'login'`, after the local `test-accounts.json` shortcut has already returned), start `setTimeout(showBootPopup, 3000)` right before the `api('/auth/login', ...)` call, and clear the timer + hide the popup in a `finally` so it's dismissed on both success and failure
+- `style.css` — add `.boot-popup-backdrop`/`.boot-popup`, styled like the existing modal but with a higher `z-index`
+
+## Verification
+
+Read through the control flow to confirm the timer always gets cleared. Not screenshot-verified against a real cold Render instance (can't force a 30-60s cold start in this environment) — recommend the user do a manual check after a period of Render inactivity.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 2 item added and checked off. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
