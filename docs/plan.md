@@ -1512,3 +1512,29 @@ User asked for two changes to the Count screen: turn the numbered count markers 
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 8 updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Un-shared watershed between hand-count image and auto-count
+
+## Context
+
+The immediately prior change (see previous plan entry) consolidated the hand-count image and auto-count into a single shared `segment_droplets` computation, since both had converged on running the exact same 5-step pipeline. The user then asked to reverse that: watershed for the hand-count image should be exclusive to that stored image, and the auto-count pipeline should independently start from its own subtract-background + threshold pass rather than reusing the hand-count's watershed result. Before implementing, explained both pipelines back to the user to confirm the request was understood correctly, since this is a case where the "obviously more efficient" shared version was explicitly not what was wanted.
+
+## Approach
+
+Reverted `segment_droplets(plane) -> labels` (one function, two consumers) back into two independent full-pipeline functions: `render_hand_count_image(plane)` and `count_droplets(plane)`. Each calls `subtract_background` and `threshold_binary` itself — these two step-functions stay shared as building blocks (they're pure, stateless transforms with no reason to duplicate their logic), but each pipeline invokes them independently rather than one call feeding both consumers. Each then runs its own fill-holes → watershed pass on its own mask instance.
+
+Kept a private `_fill_and_watershed(mask, watershed_line)` helper for the fill-holes/distance-transform/watershed mechanics, since duplicating that code verbatim in both functions would be pure repetition with no benefit — the point of the user's request was that the two pipelines shouldn't share a *computed result*, not that the *code* implementing watershed had to be textually duplicated. `render_hand_count_image` calls it with `watershed_line=True` (needs the visible gap for the rendered image); `count_droplets` calls it with `watershed_line=False` (doesn't need a visible gap, just region identity for counting).
+
+`api/main.py`'s `cells_from_tif` now calls both functions separately again, each on the same `normalized_crop` input but computing its own result independently — reintroducing the double `rolling_ball` cost per box that the prior change had eliminated. Flagged this explicitly rather than silently reintroducing a known-eliminated inefficiency, but didn't second-guess the request — the user was explicit about wanting independence, and that's a reasonable priority (each pipeline can be tuned or changed later without touching the other).
+
+## Verification
+
+- Synthetic 2-droplet pair test (reused from the prior entry): confirmed `render_hand_count_image` still shows the watershed split line and `count_droplets` still correctly returns `2` after being un-shared — the refactor didn't silently break either pipeline.
+- Re-ran empty-array/flat-crop edge cases through both functions independently.
+- `python -m py_compile api/detection.py api/main.py`: passes.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

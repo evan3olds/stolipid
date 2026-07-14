@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from supabase import create_client
 
-from detection import count_droplets, render_hand_count_image, segment_droplets
+from detection import count_droplets, render_hand_count_image
 from imaging import (
     crop_array_percent,
     encode_png,
@@ -331,17 +331,16 @@ def cells_from_tif(
     for box in box_list:
         raw_crop = crop_array_percent(plane, box.x, box.y, box.width, box.height)
         # normalize_to_uint16: linear min/max stretch, not render_display_image's
-        # percentile clip — nothing discarded before the shared background/
-        # threshold/watershed pipeline (see api/detection.py). Both the
-        # stored hand-count image and the auto-count now come from the same
-        # segment_droplets() pass, so watershed's droplet-separating lines
-        # show up in the hand-count image too, not just the auto-count.
+        # percentile clip — nothing discarded before background/threshold
+        # (see api/detection.py). render_hand_count_image and count_droplets
+        # each run their own independent subtract_background -> threshold ->
+        # fill-holes -> watershed pass from this same normalized_crop —
+        # watershed is never shared between the two.
         normalized_crop = normalize_to_uint16(raw_crop)
-        labels = segment_droplets(normalized_crop)
-        hand_count_crop = render_hand_count_image(labels)
+        hand_count_crop = render_hand_count_image(normalized_crop)
         url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", encode_png_16(hand_count_crop))
 
-        auto_count = count_droplets(labels)
+        auto_count = count_droplets(normalized_crop)
 
         response = (
             supabase.table("cells")

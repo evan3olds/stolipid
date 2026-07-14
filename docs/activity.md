@@ -818,3 +818,30 @@ Ran the app for real, not just read the diff (`node`/`chromium-cli` weren't avai
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 8 updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Un-shared watershed between hand-count image and auto-count
+
+**Request:** the previous entry made the hand-count image and auto-count share one `segment_droplets` computation (both consumed the same labeled watershed result). The user asked to reverse that sharing: watershed for the hand-count image should only affect the image stored for hand counting; the auto-count pipeline should get its own version starting fresh from subtract-background + threshold, not the hand-count's watershed result.
+
+**Explained both pipelines back to the user before implementing**, to confirm the read was correct:
+- Hand-count: subtract_background → threshold_binary → fill_holes → watershed (`watershed_line=True`, burns a visible 1px gap between touching droplets in the stored image).
+- Auto-count: independently subtract_background → threshold_binary (its own fresh calls, not reused from the hand-count run) → its own fill_holes → its own watershed (no visible line needed, since nothing here gets rendered — just counted).
+
+**`api/detection.py`:** replaced `segment_droplets(plane) -> labels` (shared, used by both) with two independent full-pipeline functions again:
+- `render_hand_count_image(plane)` — full chain, `watershed_line=True`.
+- `count_droplets(plane)` — full chain, `watershed_line=False`, run separately with its own mask instance.
+- Factored the shared *mechanics* (fill-holes → distance transform → peak-finding → watershed call) into a private `_fill_and_watershed(mask, watershed_line)` helper, called independently by each pipeline on its own mask — avoids duplicating the watershed code verbatim while still ensuring the two never share one computed result.
+
+**`api/main.py`:** `cells_from_tif` now calls `render_hand_count_image(normalized_crop)` and `count_droplets(normalized_crop)` separately again, each internally redoing `subtract_background`/`threshold_binary`. This reintroduces the double `rolling_ball` cost per box (~1.3s × 2) that the immediately-prior entry had just eliminated by sharing — an accepted tradeoff, since the user's priority here is pipeline independence (so each can be tuned/changed without affecting the other) over that efficiency gain.
+
+### Verification
+
+- Synthetic 2-droplet pair (12px spacing, known to split): `render_hand_count_image` still shows a visible 1px black gap between the two blobs; `count_droplets` still returns `2` — confirms both pipelines still work correctly after being un-shared, not just that they compile.
+- Re-ran the empty-array and flat-crop edge cases through both functions independently: both still correctly return an empty/zero image and `0`, respectively.
+- `python -m py_compile detection.py main.py`: passes.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
