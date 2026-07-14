@@ -914,23 +914,23 @@ No Chrome/Chromium or Playwright install is present in this environment (unlike 
 - Brace count in `style.css` balanced (237 open / 237 close)
 - Isolated the exact CSV-building logic (`csvField`/`rawDataToCSV`/`rawDataSortValue`/`rawDataCountAt`, copied verbatim) into a standalone Node script and ran it against synthetic rows: a value containing a comma and one containing an embedded double-quote both got correctly quoted/escaped (`"Serum, Starvation"`, `"0 Hr ""Starved"""`), and a cell with zero counts produced empty fields (`,,,,`) rather than literal `—` or `null` text
 - **Not verified:** the button's actual on-page position/styling, and that a real browser click triggers a file download — recommend opening `index.html` locally, going to Raw Data, and confirming the button sits top-right of the table and downloads a working `.csv` before treating this as fully verified.
-## Login boot-popup (Render cold-start notice)
+## Login "Loading..." / boot notice (Render cold-start)
 
-**Request:** if a login takes longer than 3 seconds, show a popup telling the user to wait 1-2 minutes while the site boots up (Render's free tier spins down the API after inactivity, and the first request after idle can take 30-60s to wake it).
+**Request:** if a login takes longer than 3 seconds, show a message telling the user to wait 1-2 minutes while the site boots up (Render's free tier spins down the API after inactivity, and the first request after idle can take 30-60s to wake it). First pass used a separate modal popup; superseded before landing by a request for inline text instead — "Loading..." right when the login button is clicked, upgraded to add the wait notice if the request is still pending 3s later.
 
 ### `app.js`
 
-- `showBootPopup()` / `hideBootPopup()` — inject/remove a `.boot-popup-backdrop` overlay with the wait message; guarded so a second call while one is already showing is a no-op
-- In `renderLogin`'s `mode === 'login'` submit handler, the real `/auth/login` call (not the local `docs/test-accounts.json` shortcut, which resolves instantly) now starts a `setTimeout(showBootPopup, 3000)` before the `api()` call and clears it / hides the popup in a `finally` block, so the popup shows only if the request is still in flight after 3s and always gets dismissed on success or failure
+In `renderLogin`'s `mode === 'login'` submit handler:
+- `messageEl.textContent = 'Loading...'` is set immediately, before the local `docs/test-accounts.json` shortcut check or the real API call
+- Before the real `/auth/login` call, `setTimeout(..., 3000)` upgrades `messageEl` to `'Loading... Please wait 1-2 minutes while the site boots up.'` if it fires; cleared in a `finally` so it never fires after the request settles
+- On error, `messageEl` is cleared back to `''` alongside setting `errorEl`
 
-### `style.css`
-
-Added `.boot-popup-backdrop` / `.boot-popup`, mirroring the existing `.modal-backdrop` / `.modal` pattern (same overlay treatment, higher `z-index` so it can stack above other modals if needed).
+No separate popup/modal element — the existing inline `login-message` div covers it.
 
 ### Verification
 
-Read through the submit handler's control flow to confirm the timer is always cleared (success path, error path, and the `finally` block covers both) — not yet screenshot-verified against a real cold Render instance, since forcing a 30-60s cold start isn't practical in this environment. Recommend the user manually confirm the popup appears/disappears correctly against the live Render deployment after a period of inactivity.
+Read through the submit handler's control flow to confirm the timer is always cleared (success, error, and `finally` all covered) and that `messageEl` doesn't end up stuck on stale text after an error. Not screenshot-verified against a real cold Render instance — forcing a 30-60s cold start isn't practical in this environment. Recommend the user manually confirm the message sequence against the live Render deployment after a period of inactivity.
 
 ## Final step (per project convention)
 
-`docs/tasks.md` Phase 2 item added and checked off. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+`docs/tasks.md` Phase 2 item updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

@@ -20,7 +20,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Wire login to Render `/auth/login`; store JWT in `localStorage`; route to Experiments screen on success
 - [x] "Create account" and "Forgot password?" links on the Login screen, each swapping in their own form; wired to new Render `POST /auth/signup` and `POST /auth/reset-password` endpoints
 - [x] Handle Supabase's auth-link redirect (`#access_token=...&type=...` in the URL hash) on boot: `type=recovery` shows a "Set a new password" screen wired to new `POST /auth/update-password`; any other `access_token` (e.g. signup confirmation) logs the user straight in
-- [x] Boot popup: if the real `/auth/login` request is still pending 3s after submit, show a "Please wait 1-2 minutes while the site boots up" popup (Render free-tier cold start notice), dismissed when the request resolves or fails
+- [x] Login shows "Loading..." immediately on submit; if the real `/auth/login` request is still pending 3s later, the message is upgraded to add "Please wait 1-2 minutes while the site boots up." (Render free-tier cold-start notice), cleared on error
 
 ---
 

@@ -69,21 +69,6 @@ function navigate(screen, params = {}) {
   if (screen === 'rawdata') initRawData();
 }
 
-// Render's free tier spins the API down after inactivity; a cold start can
-// take 30-60s. Shown if a login request is still pending after 3s.
-function showBootPopup() {
-  if (document.getElementById('boot-popup')) return;
-  const el = document.createElement('div');
-  el.className = 'boot-popup-backdrop';
-  el.id = 'boot-popup';
-  el.innerHTML = `<div class="boot-popup">Please wait 1-2 minutes while the site boots up</div>`;
-  document.body.appendChild(el);
-}
-
-function hideBootPopup() {
-  document.getElementById('boot-popup')?.remove();
-}
-
 // mode: 'login' | 'signup' | 'forgot'
 function renderLogin(mode = 'login') {
   const copy = {
@@ -141,6 +126,8 @@ function renderLogin(mode = 'login') {
     const password = mode !== 'forgot' ? document.getElementById('login-password').value : undefined;
 
     if (mode === 'login') {
+      messageEl.textContent = 'Loading...';
+
       // Check test-accounts.json before hitting the real API
       try {
         const testAccounts = await fetch('docs/test-accounts.json').then(r => r.json());
@@ -154,7 +141,9 @@ function renderLogin(mode = 'login') {
         // test-accounts.json unavailable; fall through to real API
       }
 
-      const bootTimer = setTimeout(showBootPopup, 3000);
+      const bootTimer = setTimeout(() => {
+        messageEl.textContent = 'Loading... Please wait 1-2 minutes while the site boots up.';
+      }, 3000);
       try {
         const { token } = await api('/auth/login', {
           method: 'POST',
@@ -164,9 +153,9 @@ function renderLogin(mode = 'login') {
         navigate('experiments');
       } catch (err) {
         errorEl.textContent = copy.error;
+        messageEl.textContent = '';
       } finally {
         clearTimeout(bootTimer);
-        hideBootPopup();
       }
       return;
     }
