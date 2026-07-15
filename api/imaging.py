@@ -17,14 +17,28 @@ def _to_2d_plane(array: np.ndarray) -> np.ndarray:
     raise ValueError(f"Cannot reduce a {array.ndim}-dimensional TIFF to a single 2D plane")
 
 
-def load_tif_plane(tif_bytes: bytes) -> np.ndarray:
-    """Raw 2D float64 intensity plane, no normalization — the shared input
-    for both the display render and quantitative analysis (api/detection.py)."""
+def _read_plane_native(tif_bytes: bytes) -> np.ndarray:
+    """2D plane in its original on-disk dtype (no float upcast yet) — the
+    shared first step before either the full-precision analysis path
+    (load_tif_plane) or the downsampled preview path (render_tif_to_image).
+    Keeping this upcast-free means downsampling a large slide for preview
+    (see render_tif_to_image) only ever copies the small, already-strided
+    array, not the full-resolution one."""
     try:
         array = tifffile.imread(io.BytesIO(tif_bytes))
     except Exception as e:
         raise ValueError(f"Could not read TIFF file: {e}")
-    return _to_2d_plane(np.asarray(array)).astype(np.float64)
+    return _to_2d_plane(np.asarray(array))
+
+
+def load_tif_plane(tif_bytes: bytes) -> np.ndarray:
+    """Raw 2D float32 intensity plane, no normalization — the shared input
+    for both the display render and quantitative analysis (api/detection.py).
+    float32 rather than float64: halves per-request memory on Render, and
+    values are renormalized to uint16 immediately after cropping anyway
+    (see normalize_to_uint16), so the extra float64 precision was never
+    used."""
+    return _read_plane_native(tif_bytes).astype(np.float32)
 
 
 def render_display_image(plane: np.ndarray) -> Image.Image:
@@ -41,8 +55,25 @@ def render_display_image(plane: np.ndarray) -> Image.Image:
     return Image.fromarray(normalized, mode="L")
 
 
+# Add Photos boxes are stored as percentages of the canvas frame, which are
+# resolution-independent, and cells_from_tif re-reads the source .tif at
+# full resolution when it actually crops a cell — so the preview render
+# never needs full resolution and can be capped here to bound per-request
+# memory on Render (this was the main driver of OOM crashes when several
+# large .tifs were selected at once).
+PREVIEW_MAX_DIMENSION = 2048
+
+
+def _downsample(plane: np.ndarray, max_dimension: int) -> np.ndarray:
+    height, width = plane.shape
+    step = max(1, -(-max(height, width) // max_dimension))  # ceil div
+    return plane[::step, ::step] if step > 1 else plane
+
+
 def render_tif_to_image(tif_bytes: bytes) -> Image.Image:
-    return render_display_image(load_tif_plane(tif_bytes))
+    native = _read_plane_native(tif_bytes)
+    downsampled = _downsample(native, PREVIEW_MAX_DIMENSION)
+    return render_display_image(downsampled.astype(np.float32))
 
 
 def encode_png(image: Image.Image) -> bytes:

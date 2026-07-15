@@ -1711,24 +1711,25 @@ function renderAddPhotosCanvasHTML() {
   `;
 }
 
-function addPhotoFile(file) {
+function registerPhotoFile(file) {
   const entry = { id: genLocalId('file'), name: file.name, rawFile: file, status: 'loading', previewSvg: '', boxes: [] };
   addPhotosState.files.push(entry);
   if (!addPhotosState.activeFileId) addPhotosState.activeFileId = entry.id;
+  return entry;
+}
 
+function uploadPhotoPreview(entry, file) {
   if (localStorage.getItem('token')?.startsWith('local:')) {
     entry.previewSvg = renderPhotoPreviewSVG(entry.name);
     entry.status = 'ready';
     refreshAddPhotos();
-    return;
+    return Promise.resolve();
   }
-
-  refreshAddPhotos();
 
   const formData = new FormData();
   formData.append('file', file);
 
-  apiUpload(`/conditions/${state.condition.id}/tif-preview`, formData)
+  return apiUpload(`/conditions/${state.condition.id}/tif-preview`, formData)
     .then(({ preview_url }) => {
       entry.previewSvg = `<img class="photo-preview-img" src="${escHtml(preview_url)}" alt="Rendered preview of ${escHtml(entry.name)}">`;
       entry.status = 'ready';
@@ -1754,6 +1755,18 @@ function addPhotoFile(file) {
     .finally(() => {
       refreshAddPhotos();
     });
+}
+
+// Selecting several .tif files at once used to fire a tif-preview request
+// per file concurrently, which could spike Render's memory enough to OOM
+// the process. Entries show up in the sidebar immediately (all "loading"),
+// but the actual uploads run one at a time.
+async function queuePhotoFiles(files) {
+  const queued = files.map(file => ({ file, entry: registerPhotoFile(file) }));
+  refreshAddPhotos();
+  for (const { entry, file } of queued) {
+    await uploadPhotoPreview(entry, file);
+  }
 }
 
 function addBoxAt(xPct, yPct) {
@@ -1882,7 +1895,7 @@ function wireAddPhotos() {
   if (addFilesBtn) addFilesBtn.addEventListener('click', triggerPicker);
 
   fileInput.addEventListener('change', () => {
-    Array.from(fileInput.files || []).forEach(addPhotoFile);
+    queuePhotoFiles(Array.from(fileInput.files || []));
     fileInput.value = '';
   });
 
@@ -2081,7 +2094,7 @@ function wireCount() {
   // cell.image_url is a crop from Add Photos, so its aspect ratio is
   // whatever the drawn box was — not necessarily the frame's CSS default.
   // Match the frame to the real image so object-fit: cover doesn't crop it
-  // again here (same fix as the Add Photos canvas-frame; see addPhotoFile).
+  // again here (same fix as the Add Photos canvas-frame; see uploadPhotoPreview).
   const img = frame.querySelector('.photo-preview-img');
   if (img) {
     const applyAspectRatio = () => {
