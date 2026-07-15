@@ -1597,3 +1597,25 @@ Read through the control flow to confirm the timer always gets cleared and `mess
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 2 item updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+## Plan: Graph screen uses auto count; Raw Data adds auto count + source file
+
+### Context
+
+User request: the Graph page should plot `cells.auto_count` (the machine-suggested droplet count) instead of the hand-count average, and the Raw Data table should surface both `cells.auto_count` and `cells.source_filename` as columns.
+
+### Plan
+
+1. `app.js` — add `cellAutoCount(cell)` and `conditionAutoCountMean(cond)` helpers, distinct from the existing `cellAverage`/`conditionMean` (which stay hand-count-based since the Conditions screen mini-chart and ICC-adjacent UI still need hand-count averages).
+2. `renderGraphChartArea()` — swap `cellAverage`/`conditionMean` for the new auto-count helpers when computing axis max, per-cell dot Y position, and the condition mean tick. Update the hover tooltip to label the plotted value "Auto count" and keep hand counts as a separate context row ("Hand counts: ...").
+3. Raw Data screen — add `autoCount`/`sourceFilename` to the row objects built in `initRawData()`, add matching `RAWDATA_COLUMNS` entries ("Auto count", "Source file"), extend `rawDataSortValue()` so the new columns sort, and render them in `renderRawDataRowsHTML()`. CSV export needs no separate change since it already derives from `RAWDATA_COLUMNS`/`rawDataSortValue`.
+
+### Verification
+
+Served the site with `python -m http.server` and drove it with Python Playwright (real Chrome channel) using the local test account: confirmed the Graph tooltip reads "Auto count: 3.0" for a fixture cell whose `auto_count` is 3, confirmed the condition mean tick sits at 4 (mean of auto_count 3 and 5 across the two cells that have one), and confirmed the Raw Data table renders "Auto count" and "Source file" columns with correct values (`3` / `Image_43391.tif`). No console errors on either screen.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 9 and Phase 10 items updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

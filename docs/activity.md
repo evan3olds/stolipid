@@ -934,3 +934,25 @@ Read through the submit handler's control flow to confirm the timer is always cl
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 2 item updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Graph screen: plot auto count instead of hand-count average; Raw Data: add auto count + source file columns
+
+**Request:** the Graph page should use `cells.auto_count` for the per-cell values plotted (not the hand-count average), and the Raw Data page should include auto count and the original `.tif` filename as columns.
+
+### `app.js`
+
+- Added `cellAutoCount(cell)` and `conditionAutoCountMean(cond)` next to the existing `cellAverage`/`conditionMean`. Kept the two pairs separate rather than repointing the shared functions, since `cellAverage`/`conditionMean` are still used by the Conditions screen mini-chart (an ICC-adjacent hand-count overview) and the Cells detail panel's "Average hand count" — only the Graph screen should switch to auto count.
+- `renderGraphChartArea()`: axis max, per-cell dot Y position, and the condition mean tick now all derive from `cellAutoCount`/`conditionAutoCountMean` instead of `cellAverage`/`conditionMean`.
+- Graph hover tooltip: relabeled the plotted value "Auto count" (was "Average") and relabeled the hand-count list "Hand counts" (was "Counts") so the two are not conflated now that they show different things.
+- `RAWDATA_COLUMNS` gained `autoCount` ("Auto count") and `sourceFilename` ("Source file") entries; `initRawData()` populates both fields per row from `cell.auto_count`/`cell.source_filename`; `rawDataSortValue()` extended so both columns sort. CSV export needed no separate change — it already builds off `RAWDATA_COLUMNS` + `rawDataSortValue()`.
+
+### Verification
+
+Ran the real app: served the repo with `python -m http.server` and drove it with Python Playwright (real Chrome channel), logging in with the local test account.
+- Graph: added "Serum Starvation Timecourse -> 0 Hr Starved" to the chart. Screenshot shows two dots (values 3 and 5) and a mean tick at 4, matching the fixture cells' `auto_count` values (3 and 5); the other two fixture cells in that condition have no `auto_count` and are correctly omitted. Hovering a dot shows tooltip "Hand counts: -- / Auto count: 3.0" for the cell that has an auto count but no hand counts.
+- Raw Data: screenshot confirms "Auto count" and "Source file" columns render with correct values (`3` / `Image_43391.tif` for one row, `5` / `Image_43391.tif` for another, `--` for rows without an auto count or source file).
+- No console/page errors on either screen.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 9 and Phase 10 items updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

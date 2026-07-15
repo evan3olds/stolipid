@@ -908,6 +908,18 @@ function conditionMean(cond) {
   return averages.reduce((sum, a) => sum + a, 0) / averages.length;
 }
 
+// Graph screen plots the machine-suggested auto_count per cell, not the
+// hand-count average (that's what the mini condition-overview chart uses).
+function cellAutoCount(cell) {
+  return cell.auto_count != null ? cell.auto_count : null;
+}
+
+function conditionAutoCountMean(cond) {
+  const values = (cond.cells || []).map(cellAutoCount).filter(v => v != null);
+  if (!values.length) return null;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
 function truncateLabel(str, max = 10) {
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
@@ -2261,7 +2273,7 @@ function renderGraphScatterSVG(selected) {
   const plotWidth = width - padLeft - padRight;
   const plotHeight = height - padTop - padBottom;
 
-  const allAverages = selected.flatMap(s => (s.cells || []).map(cellAverage)).filter(a => a != null);
+  const allAverages = selected.flatMap(s => (s.cells || []).map(cellAutoCount)).filter(a => a != null);
   const rawMax = Math.max(1, ...allAverages);
   const niceMax = Math.ceil(rawMax / 5) * 5 || 5;
   const tickCount = 5;
@@ -2283,7 +2295,7 @@ function renderGraphScatterSVG(selected) {
     const cx = padLeft + colWidth * (i + 0.5);
     const color = seriesColorForExperiment(s.experimentId);
     const cellsWithAvg = (s.cells || [])
-      .map(cell => ({ cell, avg: cellAverage(cell) }))
+      .map(cell => ({ cell, avg: cellAutoCount(cell) }))
       .filter(x => x.avg != null);
 
     const dots = cellsWithAvg.map(({ cell, avg }, j) => {
@@ -2296,7 +2308,7 @@ function renderGraphScatterSVG(selected) {
         data-cell="${escHtml(cell.name)}" data-counts="${escHtml(countsStr)}" data-average="${avg.toFixed(1)}" />`;
     }).join('');
 
-    const mean = conditionMean(s);
+    const mean = conditionAutoCountMean(s);
     const barHalf = colWidth * 0.3;
     const meanTick = mean != null
       ? `<line x1="${(cx - barHalf).toFixed(1)}" y1="${yFor(mean).toFixed(1)}" x2="${(cx + barHalf).toFixed(1)}" y2="${yFor(mean).toFixed(1)}" class="graph-mean-tick" style="stroke:${color}" />`
@@ -2329,8 +2341,8 @@ function wireGraphTooltip() {
         <div class="graph-tooltip-row"><strong>${escHtml(dot.dataset.experiment)}</strong></div>
         <div class="graph-tooltip-row">${escHtml(dot.dataset.condition)}</div>
         <div class="graph-tooltip-row">${escHtml(dot.dataset.cell)}</div>
-        <div class="graph-tooltip-row">Counts: ${escHtml(dot.dataset.counts)}</div>
-        <div class="graph-tooltip-row">Average: ${escHtml(dot.dataset.average)}</div>
+        <div class="graph-tooltip-row">Hand counts: ${escHtml(dot.dataset.counts)}</div>
+        <div class="graph-tooltip-row">Auto count: ${escHtml(dot.dataset.average)}</div>
       `;
       tooltip.hidden = false;
     });
@@ -2434,6 +2446,8 @@ const RAWDATA_COLUMNS = [
   { key: 'count2', label: 'Count 2' },
   { key: 'count3', label: 'Count 3' },
   { key: 'average', label: 'Average' },
+  { key: 'autoCount', label: 'Auto count' },
+  { key: 'sourceFilename', label: 'Source file' },
 ];
 
 async function initRawData() {
@@ -2479,6 +2493,8 @@ async function initRawData() {
           cellName: cell.name,
           counts: cell.counts || [],
           average: cellAverage(cell),
+          autoCount: cell.auto_count != null ? cell.auto_count : null,
+          sourceFilename: cell.source_filename || null,
         });
       });
     });
@@ -2502,6 +2518,8 @@ function rawDataSortValue(row, key) {
     case 'count2': return rawDataCountAt(row, 1);
     case 'count3': return rawDataCountAt(row, 2);
     case 'average': return row.average;
+    case 'autoCount': return row.autoCount;
+    case 'sourceFilename': return row.sourceFilename;
     default: return null;
   }
 }
@@ -2587,6 +2605,8 @@ function renderRawDataRowsHTML() {
       <td>${rawDataCountAt(row, 1) ?? '—'}</td>
       <td>${rawDataCountAt(row, 2) ?? '—'}</td>
       <td>${row.average != null ? `<span class="rawdata-average">${row.average.toFixed(1)}</span>` : '—'}</td>
+      <td>${row.autoCount != null ? row.autoCount : '—'}</td>
+      <td>${row.sourceFilename ? escHtml(row.sourceFilename) : '—'}</td>
     </tr>
   `).join('');
 }

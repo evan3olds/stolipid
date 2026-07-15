@@ -87,8 +87,8 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 - [x] Left sidebar: experiment + condition selector (condition select includes an "All conditions" option in place of a separate button); "Add to graph" button
 - [x] Selected conditions list with × remove per entry
-- [x] Scatter plot: one column per condition, per-cell average dots (color-coded by series), condition mean bar
-- [x] Hover tooltip (experiment, condition, cell name, hand counts, average)
+- [x] Scatter plot: one column per condition, per-cell dots (color-coded by series) plotted from `cells.auto_count` (not hand-count average — that's what the Conditions screen's mini overview chart uses), condition mean bar averaged from `auto_count`
+- [x] Hover tooltip (experiment, condition, cell name, hand counts, auto count)
 - [x] Legend with condition names and experiment labels below columns
 - [x] "No data" empty state
 
@@ -96,7 +96,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 10 — Raw Data Screen
 
-- [x] Full table of all cells: columns Experiment, Condition, Cell, Count 1, Count 2, Count 3, Average
+- [x] Full table of all cells: columns Experiment, Condition, Cell, Count 1, Count 2, Count 3, Average, Auto count, Source file
 - [x] Average column rendered in accent color
 - [x] Sortable columns (click header to toggle ascending/descending; missing values always sort last)
 - [x] Filter input (live substring match across Experiment/Condition/Cell name)
