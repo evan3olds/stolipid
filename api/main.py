@@ -421,11 +421,11 @@ def cells_from_tif(
     for box in box_list:
         raw_crop = crop_array_percent(plane, box.x, box.y, box.width, box.height)
         # normalize_to_uint16: linear min/max stretch, not render_display_image's
-        # percentile clip — nothing discarded before background/threshold
-        # (see api/detection.py). render_hand_count_image and detect_droplets
-        # each run their own independent subtract_background -> threshold ->
-        # fill-holes -> watershed pass from this same normalized_crop —
-        # watershed is never shared between the two.
+        # percentile clip — nothing discarded before either consumer runs
+        # (see api/detection.py). render_hand_count_image produces the
+        # stored grayscale crop; detect_droplets independently runs its own
+        # threshold/fill-holes/watershed pass on this same normalized_crop
+        # to get the auto-count — the two share no intermediate result.
         normalized_crop = normalize_to_uint16(raw_crop)
         hand_count_crop = render_hand_count_image(normalized_crop)
         url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", encode_png_16(hand_count_crop))
