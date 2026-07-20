@@ -74,10 +74,11 @@ const ABOUT_CONTENT = {
 // Navigation state — persists across the authenticated shell
 const state = {
   screen: 'login',
-  experiment: null,   // { id, name }
-  condition: null,    // { id, name }
-  cell: null,         // { id, name }
-  editingCount: null, // { id, points } when reopening a saved hand count for edit, else null
+  experiment: null,        // { id, name }
+  condition: null,         // { id, name }
+  cell: null,              // { id, name }
+  editingCount: null,      // { id, points } when reopening a saved hand count for edit, else null
+  viewingAutoPoints: null, // points[] when read-only viewing a cell's auto-count grid, else null
 };
 
 // Per-screen chrome metadata: subheader title, primary action label, back button
@@ -112,8 +113,10 @@ function navigate(screen, params = {}) {
   if (screen === 'addphotos') return renderAddPhotos();
   if (screen === 'count') {
     // Reset on every entry (not just `if ('editingCount' in params)`) so a
-    // stale edit target from a prior visit can't leak into a fresh count.
+    // stale edit target or auto-count view from a prior visit can't leak
+    // into a fresh count.
     state.editingCount = params.editingCount || null;
+    state.viewingAutoPoints = params.viewingAutoPoints || null;
     return renderCount();
   }
   renderShell(screen);
@@ -542,9 +545,9 @@ const TEST_CONDITIONS = {
       notes: 'Baseline, fed condition.',
       icc: 0.88,
       cells: [
-        { id: 'test-cell-001', name: 'Cell 1', counts: [], auto_count: 3, source_filename: 'Image_43391.tif' },
+        { id: 'test-cell-001', name: 'Cell 1', counts: [], auto_count: 3, auto_points: [{ x: 22, y: 30 }, { x: 58, y: 45 }, { x: 71, y: 68 }], source_filename: 'Image_43391.tif' },
         { id: 'test-cell-002', name: 'Cell 2', counts: [{ id: 'test-cnt-002-1', value: 4 }] },
-        { id: 'test-cell-003', name: 'Cell 3', counts: [{ id: 'test-cnt-003-1', value: 3 }, { id: 'test-cnt-003-2', value: 2 }], auto_count: 5, source_filename: 'Image_43391.tif' },
+        { id: 'test-cell-003', name: 'Cell 3', counts: [{ id: 'test-cnt-003-1', value: 3 }, { id: 'test-cnt-003-2', value: 2 }], auto_count: 5, auto_points: [{ x: 15, y: 20 }, { x: 33, y: 50 }, { x: 52, y: 28 }, { x: 68, y: 60 }, { x: 82, y: 40 }], source_filename: 'Image_43391.tif' },
         { id: 'test-cell-011', name: 'Cell 4', counts: [{ id: 'test-cnt-011-1', value: 3 }, { id: 'test-cnt-011-2', value: 4 }, { id: 'test-cnt-011-3', value: 3 }] },
       ],
     },
@@ -1486,7 +1489,7 @@ function wireCells(cells) {
       ${cell.auto_count != null ? `
         <div class="detail-row">
           <span class="detail-label">Auto count</span>
-          <span class="detail-value">${cell.auto_count}</span>
+          <button class="detail-value detail-value-btn" id="auto-count-view-btn" aria-label="View auto count grid">${cell.auto_count}</button>
         </div>
       ` : ''}
       <div class="detail-row">
@@ -1495,9 +1498,7 @@ function wireCells(cells) {
           ? '<span class="detail-value">No counts yet.</span>'
           : `<ul class="count-list">${counts.map(c => `
               <li class="count-list-item">
-                ${c.points && c.points.length
-                  ? `<button class="count-value count-edit-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Edit count">${c.value}</button>`
-                  : `<span class="count-value">${c.value}</span>`}
+                <button class="count-value count-edit-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Edit count">${c.value}</button>
                 <button class="count-delete-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Delete count">&times;</button>
               </li>
             `).join('')}</ul>`}
@@ -1529,10 +1530,20 @@ function wireCells(cells) {
         if (!count) return;
         navigate('count', {
           cell: { id: cell.id, name: cell.name, image_url: cell.image_url },
-          editingCount: { id: count.id, points: count.points },
+          editingCount: { id: count.id, points: count.points || [] },
         });
       });
     });
+
+    const autoViewBtn = document.getElementById('auto-count-view-btn');
+    if (autoViewBtn) {
+      autoViewBtn.addEventListener('click', () => {
+        navigate('count', {
+          cell: { id: cell.id, name: cell.name, image_url: cell.image_url },
+          viewingAutoPoints: cell.auto_points || [],
+        });
+      });
+    }
 
     const ctaBtn = document.getElementById('count-cta');
     if (ctaBtn) {
@@ -2070,7 +2081,7 @@ function wireAddPhotos() {
 // like Login and Add Photos do (see navigate()). Screen-local state, reset
 // every time the screen mounts.
 
-let countState = null; // { cell, markers: [{ id, x, y }], zoom, editingCountId }
+let countState = null; // { cell, markers: [{ id, x, y }], zoom, editingCountId, readOnly }
 
 const COUNT_ZOOM_MIN = 1;
 const COUNT_ZOOM_MAX = 3;
@@ -2078,15 +2089,20 @@ const COUNT_ZOOM_STEP = 0.5;
 
 function renderCount() {
   const editing = state.editingCount;
+  const viewingAuto = state.viewingAutoPoints;
   countState = {
     cell: state.cell,
     // Reopening a saved count preloads its stored points as markers so
-    // Done can PUT an update instead of POSTing a brand-new count.
-    markers: (editing && editing.points)
-      ? editing.points.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y }))
-      : [],
+    // Done can PUT an update instead of POSTing a brand-new count. Viewing
+    // a cell's auto count preloads its machine-generated points read-only.
+    markers: viewingAuto
+      ? viewingAuto.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y }))
+      : (editing && editing.points)
+        ? editing.points.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y }))
+        : [],
     zoom: COUNT_ZOOM_MIN,
     editingCountId: editing ? editing.id : null,
+    readOnly: !!viewingAuto,
   };
   refreshCount();
 }
@@ -2096,29 +2112,33 @@ function refreshCount() {
   wireCount();
 }
 
-function renderMarkerHTML(m) {
-  return `<button class="count-marker" data-marker-id="${escHtml(m.id)}" style="left:${m.x}%; top:${m.y}%;" aria-label="Remove marker"></button>`;
+function renderMarkerHTML(m, readOnly) {
+  return readOnly
+    ? `<span class="count-marker count-marker-readonly" style="left:${m.x}%; top:${m.y}%;"></span>`
+    : `<button class="count-marker" data-marker-id="${escHtml(m.id)}" style="left:${m.x}%; top:${m.y}%;" aria-label="Remove marker"></button>`;
 }
 
 function renderCountHTML() {
-  const { cell, markers, zoom } = countState;
+  const { cell, markers, zoom, readOnly } = countState;
 
   const image = cell.image_url
     ? `<img class="photo-preview-img" src="${escHtml(cell.image_url)}" alt="Processed fluorescence image of ${escHtml(cell.name)}">`
     : renderPhotoPreviewSVG(cell.id);
 
-  const markerEls = markers.map(renderMarkerHTML).join('');
+  const markerEls = markers.map(m => renderMarkerHTML(m, readOnly)).join('');
+
+  const modeLabel = readOnly ? ' · auto count (view only)' : countState.editingCountId ? ' · editing saved count' : '';
 
   return `
     <div class="count-screen">
       <header class="count-topbar">
         <div class="count-topbar-left">
-          <div class="count-cell-name">${escHtml(cell.name)}${countState.editingCountId ? ' · editing saved count' : ''}</div>
+          <div class="count-cell-name">${escHtml(cell.name)}${modeLabel}</div>
           <div class="count-total">Total: ${markers.length}</div>
         </div>
         <div class="count-topbar-actions">
-          <button class="count-cancel-btn" id="count-cancel">Cancel</button>
-          <button class="primary-action" id="count-done">Done</button>
+          <button class="count-cancel-btn" id="count-cancel">${readOnly ? 'Close' : 'Cancel'}</button>
+          ${readOnly ? '' : '<button class="primary-action" id="count-done">Done</button>'}
         </div>
       </header>
       <div class="count-zoom-controls">
@@ -2230,7 +2250,8 @@ function wireCount() {
     navigate('cells');
   });
 
-  document.getElementById('count-done').addEventListener('click', finishCount);
+  const doneBtn = document.getElementById('count-done');
+  if (doneBtn) doneBtn.addEventListener('click', finishCount);
 
   const frame = document.getElementById('count-frame');
 
@@ -2249,15 +2270,20 @@ function wireCount() {
     else img.addEventListener('load', applyAspectRatio, { once: true });
   }
 
-  frame.addEventListener('click', e => {
-    if (e.target.closest('.count-marker')) return;
-    const rect = frame.getBoundingClientRect();
-    const xPct = ((e.clientX - rect.left) / rect.width) * 100;
-    const yPct = ((e.clientY - rect.top) / rect.height) * 100;
-    addMarkerAt(xPct, yPct);
-  });
+  // Auto count is a read-only view of machine-generated points: no adding,
+  // no removing (there's nothing to correct — see the CTA on the Cells
+  // screen for hand counting instead).
+  if (!countState.readOnly) {
+    frame.addEventListener('click', e => {
+      if (e.target.closest('.count-marker')) return;
+      const rect = frame.getBoundingClientRect();
+      const xPct = ((e.clientX - rect.left) / rect.width) * 100;
+      const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+      addMarkerAt(xPct, yPct);
+    });
 
-  frame.querySelectorAll('.count-marker').forEach(wireMarkerButton);
+    frame.querySelectorAll('.count-marker').forEach(wireMarkerButton);
+  }
 
   document.getElementById('count-zoom-out').addEventListener('click', () => {
     setCountZoom(countState.zoom - COUNT_ZOOM_STEP);

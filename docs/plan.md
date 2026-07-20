@@ -1784,3 +1784,38 @@ Served with `python -m http.server`, drove with a temporary headless-Chrome harn
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry; Future section's "marker/location coordinates (currently count only)" line checked off. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+## Phase 11c follow-up — All hand counts editable; auto count now viewable
+
+**Request:** "The hand counts should be editable, and the auto count is currently not viewable."
+
+### Diagnosis
+
+The prior entry gated the hand-count edit button on `c.points && c.points.length` — a count only became editable if it had stored points, so pre-existing counts (test fixtures, or any count saved before the points column existed) had no edit affordance at all, just delete. Separately, `cells.auto_points` was written by the backend but nothing in the frontend read it — the Cells screen only ever showed `cell.auto_count` as a plain number, with no way to see where the local maxima actually landed on the image.
+
+### Plan
+
+1. **`app.js`** — Cells screen detail panel:
+   - Every hand count now renders as a `count-edit-btn`, not just ones with stored points. `editingCount.points` falls back to `[]` when a count has none, so the Count screen simply opens with zero preloaded markers (nothing to lose — there was never position data for these) rather than blocking edit entirely.
+   - `cell.auto_count` now renders as a `detail-value-btn` button; clicking it navigates to `count` with a new `viewingAutoPoints` param.
+2. **Count screen (`app.js`)** — added a read-only view mode, distinct from the existing edit mode:
+   - `state.viewingAutoPoints` (reset on every `navigate('count', …)` alongside `editingCount`, same stale-state guard).
+   - `countState.readOnly` set when viewing auto points; markers render as non-interactive `<span class="count-marker count-marker-readonly">` instead of a removable `<button>`.
+   - Frame click-to-add and marker click-to-remove listeners are skipped entirely in read-only mode; the "Done" button is omitted (nothing to save) and "Cancel" becomes "Close". Zoom controls stay active — useful for inspecting tightly-clustered auto-count points.
+   - Topbar label appends "· auto count (view only)" instead of "· editing saved count".
+3. **`style.css`** — `.detail-value-btn` (button-chrome reset for the auto-count trigger, matching `.detail-value`'s existing font-size via the cascade rather than re-asserting it). `.count-marker-readonly` recolors the dot blue (`oklch(0.7 0.15 230)`, vs. hand-count red `oklch(0.58 0.22 25)`) and sets `pointer-events: none` so the two point grids are never visually or interactively confused.
+4. Added `auto_points` to two local test-mode fixture cells (`test-cell-001`, `test-cell-003`) so the view-only flow is exercisable without a live backend.
+
+### Scope
+
+Chose to reuse the existing Count screen for the auto-count view (read-only) over a separate inline thumbnail overlay, per explicit user choice when asked — keeps one marker-rendering code path instead of two. No backend changes; this is purely surfacing data (`cells.auto_points`, `counts.points`) that the prior entry already added columns and storage for.
+
+### Verification
+
+Served with `python -m http.server`, drove with a temporary headless-Chrome harness (`_verify3.html`, deleted after use). Two flows in one run:
+- Opened Cell 2 (one pre-existing count, value 4, no stored points). Confirmed its edit button is a real `<button>`; clicking it opens the Count screen with `Total: 0` (no points to restore) and the Done button present (still editable, just starts empty).
+- Cancelled back out, opened Cell 3 (`auto_count: 5`, `auto_points`: 5 fixture points), clicked the auto-count button (confirmed rendered text "5"). Confirmed: 5 `.count-marker-readonly` elements, 0 interactive `.count-marker`s, `Total: 5`, cell-name label read "Cell 3 · auto count (view only)", no Done button in the DOM, Cancel button read "Close". Dispatched a synthetic click on the canvas frame — marker count stayed at 5, confirming read-only mode blocks adding points. Screenshot confirms the 5 blue markers render at their fixture positions, visually distinct from the red hand-count marker style used elsewhere. Zero console errors.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
