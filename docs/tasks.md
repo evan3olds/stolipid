@@ -81,6 +81,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Running total in top bar ("Total: N")
 - [x] Zoom in/out controls (100%–300%) to separate small, closely-clustered droplets; canvas pans via scroll
 - [x] "Done" → write count to `counts` table; "Cancel" → discard and return
+- [x] Follow-up: zoom controls moved from a fixed bottom-right overlay to a static bar directly under the top panel, and `.count-screen` fixed to `height: 100dvh; overflow: hidden` (with `.count-canvas` given `min-height: 0`) so the top panel and zoom bar can never scroll off-screen — only the image canvas scrolls
 
 ---
 

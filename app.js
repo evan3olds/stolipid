@@ -2091,17 +2091,17 @@ function renderCountHTML() {
           <button class="primary-action" id="count-done">Done</button>
         </div>
       </header>
+      <div class="count-zoom-controls">
+        <button class="count-zoom-btn" id="count-zoom-out" aria-label="Zoom out">−</button>
+        <span class="count-zoom-level" id="count-zoom-level">${Math.round(zoom * 100)}%</span>
+        <button class="count-zoom-btn" id="count-zoom-in" aria-label="Zoom in">+</button>
+      </div>
       <div class="count-error" id="count-error"></div>
       <div class="count-canvas${zoom > COUNT_ZOOM_MIN ? ' is-zoomed' : ''}">
         <div class="canvas-frame" id="count-frame" style="width:${zoom * 100}%; max-width:${zoom * 55}rem;">
           ${image}
           ${markerEls}
         </div>
-      </div>
-      <div class="count-zoom-controls">
-        <button class="count-zoom-btn" id="count-zoom-out" aria-label="Zoom out">−</button>
-        <span class="count-zoom-level" id="count-zoom-level">${Math.round(zoom * 100)}%</span>
-        <button class="count-zoom-btn" id="count-zoom-in" aria-label="Zoom in">+</button>
       </div>
     </div>
   `;

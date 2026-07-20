@@ -1699,3 +1699,28 @@ Two real bugs surfaced only once rendered in a browser, both fixed before callin
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 13 items checked off with implementation notes. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+## Phase 8 follow-up — Count screen zoom bar to top, panel pinned
+
+**Request:** "The zoom feature for hand counting should show at the top of the screen instead of the bottom, and the panel at the top along with the zoom should always stay on the screen."
+
+### Diagnosis
+
+`.count-zoom-controls` was `position: fixed; bottom/right` — a floating overlay. The "doesn't stay on screen" complaint traced to a flexbox containment bug: `.count-canvas` (`flex: 1` inside `.count-screen`'s column) had no `min-height: 0`, and `.count-screen` used `min-height: 100dvh` rather than a capped `height`. Flex items default to `min-height: auto`, so once zoomed content exceeded the viewport, `.count-canvas` grew instead of scrolling internally, making the whole page scroll — carrying the in-flow `.count-topbar` off-screen with it.
+
+### Plan
+
+1. **`app.js`** — reorder `renderCountHTML()` markup: move `.count-zoom-controls` to directly after `.count-topbar` (before `.count-error`), so it's a top bar, not a bottom overlay.
+2. **`style.css`**
+   - `.count-screen`: `min-height: 100dvh` → `height: 100dvh; overflow: hidden`, capping it so it can never become the scroll container itself.
+   - `.count-canvas`: add `min-height: 0` so `flex: 1` actually constrains it and its own `overflow: auto` absorbs the zoom/pan scroll.
+   - `.count-topbar` / `.count-error`: add `flex-shrink: 0` so the canvas can't squeeze them.
+   - `.count-zoom-controls`: drop `position: fixed` + floating-pill styling; restyle as a normal-flow centered row with a `border-bottom`, matching the topbar's chrome.
+
+### Verification
+
+Served with `python -m http.server`, drove with Python Playwright (real Chromium), local test-account login, through Experiments → Conditions → Cells → Count. Confirmed via screenshot that the zoom bar renders under the top panel, not bottom-right. Zoomed to 250%, scrolled the canvas and the page: screenshots and direct measurement (`window.scrollY === 0`, `.count-screen` `scrollHeight === clientHeight`) confirmed only `.count-canvas` scrolled — top panel and zoom bar stayed fixed in view. Zero console errors.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 8 amended with a follow-up note. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

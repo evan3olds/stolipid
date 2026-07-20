@@ -1494,7 +1494,8 @@ body {
 .count-screen {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
   background: oklch(0.14 0.01 145);
   color: oklch(0.95 0.005 75);
 }
@@ -1506,6 +1507,7 @@ body {
   gap: 1rem;
   padding: 0.875rem 1.25rem;
   border-bottom: 1px solid oklch(0.3 0.01 145);
+  flex-shrink: 0;
 }
 
 .count-topbar-left {
@@ -1554,10 +1556,12 @@ body {
   text-align: center;
   min-height: 1.25em;
   padding: 0 1.25rem;
+  flex-shrink: 0;
 }
 
 .count-canvas {
   flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1591,17 +1595,14 @@ body {
 }
 
 .count-zoom-controls {
-  position: fixed;
-  right: 1.25rem;
-  bottom: 1.25rem;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.625rem;
+  padding: 0.5rem 1.25rem;
   background: oklch(0.2 0.01 145 / 0.92);
-  border: 1px solid oklch(0.3 0.01 145);
-  border-radius: 0.5rem;
-  z-index: 10;
+  border-bottom: 1px solid oklch(0.3 0.01 145);
 }
 
 .count-zoom-btn {
