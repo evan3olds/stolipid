@@ -799,20 +799,6 @@ body {
   font-size: 0.9375rem;
 }
 
-.detail-value-btn {
-  border: none;
-  background: none;
-  color: inherit;
-  font-family: inherit;
-  padding: 0;
-  cursor: pointer;
-}
-
-.detail-value-btn:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
 .detail-notes {
   font-size: 0.875rem;
   color: var(--text-label);
@@ -921,6 +907,12 @@ body {
   border-radius: 0.375rem;
 }
 
+.count-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .count-delete-btn {
   border: none;
   background: none;
@@ -938,15 +930,16 @@ body {
 .count-edit-btn {
   border: none;
   background: none;
-  color: inherit;
-  font: inherit;
-  padding: 0;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--accent);
+  text-decoration: underline;
   cursor: pointer;
+  padding: 0.125rem 0.375rem;
 }
 
 .count-edit-btn:hover {
-  color: var(--accent);
-  text-decoration: underline;
+  filter: brightness(1.15);
 }
 
 .count-confirm-label {

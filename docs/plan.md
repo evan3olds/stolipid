@@ -1819,3 +1819,53 @@ Served with `python -m http.server`, drove with a temporary headless-Chrome harn
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+## Phase 11c follow-up — Edit/View as separate buttons, not the count value
+
+**Request:** "The auto count and hand count should be viewed/edited with a button next to it, not by clicking the number."
+
+### Diagnosis
+
+The prior two entries made the count *value itself* the clickable trigger (`<button class="count-value count-edit-btn">${c.value}</button>` and `<button class="detail-value detail-value-btn">${cell.auto_count}</button>`) — functional, but a bare number offering no visual cue that it's interactive, and no way to read the value without risking a click into edit/view mode.
+
+### Plan
+
+`app.js` (`wireCells`'s `renderDetail`):
+- Hand count list item: value goes back to a plain `<span class="count-value">`; a new `<span class="count-actions">` wrapper holds two separate buttons, "Edit" (`count-edit-btn`) and the existing "×" delete (`count-delete-btn`), pushed to the row's right edge via the existing `.count-list-item` `space-between`.
+- Auto count row: value becomes `<span class="detail-value">` again, sitting in a new `<div class="detail-value-row">` next to a separate "View" button (`detail-value-btn`).
+- Event wiring unchanged — both querySelectorAll('.count-edit-btn') / `#auto-count-view-btn` still match, just now attached to dedicated buttons instead of the value element itself.
+
+`style.css`:
+- `.count-edit-btn` restyled from a plain-text-that-turns-accent-on-hover span-alike into an always-visible small underlined accent-colored text button (mirrors the existing `.login-link` pattern) — `Edit` now reads as a button at rest, not just on hover.
+- `.detail-value-btn` restyled the same way for the "View" button.
+- New `.count-actions` (flex row, small gap) and `.detail-value-row` (flex row, `0.5rem` gap) wrappers for the new value+button layout.
+
+### Verification
+
+Served with `python -m http.server`, drove with a temporary headless-Chrome harness (`_verify4.html`, deleted after use). Opened Cell 3 (2 hand counts, `auto_count: 5` with points). DOM check confirmed: count value is a `<span>` (not a button), "Edit" is a separate `<button>` with that exact text, delete is still a separate `<button>`; auto-count value is a `<span>` reading "5", "View" is a separate `<button>`. Dispatched clicks directly on the bare value `<span>`s (both hand-count and auto-count) — screen stayed on Cells (no `.count-screen` appeared), confirming the number itself is no longer interactive. Screenshot confirms the layout: "5 View" next to Auto count, and each hand count showing "N Edit ×" — visually distinct underlined action buttons beside plain-text values. Zero console errors.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+## Phase 11c follow-up — Auto count row matches hand-count row styling
+
+**Request:** "Make the auto count number on the left same as the hand counts."
+
+### Diagnosis
+
+The auto count row used its own one-off markup (`<div class="detail-value-row"><span class="detail-value">…</span><button class="detail-value-btn">View</button></div>`) — plain text on a transparent background, no chip. The hand counts below it render inside `<ul class="count-list"><li class="count-list-item">…</li></ul>`, which gives each row a `var(--surface-chip)` background and padding. Visually the two rows didn't match even though they're conceptually the same shape (a count value + an action button).
+
+### Plan
+
+`app.js`: wrapped the auto count value in the same `<ul class="count-list"><li class="count-list-item">` structure as hand counts — `<span class="count-value">${cell.auto_count}</span>` on the left, `<span class="count-actions"><button class="count-edit-btn" id="auto-count-view-btn">View</button></span>` on the right. Reused `count-edit-btn` instead of the bespoke `detail-value-btn` class, since it's now sitting in the identical chip context as the hand-count "Edit" buttons.
+
+`style.css`: removed `.detail-value-row` and `.detail-value-btn`, both now unused (were single-purpose to the old markup).
+
+### Verification
+
+Served with `python -m http.server`, drove with a temporary headless-Chrome harness (`_verify5.html`/`_verify6.html`, deleted after use). Confirmed `#auto-count-view-btn` still resolves and reads "View"; confirmed the auto count and both hand counts on Cell 3 are now three `.count-list-item`s in the detail panel. Clicking "View" still opens the read-only auto-count viewer (5 blue markers, "auto count (view only)" label) — behavior unchanged. Screenshot of the detail panel confirms the auto count row ("5 View") is now visually identical in layout/chip-styling to the hand-count rows below it ("3 Edit ×", "2 Edit ×"). Zero console errors.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
