@@ -74,9 +74,10 @@ const ABOUT_CONTENT = {
 // Navigation state — persists across the authenticated shell
 const state = {
   screen: 'login',
-  experiment: null, // { id, name }
-  condition: null,  // { id, name }
-  cell: null,       // { id, name }
+  experiment: null,   // { id, name }
+  condition: null,    // { id, name }
+  cell: null,         // { id, name }
+  editingCount: null, // { id, points } when reopening a saved hand count for edit, else null
 };
 
 // Per-screen chrome metadata: subheader title, primary action label, back button
@@ -109,7 +110,12 @@ function navigate(screen, params = {}) {
   if ('cell' in params) state.cell = params.cell;
   if (screen === 'login') return renderLogin();
   if (screen === 'addphotos') return renderAddPhotos();
-  if (screen === 'count') return renderCount();
+  if (screen === 'count') {
+    // Reset on every entry (not just `if ('editingCount' in params)`) so a
+    // stale edit target from a prior visit can't leak into a fresh count.
+    state.editingCount = params.editingCount || null;
+    return renderCount();
+  }
   renderShell(screen);
   if (screen === 'experiments') initExperiments();
   if (screen === 'conditions') initConditions();
@@ -1489,7 +1495,9 @@ function wireCells(cells) {
           ? '<span class="detail-value">No counts yet.</span>'
           : `<ul class="count-list">${counts.map(c => `
               <li class="count-list-item">
-                <span class="count-value">${c.value}</span>
+                ${c.points && c.points.length
+                  ? `<button class="count-value count-edit-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Edit count">${c.value}</button>`
+                  : `<span class="count-value">${c.value}</span>`}
                 <button class="count-delete-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Delete count">&times;</button>
               </li>
             `).join('')}</ul>`}
@@ -1511,6 +1519,18 @@ function wireCells(cells) {
         `;
         li.querySelector('.count-confirm-btn').addEventListener('click', () => deleteCount(cell, countId));
         li.querySelector('.count-cancel-btn').addEventListener('click', () => renderDetail(cell));
+      });
+    });
+
+    panel.querySelectorAll('.count-edit-btn').forEach(btn => {
+      const countId = btn.dataset.countId;
+      btn.addEventListener('click', () => {
+        const count = counts.find(c => String(c.id) === String(countId));
+        if (!count) return;
+        navigate('count', {
+          cell: { id: cell.id, name: cell.name, image_url: cell.image_url },
+          editingCount: { id: count.id, points: count.points },
+        });
       });
     });
 
@@ -2050,14 +2070,24 @@ function wireAddPhotos() {
 // like Login and Add Photos do (see navigate()). Screen-local state, reset
 // every time the screen mounts.
 
-let countState = null; // { cell, markers: [{ id, x, y }], zoom }
+let countState = null; // { cell, markers: [{ id, x, y }], zoom, editingCountId }
 
 const COUNT_ZOOM_MIN = 1;
 const COUNT_ZOOM_MAX = 3;
 const COUNT_ZOOM_STEP = 0.5;
 
 function renderCount() {
-  countState = { cell: state.cell, markers: [], zoom: COUNT_ZOOM_MIN };
+  const editing = state.editingCount;
+  countState = {
+    cell: state.cell,
+    // Reopening a saved count preloads its stored points as markers so
+    // Done can PUT an update instead of POSTing a brand-new count.
+    markers: (editing && editing.points)
+      ? editing.points.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y }))
+      : [],
+    zoom: COUNT_ZOOM_MIN,
+    editingCountId: editing ? editing.id : null,
+  };
   refreshCount();
 }
 
@@ -2083,7 +2113,7 @@ function renderCountHTML() {
     <div class="count-screen">
       <header class="count-topbar">
         <div class="count-topbar-left">
-          <div class="count-cell-name">${escHtml(cell.name)}</div>
+          <div class="count-cell-name">${escHtml(cell.name)}${countState.editingCountId ? ' · editing saved count' : ''}</div>
           <div class="count-total">Total: ${markers.length}</div>
         </div>
         <div class="count-topbar-actions">
@@ -2151,6 +2181,8 @@ function setCountZoom(zoom) {
 
 async function finishCount() {
   const value = countState.markers.length;
+  const points = countState.markers.map(m => ({ x: m.x, y: m.y }));
+  const editingId = countState.editingCountId;
   const doneBtn = document.getElementById('count-done');
   const errEl = document.getElementById('count-error');
   doneBtn.disabled = true;
@@ -2161,16 +2193,30 @@ async function finishCount() {
     const conditions = TEST_CONDITIONS[state.experiment?.id] || [];
     const cond = conditions.find(c => String(c.id) === String(state.condition?.id));
     const cell = cond?.cells.find(c => String(c.id) === String(countState.cell.id));
-    if (cell) cell.counts = [...(cell.counts || []), { id: genLocalId('cnt'), value }];
+    if (cell) {
+      if (editingId) {
+        cell.counts = (cell.counts || []).map(c =>
+          String(c.id) === String(editingId) ? { ...c, value, points } : c);
+      } else {
+        cell.counts = [...(cell.counts || []), { id: genLocalId('cnt'), value, points }];
+      }
+    }
     navigate('cells');
     return;
   }
 
   try {
-    await api(`/cells/${countState.cell.id}/counts`, {
-      method: 'POST',
-      body: JSON.stringify({ value }),
-    });
+    if (editingId) {
+      await api(`/counts/${editingId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ value, points }),
+      });
+    } else {
+      await api(`/cells/${countState.cell.id}/counts`, {
+        method: 'POST',
+        body: JSON.stringify({ value, points }),
+      });
+    }
     navigate('cells');
   } catch {
     errEl.textContent = 'Could not save count. Check the API connection.';

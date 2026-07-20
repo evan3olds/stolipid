@@ -196,10 +196,10 @@ conditions
   id uuid PK, experiment_id uuid FK, name text, starvation text, notes text
 
 cells
-  id uuid PK, condition_id uuid FK, name text, image_url text, auto_count integer, source_filename text
+  id uuid PK, condition_id uuid FK, name text, image_url text, auto_count integer, auto_points jsonb, source_filename text
 
 counts
-  id uuid PK, cell_id uuid FK, value integer, counted_by uuid FK, created_at timestamptz
+  id uuid PK, cell_id uuid FK, value integer, points jsonb, counted_by uuid FK, created_at timestamptz
 ```
 
 **Supabase Storage:**
