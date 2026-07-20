@@ -1489,7 +1489,14 @@ function wireCells(cells) {
       ${cell.auto_count != null ? `
         <div class="detail-row">
           <span class="detail-label">Auto count</span>
-          <button class="detail-value detail-value-btn" id="auto-count-view-btn" aria-label="View auto count grid">${cell.auto_count}</button>
+          <ul class="count-list">
+            <li class="count-list-item">
+              <span class="count-value">${cell.auto_count}</span>
+              <span class="count-actions">
+                <button class="count-edit-btn" id="auto-count-view-btn" aria-label="View auto count grid">View</button>
+              </span>
+            </li>
+          </ul>
         </div>
       ` : ''}
       <div class="detail-row">
@@ -1498,8 +1505,11 @@ function wireCells(cells) {
           ? '<span class="detail-value">No counts yet.</span>'
           : `<ul class="count-list">${counts.map(c => `
               <li class="count-list-item">
-                <button class="count-value count-edit-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Edit count">${c.value}</button>
-                <button class="count-delete-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Delete count">&times;</button>
+                <span class="count-value">${c.value}</span>
+                <span class="count-actions">
+                  <button class="count-edit-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Edit count">Edit</button>
+                  <button class="count-delete-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Delete count">&times;</button>
+                </span>
               </li>
             `).join('')}</ul>`}
       </div>
