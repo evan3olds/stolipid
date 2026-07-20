@@ -1584,18 +1584,15 @@ body {
   flex: 1;
   min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  /* justify/align: center traps scrolling when the frame overflows (the
+     browser can't scroll to a negative offset to reach the centered
+     content's near edge) — "safe" falls back to start-alignment whenever
+     the frame doesn't fit, which also covers a tall/vertical image
+     overflowing the canvas at 100% zoom, not just zoomed-in overflow. */
+  align-items: safe center;
+  justify-content: safe center;
   padding: 1.5rem;
   overflow: auto;
-}
-
-/* justify/align: center traps scrolling when the frame overflows (the
-   browser can't scroll to a negative offset to reach the centered
-   content's near edge), so switch to start-aligned once zoomed in. */
-.count-canvas.is-zoomed {
-  align-items: flex-start;
-  justify-content: flex-start;
 }
 
 .count-marker {

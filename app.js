@@ -2157,7 +2157,7 @@ function renderCountHTML() {
         <button class="count-zoom-btn" id="count-zoom-in" aria-label="Zoom in">+</button>
       </div>
       <div class="count-error" id="count-error"></div>
-      <div class="count-canvas${zoom > COUNT_ZOOM_MIN ? ' is-zoomed' : ''}">
+      <div class="count-canvas">
         <div class="canvas-frame" id="count-frame" style="width:${zoom * 100}%; max-width:${zoom * 55}rem;">
           ${image}
           ${markerEls}
@@ -2203,7 +2203,6 @@ function setCountZoom(zoom) {
   const frame = document.getElementById('count-frame');
   frame.style.width = `${countState.zoom * 100}%`;
   frame.style.maxWidth = `${countState.zoom * 55}rem`;
-  document.querySelector('.count-canvas').classList.toggle('is-zoomed', countState.zoom > COUNT_ZOOM_MIN);
   document.getElementById('count-zoom-level').textContent = `${Math.round(countState.zoom * 100)}%`;
   document.getElementById('count-zoom-out').disabled = countState.zoom <= COUNT_ZOOM_MIN;
   document.getElementById('count-zoom-in').disabled = countState.zoom >= COUNT_ZOOM_MAX;
