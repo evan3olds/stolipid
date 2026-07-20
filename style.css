@@ -126,36 +126,41 @@
      `from`), forming a visible gray-scale ramp: page < stripe < card <
      header < chip < tint < tint-2 < border-default < border-strong <
      border-emphasis, so every surface and its border reads clearly. */
-  --surface-page:         oklch(from var(--surface-page-paper) 0.22 c 132);
-  --surface-card:         oklch(from var(--surface-card-paper) 0.32 c 132);
-  --surface-stripe:       oklch(from var(--surface-stripe-paper) 0.26 c 132);
-  --surface-chip:         oklch(from var(--surface-chip-paper) 0.38 c 132);
-  --surface-tint:         oklch(from var(--surface-tint-paper) 0.4  c 132);
-  --surface-tint-2:       oklch(from var(--surface-tint-2-paper) 0.44 c 132);
-  --surface-header:       oklch(from var(--surface-header-paper) 0.36 c 132);
-  --surface-header-hover: oklch(from var(--surface-header-hover-paper) 0.42 c 132);
-  --surface-input:        oklch(from var(--surface-input-paper) 0.18 c 132);
+  --surface-page:         oklch(from var(--surface-page-paper) 0.38 c 132);
+  --surface-card:         oklch(from var(--surface-card-paper) 0.48 c 132);
+  --surface-stripe:       oklch(from var(--surface-stripe-paper) 0.42 c 132);
+  --surface-chip:         oklch(from var(--surface-chip-paper) 0.54 c 132);
+  --surface-tint:         oklch(from var(--surface-tint-paper) 0.56 c 132);
+  --surface-tint-2:       oklch(from var(--surface-tint-2-paper) 0.6  c 132);
+  --surface-header:       oklch(from var(--surface-header-paper) 0.52 c 132);
+  --surface-header-hover: oklch(from var(--surface-header-hover-paper) 0.58 c 132);
+  --surface-input:        oklch(from var(--surface-input-paper) 0.3  c 132);
 
-  --border-default:  oklch(from var(--border-default-paper) 0.5  c 132);
-  --border-strong:   oklch(from var(--border-strong-paper) 0.56 c 132);
-  --border-emphasis: oklch(from var(--border-emphasis-paper) 0.64 c 132);
-  --border-faint:    oklch(from var(--border-faint-paper) 0.34 c 132);
+  --border-default:  oklch(from var(--border-default-paper) 0.66 c 132);
+  --border-strong:   oklch(from var(--border-strong-paper) 0.7  c 132);
+  --border-emphasis: oklch(from var(--border-emphasis-paper) 0.76 c 132);
+  --border-faint:    oklch(from var(--border-faint-paper) 0.5  c 132);
 
-  --text-primary:     oklch(from var(--text-primary-paper) calc(1 - l) c 132);
-  --icon-fill:         oklch(from var(--icon-fill-paper) calc(1 - l) c 132);
-  --text-emphasis:     oklch(from var(--text-emphasis-paper) calc(1 - l) c 132);
-  --text-heading-fill: oklch(from var(--text-heading-fill-paper) calc(1 - l) c 132);
-  --text-label:        oklch(from var(--text-label-paper) calc(1 - l) c 132);
-  --text-body:         oklch(from var(--text-body-paper) calc(1 - l) c 132);
-  --text-body-2:       oklch(from var(--text-body-2-paper) calc(1 - l) c 132);
-  --text-muted:        oklch(from var(--text-muted-paper) calc(1 - l) c 132);
-  --text-secondary:    oklch(from var(--text-secondary-paper) calc(1 - l) c 132);
-  --text-faint:        oklch(from var(--text-faint-paper) calc(1 - l) c 132);
-  --text-faint-2:      oklch(from var(--text-faint-2-paper) calc(1 - l) c 132);
+  /* Text also moved off the plain 1-l invert: with surfaces now sitting in
+     the 0.3-0.76 band, symmetric inversion put --text-secondary (0.5) and
+     --text-faint/-2 (0.3) right on top of or below those surfaces —
+     invisible or near-invisible. Explicit targets keep every text token
+     comfortably lighter than the surfaces it's actually rendered on. */
+  --text-primary:      oklch(from var(--text-primary-paper) 0.95 c 132);
+  --icon-fill:          oklch(from var(--icon-fill-paper) 0.85 c 132);
+  --text-emphasis:      oklch(from var(--text-emphasis-paper) 0.85 c 132);
+  --text-heading-fill:  oklch(from var(--text-heading-fill-paper) 0.9 c 132);
+  --text-label:         oklch(from var(--text-label-paper) 0.8 c 132);
+  --text-body:          oklch(from var(--text-body-paper) 0.78 c 132);
+  --text-body-2:        oklch(from var(--text-body-2-paper) 0.76 c 132);
+  --text-muted:         oklch(from var(--text-muted-paper) 0.72 c 132);
+  --text-secondary:     oklch(from var(--text-secondary-paper) 0.68 c 132);
+  --text-faint:         oklch(from var(--text-faint-paper) 0.62 c 132);
+  --text-faint-2:       oklch(from var(--text-faint-2-paper) 0.62 c 132);
 
-  --accent:             oklch(from var(--accent-paper) calc(1 - l) c 132);
-  --accent-tint-soft:   oklch(from var(--accent-tint-soft-paper) calc(1 - l) c 132);
-  --accent-tint-strong: oklch(from var(--accent-tint-strong-paper) calc(1 - l) c 132);
+  --accent:             oklch(from var(--accent-paper) 0.64 c 132);
+  --accent-tint-soft:   oklch(from var(--accent-tint-soft-paper) 0.5 c 132);
+  --accent-tint-strong: oklch(from var(--accent-tint-strong-paper) 0.5 c 132);
 
   --danger:         oklch(from var(--danger-paper) calc(1 - l) c h);
   --danger-strong:  oklch(from var(--danger-strong-paper) calc(1 - l) c h);

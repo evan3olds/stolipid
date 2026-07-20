@@ -1065,6 +1065,16 @@ Re-verified with the same Playwright screenshot pass: folder cards, the Add Expe
 
 Bumped every value in the surface/border lightness ramp by roughly +0.16–0.18: page 0.06→0.22, card 0.14→0.32, chip 0.18→0.38, tint 0.20→0.40, tint-2 0.23→0.44, header 0.17→0.36, header-hover 0.21→0.42, stripe 0.09→0.26, input 0.05→0.18, border-default 0.30→0.50, border-strong 0.36→0.56, border-emphasis 0.44→0.64, border-faint 0.15→0.34 — same relative ramp shape, just shifted up into charcoal-gray territory instead of near-black. Text/accent/semantic tokens untouched (still read correctly at the new, lighter surface levels). Re-verified with the same screenshot pass; Paper confirmed unchanged.
 
+### Follow-up: page background itself needed to be lighter
+
+**Feedback:** the previous pass lightened cards/borders relative to the page, but the page background itself was still near-black; asked for the background to be lighter too.
+
+Shifted the whole surface/border ramp up another ~+0.16: page 0.22→0.38, card 0.32→0.48, chip 0.38→0.54, tint 0.40→0.56, tint-2 0.44→0.60, header 0.36→0.52, header-hover 0.42→0.58, stripe 0.26→0.42, input 0.18→0.30, border-default 0.50→0.66, border-strong 0.56→0.70, border-emphasis 0.64→0.76, border-faint 0.34→0.50 — page now reads as a proper light-to-mid sage-gray instead of charcoal.
+
+This pushed surfaces into the same lightness band the text tokens' `calc(1 - l)` formula was landing in — `--text-secondary` (paper 0.5 → dark 0.5) was about to sit at the *same* lightness as the new `--surface-card` (0.48), and `--text-faint`/`--text-faint-2` (paper 0.7 → dark 0.3) would've been *darker* than the new page (0.38), both effectively invisible. Switched every text token (plus `--accent`, `--accent-tint-soft`, `--accent-tint-strong`) from the formula to explicit targets too, keeping the same relative ordering as Paper (primary most prominent → faint least) but recalibrated so every one sits comfortably lighter than the surfaces it's actually rendered on: text-primary 0.95, icon-fill/text-emphasis 0.85, text-heading-fill 0.9, text-label 0.8, text-body 0.78, text-body-2 0.76, text-muted 0.72, text-secondary 0.68, text-faint/text-faint-2 0.62; accent 0.64, accent-tint-soft/strong 0.5. Semantic status tokens (danger/warn/success) were left alone — they're only ever short badges/small text, not verified as an issue, but flagged as worth a look if the user notices low contrast there next.
+
+Re-verified with the full screenshot pass (Experiments, modal, Raw Data table, Conditions detail). Everything reads cleanly — white body text, muted secondary/meta text, and a legible green accent all sit clearly above the new lighter gray surfaces. Paper confirmed unchanged.
+
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 13 items checked off with implementation notes. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
