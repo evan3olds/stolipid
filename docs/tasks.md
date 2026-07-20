@@ -94,6 +94,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Hover tooltip (experiment, condition, cell name, hand counts, auto count)
 - [x] Legend with condition names and experiment labels below columns
 - [x] "No data" empty state
+- [x] Follow-up: sidebar "Metric" selector lets the user switch the plotted per-cell value and condition-mean bar between `cells.auto_count` (default, unchanged), the average of hand counts (`cellAverage`, same calc the Conditions screen mini chart uses), or the average of the two (`cellValueForMetric`/`conditionMeanForMetric` in `app.js`, falling back to whichever of the pair is present when a cell only has one). Y-axis label and tooltip update to reflect the active metric; the tooltip's existing "Hand counts"/"Auto count" rows are unchanged and a metric-value row is appended only when the metric isn't plain auto count (avoids a duplicate "Auto count" line). Verified with a headless-browser pass through all three metric options plus tooltip hover — screenshots confirm per-cell values and condition means shift correctly (e.g. cells with no hand counts fall back to auto-only under "Average of both"), no console errors
 
 ---
 

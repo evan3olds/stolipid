@@ -1025,16 +1025,12 @@ function conditionMean(cond) {
   return averages.reduce((sum, a) => sum + a, 0) / averages.length;
 }
 
-// Graph screen plots the machine-suggested auto_count per cell, not the
-// hand-count average (that's what the mini condition-overview chart uses).
+// Graph screen defaults to plotting the machine-suggested auto_count per
+// cell (not the hand-count average, which the mini condition-overview chart
+// uses) but lets the user switch to hand-count or combined via the metric
+// selector — see cellValueForMetric/conditionMeanForMetric below.
 function cellAutoCount(cell) {
   return cell.auto_count != null ? cell.auto_count : null;
-}
-
-function conditionAutoCountMean(cond) {
-  const values = (cond.cells || []).map(cellAutoCount).filter(v => v != null);
-  if (!values.length) return null;
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
 function truncateLabel(str, max = 10) {
@@ -2314,7 +2310,33 @@ function wireCount() {
 // the rest of the screen's session (graphState.colorAssignments persists
 // across add/remove within one visit; a full reset only happens on remount).
 
-let graphState = null; // { conditionsCache, selectedExperimentId, selected, colorAssignments }
+let graphState = null; // { conditionsCache, selectedExperimentId, selected, colorAssignments, metric }
+
+// Metric shown on the y-axis: 'auto' (machine-suggested auto_count, default),
+// 'hand' (average of hand counts), or 'combined' (average of the two).
+const GRAPH_METRICS = {
+  auto: { label: 'Auto count', axisLabel: 'Lipid droplets / cell (auto count)' },
+  hand: { label: 'Average hand count', axisLabel: 'Lipid droplets / cell (hand count avg)' },
+  combined: { label: 'Average of both', axisLabel: 'Lipid droplets / cell (combined avg)' },
+};
+
+function cellValueForMetric(cell, metric) {
+  const auto = cellAutoCount(cell);
+  const hand = cellAverage(cell);
+  if (metric === 'hand') return hand;
+  if (metric === 'combined') {
+    if (auto == null) return hand;
+    if (hand == null) return auto;
+    return (auto + hand) / 2;
+  }
+  return auto;
+}
+
+function conditionMeanForMetric(cond, metric) {
+  const values = (cond.cells || []).map(cell => cellValueForMetric(cell, metric)).filter(v => v != null);
+  if (!values.length) return null;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
 
 async function initGraph() {
   const content = document.querySelector('.content');
@@ -2335,7 +2357,7 @@ async function initGraph() {
     }
   }
 
-  graphState = { conditionsCache: {}, selectedExperimentId: null, selected: [], colorAssignments: {} };
+  graphState = { conditionsCache: {}, selectedExperimentId: null, selected: [], colorAssignments: {}, metric: 'auto' };
   content.innerHTML = renderGraphHTML(experiments);
   wireGraph(experiments);
 }
@@ -2363,6 +2385,14 @@ function renderGraphHTML(experiments) {
         </div>
         <button class="graph-add-btn" id="graph-add-btn" disabled>Add to graph</button>
         <div class="graph-selected-list" id="graph-selected-list">${renderGraphSelectedListHTML()}</div>
+        <div class="graph-field">
+          <label for="graph-metric-select">Metric</label>
+          <select class="graph-select" id="graph-metric-select">
+            ${Object.entries(GRAPH_METRICS).map(([value, { label }]) =>
+              `<option value="${value}"${value === graphState.metric ? ' selected' : ''}>${escHtml(label)}</option>`
+            ).join('')}
+          </select>
+        </div>
       </aside>
       <div class="graph-main">
         <h2 class="graph-chart-title">Lipid droplet counts by condition</h2>
@@ -2431,7 +2461,7 @@ function renderGraphChartArea() {
   // Render the scatter first: it's what assigns fresh color slots (in
   // column order == first-seen order), so the legend below can just look
   // the assignments up rather than risk a different assignment order.
-  const scatterSvg = renderGraphScatterSVG(selected);
+  const scatterSvg = renderGraphScatterSVG(selected, graphState.metric);
 
   const distinctIds = [...new Set(selected.map(s => s.experimentId))];
   const legend = distinctIds.length > 1
@@ -2454,7 +2484,7 @@ function renderGraphChartArea() {
   return legend + scatterSvg;
 }
 
-function renderGraphScatterSVG(selected) {
+function renderGraphScatterSVG(selected, metric) {
   const width = 900;
   const height = 420;
   const padLeft = 40;
@@ -2464,7 +2494,7 @@ function renderGraphScatterSVG(selected) {
   const plotWidth = width - padLeft - padRight;
   const plotHeight = height - padTop - padBottom;
 
-  const allAverages = selected.flatMap(s => (s.cells || []).map(cellAutoCount)).filter(a => a != null);
+  const allAverages = selected.flatMap(s => (s.cells || []).map(cell => cellValueForMetric(cell, metric))).filter(a => a != null);
   const rawMax = Math.max(1, ...allAverages);
   const niceMax = Math.ceil(rawMax / 5) * 5 || 5;
   const tickCount = 5;
@@ -2486,7 +2516,7 @@ function renderGraphScatterSVG(selected) {
     const cx = padLeft + colWidth * (i + 0.5);
     const color = seriesColorForExperiment(s.experimentId);
     const cellsWithAvg = (s.cells || [])
-      .map(cell => ({ cell, avg: cellAutoCount(cell) }))
+      .map(cell => ({ cell, avg: cellValueForMetric(cell, metric) }))
       .filter(x => x.avg != null);
 
     const dots = cellsWithAvg.map(({ cell, avg }, j) => {
@@ -2494,12 +2524,14 @@ function renderGraphScatterSVG(selected) {
       const x = cx + jitter;
       const y = yFor(avg);
       const countsStr = (cell.counts || []).map(c => c.value).join(', ') || '—';
+      const autoStr = cellAutoCount(cell) != null ? cellAutoCount(cell).toFixed(1) : '—';
       return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" class="graph-dot" style="fill:${color}"
         data-experiment="${escHtml(s.experimentName)}" data-condition="${escHtml(s.conditionName)}"
-        data-cell="${escHtml(cell.name)}" data-counts="${escHtml(countsStr)}" data-average="${avg.toFixed(1)}" />`;
+        data-cell="${escHtml(cell.name)}" data-counts="${escHtml(countsStr)}" data-average="${autoStr}"
+        data-plotted="${avg.toFixed(1)}" data-metric-key="${metric}" data-metric="${escHtml(GRAPH_METRICS[metric].label)}" />`;
     }).join('');
 
-    const mean = conditionAutoCountMean(s);
+    const mean = conditionMeanForMetric(s, metric);
     const barHalf = colWidth * 0.3;
     const meanTick = mean != null
       ? `<line x1="${(cx - barHalf).toFixed(1)}" y1="${yFor(mean).toFixed(1)}" x2="${(cx + barHalf).toFixed(1)}" y2="${yFor(mean).toFixed(1)}" class="graph-mean-tick" style="stroke:${color}" />`
@@ -2515,7 +2547,7 @@ function renderGraphScatterSVG(selected) {
 
   return `
     <svg class="graph-scatter-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Lipid droplet counts by condition">
-      <text x="${padLeft}" y="14" class="graph-axis-label">Lipid droplets / cell</text>
+      <text x="${padLeft}" y="14" class="graph-axis-label">${escHtml(GRAPH_METRICS[metric].axisLabel)}</text>
       ${gridlines}
       ${columns}
     </svg>
@@ -2534,6 +2566,7 @@ function wireGraphTooltip() {
         <div class="graph-tooltip-row">${escHtml(dot.dataset.cell)}</div>
         <div class="graph-tooltip-row">Hand counts: ${escHtml(dot.dataset.counts)}</div>
         <div class="graph-tooltip-row">Auto count: ${escHtml(dot.dataset.average)}</div>
+        ${dot.dataset.metricKey === 'auto' ? '' : `<div class="graph-tooltip-row">${escHtml(dot.dataset.metric)}: ${escHtml(dot.dataset.plotted)}</div>`}
       `;
       tooltip.hidden = false;
     });
@@ -2551,6 +2584,12 @@ function wireGraph(experiments) {
   const expSelect = document.getElementById('graph-experiment-select');
   const condSelect = document.getElementById('graph-condition-select');
   const addBtn = document.getElementById('graph-add-btn');
+  const metricSelect = document.getElementById('graph-metric-select');
+
+  metricSelect.addEventListener('change', () => {
+    graphState.metric = metricSelect.value;
+    refreshGraphChartArea();
+  });
 
   async function loadConditionsFor(experimentId) {
     if (graphState.conditionsCache[experimentId]) return graphState.conditionsCache[experimentId];
