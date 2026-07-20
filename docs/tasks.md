@@ -82,6 +82,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Zoom in/out controls (100%–300%) to separate small, closely-clustered droplets; canvas pans via scroll
 - [x] "Done" → write count to `counts` table; "Cancel" → discard and return
 - [x] Follow-up: zoom controls moved from a fixed bottom-right overlay to a static bar directly under the top panel, and `.count-screen` fixed to `height: 100dvh; overflow: hidden` (with `.count-canvas` given `min-height: 0`) so the top panel and zoom bar can never scroll off-screen — only the image canvas scrolls
+- [x] Follow-up: a very vertical (portrait) cell image had its top cut off and permanently unreachable at 100% zoom. The earlier zoomed-in scroll-trap fix (`.count-canvas.is-zoomed`, flex-start alignment) only toggled when `zoom > 100%`, but a tall image can overflow the canvas vertically at 100% zoom too (frame width is capped, but height is set by the image's own aspect ratio). Replaced the zoom-conditional `.is-zoomed` class entirely with unconditional CSS `align-items: safe center; justify-content: safe center` on `.count-canvas` — centers when the frame fits, falls back to start-alignment whenever it doesn't, regardless of zoom level
 
 ---
 

@@ -1272,3 +1272,30 @@ No live Supabase/Render deploy available to exercise end-to-end, so verified the
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Vertical (portrait) cell image cut off at top on the Count screen
+
+**Request:** "The hand count screen cuts off the top of the image at 100% zoom if it's a very vertical image."
+
+### Diagnosis
+
+A prior fix (see the `is-zoomed` entry above) addressed `.count-canvas`'s centered flex alignment trapping scroll when the frame overflows — the browser can't scroll to the negative offset needed to reach a centered overflowing child's near edge — by adding `.count-canvas.is-zoomed { align-items/justify-content: flex-start }`, toggled only when `zoom > 100%`. But `#count-frame`'s height is driven entirely by the image's real aspect ratio (`wireCount()` sets `frame.style.aspectRatio` from `img.naturalWidth`/`naturalHeight`), while its width is capped at `100%`/`55rem`. A very tall/narrow (portrait) image can therefore overflow `.count-canvas` vertically even at 100% zoom, a case the zoom-conditional class never covered — reproducing exactly the same scroll-trap bug, just without needing to zoom in first.
+
+### `style.css`
+
+`.count-canvas` changed from `align-items: center; justify-content: center` to `align-items: safe center; justify-content: safe center` (unconditionally). The CSS `safe` keyword centers content when it fits and automatically falls back to start-alignment whenever it doesn't — covering both the old zoomed-in case and the new tall-image-at-100%-zoom case with no JS involved. Removed the now-redundant `.count-canvas.is-zoomed` rule.
+
+### `app.js`
+
+Removed the `is-zoomed` class wiring made obsolete by the CSS change: the conditional `' is-zoomed'` string in `renderCountHTML()`'s canvas div, and the `classList.toggle('is-zoomed', …)` call in `setCountZoom()`.
+
+### Verification
+
+Served the site with `python -m http.server` and drove it with a headless-Chromium Playwright script (no `chromium-cli` on this machine, so used Playwright's Python sync API directly as the documented fallback). Injected a synthetic 300×1400 SVG data-URI image (green "TOP" band, red "BOTTOM" band) directly into `countState`/`renderCountHTML()`/`wireCount()` to simulate a very vertical cell image without a live Supabase/Render deploy.
+
+- Reproduced the bug first: temporarily forced the old `align-items: center; justify-content: center` (pre-fix) via an injected stylesheet — confirmed the "TOP" band was cut off and stayed unreachable even after setting `scrollTop` to its maximum value, while "BOTTOM" was reachable. This matches the reported symptom exactly (top cut off, not bottom).
+- Re-ran against the actual fixed CSS/JS: "TOP" is visible flush at the top of the canvas by default, and scrolling to `scrollHeight` reveals "BOTTOM" flush at the bottom — both edges reachable at 100% zoom.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 8 amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

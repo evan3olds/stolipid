@@ -1897,3 +1897,25 @@ No live Render/Supabase deploy to exercise end-to-end. Verified in isolation: `a
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+**Request:** "The hand count screen cuts off the top of the image at 100% zoom if it's a very vertical image."
+
+### Diagnosis
+
+A prior fix added `.count-canvas.is-zoomed { align-items/justify-content: flex-start }` to work around a flexbox scroll trap (centered overflowing content can't be scrolled to its negative-offset near edge), toggled only when `zoom > 100%`. `#count-frame`'s height is set from the real image aspect ratio while its width is capped — so a portrait image can overflow the canvas vertically at 100% zoom too, hitting the identical trap outside the case the old fix covered.
+
+### Plan
+
+`style.css`: replace `.count-canvas`'s `align-items: center; justify-content: center` with `align-items: safe center; justify-content: safe center` unconditionally — `safe` centers when the frame fits and falls back to start-alignment whenever it overflows, independent of zoom state. Delete the now-unused `.count-canvas.is-zoomed` rule.
+
+`app.js`: remove the `is-zoomed` class toggling in `renderCountHTML()` and `setCountZoom()` since the CSS no longer depends on it.
+
+### Verification
+
+No live Supabase/Render deploy, so verified via a headless-Chromium Playwright script (`chromium-cli` unavailable on this machine): served the repo with `python -m http.server`, injected a synthetic tall SVG data-URI image directly into `countState` to stand in for a portrait cell photo. Confirmed the bug reproduces under the old CSS (top label permanently unreachable, even scrolled to max) and is resolved under the new CSS (both top and bottom reachable at 100% zoom).
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 8 amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
