@@ -165,7 +165,7 @@
   --danger:         oklch(from var(--danger-paper) calc(1 - l) c h);
   --danger-strong:  oklch(from var(--danger-strong-paper) calc(1 - l) c h);
   --danger-light:   oklch(from var(--danger-light-paper) calc(1 - l) c h);
-  --warn-text:      oklch(from var(--warn-text-paper) calc(1 - l) c h);
+  --warn-text:      oklch(0.1 0 0);
   --success-text:   oklch(from var(--success-text-paper) calc(1 - l) c h);
   --success-text-2: oklch(from var(--success-text-2-paper) calc(1 - l) c h);
   --success-tint:   oklch(from var(--success-tint-paper) calc(1 - l) c h);

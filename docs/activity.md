@@ -1107,3 +1107,21 @@ Served the repo with `python -m http.server` and drove it with Python Playwright
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 8 amended with a follow-up note. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Phase 13 follow-up — "needs count" tag illegible in Sage
+
+**Request:** the "needs count" text on the Cells screen was orange and hard to read in the Sage theme; make it black.
+
+`.status-tag-needs` (`style.css`) uses `color: var(--warn-text)`. `--warn-text` is a semantic status token that, per the Phase 13 dark-theme design, keeps its original hue (orange) and only inverts lightness (`calc(1 - l) c h`). For a mid-lightness source color (`--warn-text-paper` is `oklch(0.5 0.12 40)`), inverting lightness landed it back near `0.5` — almost the same lightness as the tag's own background (`--accent-tint-strong`, derived to ~0.5 lightness in Sage), so the orange text nearly disappeared into its chip.
+
+### `style.css`
+
+`--warn-text`'s Sage override (line ~168) changed from `oklch(from var(--warn-text-paper) calc(1 - l) c h)` to a hardcoded `oklch(0.1 0 0)` (near-black), per explicit user request — this token has exactly one consumer (`.status-tag-needs`), so there's no risk of an unintended effect elsewhere. Paper's `--warn-text-paper` value is untouched.
+
+### Verification
+
+Served with `python -m http.server`, drove with Python Playwright, logged in with the local test account, toggled to Sage via `#theme-toggle`, navigated to the Cells screen for "0 Hr Starved". Screenshot confirms "NEEDS COUNT" now renders in solid black against the sage-tinted tag background, clearly legible. `getComputedStyle` on `.status-tag-needs` confirmed `color: oklch(0.1 0 0)`. Zero console errors.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 13 amended with a follow-up note. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
