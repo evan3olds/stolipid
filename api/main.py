@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from supabase import create_client
 
-from detection import count_droplets, render_hand_count_image
+from detection import detect_droplets, render_hand_count_image
 from imaging import (
     crop_array_percent,
     encode_png,
@@ -422,7 +422,7 @@ def cells_from_tif(
         raw_crop = crop_array_percent(plane, box.x, box.y, box.width, box.height)
         # normalize_to_uint16: linear min/max stretch, not render_display_image's
         # percentile clip — nothing discarded before background/threshold
-        # (see api/detection.py). render_hand_count_image and count_droplets
+        # (see api/detection.py). render_hand_count_image and detect_droplets
         # each run their own independent subtract_background -> threshold ->
         # fill-holes -> watershed pass from this same normalized_crop —
         # watershed is never shared between the two.
@@ -430,7 +430,15 @@ def cells_from_tif(
         hand_count_crop = render_hand_count_image(normalized_crop)
         url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", encode_png_16(hand_count_crop))
 
-        auto_count = count_droplets(normalized_crop)
+        auto_count, auto_coords = detect_droplets(normalized_crop)
+        # Store as percent-of-crop {x, y}, matching the coordinate convention
+        # the Count screen already uses for hand-count markers (app.js
+        # addMarkerAt), so both point grids share one format.
+        crop_height, crop_width = normalized_crop.shape[:2]
+        auto_points = [
+            {"x": round(col / crop_width * 100, 2), "y": round(row / crop_height * 100, 2)}
+            for row, col in auto_coords
+        ]
 
         response = (
             supabase.table("cells")
@@ -439,6 +447,7 @@ def cells_from_tif(
                 "name": f"Cell {next_number}",
                 "image_url": url,
                 "auto_count": auto_count,
+                "auto_points": auto_points,
                 "source_filename": file.filename,
             })
             .execute()
@@ -500,8 +509,14 @@ def recompute_icc_endpoint(condition_id: str, user=Depends(get_current_user)):
 
 # ---- Counts ----
 
+class CountPoint(BaseModel):
+    x: float = Field(ge=0, le=100)
+    y: float = Field(ge=0, le=100)
+
+
 class CountBody(BaseModel):
     value: int
+    points: Optional[list[CountPoint]] = None
 
 
 @app.post("/cells/{cell_id}/counts")
@@ -512,8 +527,31 @@ def create_count(cell_id: str, body: CountBody, user=Depends(get_current_user)):
         .insert({
             "cell_id": cell_id,
             "value": body.value,
+            "points": [p.dict() for p in body.points] if body.points is not None else None,
             "counted_by": user.id,
         })
+        .execute()
+    )
+    recompute_condition_icc(cell["condition_id"])
+    return response.data[0]
+
+
+@app.put("/counts/{count_id}")
+def update_count(count_id: str, body: CountBody, user=Depends(get_current_user)):
+    """Lets a researcher reopen a saved hand count and adjust its points
+    (see the Count screen's edit flow in app.js) rather than only being
+    able to delete and recount from scratch."""
+    response = supabase.table("counts").select("*").eq("id", count_id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Count not found")
+    cell = owned_cell(response.data[0]["cell_id"], user.id)
+    response = (
+        supabase.table("counts")
+        .update({
+            "value": body.value,
+            "points": [p.dict() for p in body.points] if body.points is not None else None,
+        })
+        .eq("id", count_id)
         .execute()
     )
     recompute_condition_icc(cell["condition_id"])

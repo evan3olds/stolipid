@@ -921,6 +921,20 @@ body {
   color: var(--danger);
 }
 
+.count-edit-btn {
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.count-edit-btn:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .count-confirm-label {
   font-size: 0.8125rem;
   color: var(--danger);

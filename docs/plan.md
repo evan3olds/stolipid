@@ -1744,3 +1744,43 @@ Served with `python -m http.server`, drove with Python Playwright, toggled to Sa
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 13 amended with a follow-up note. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+## Phase 11c follow-up — Store hand-count and auto-count points, editable hand counts
+
+**Request:** "Save the hand counts as a grid of points that you can later edit, also save the auto count as a grid of the local maximas."
+
+### Diagnosis
+
+The Count screen already tracked marker positions client-side (`countState.markers: [{ id, x, y }]`, percent-of-image) but `finishCount()` only ever sent `{ value: markers.length }` to `POST /cells/{id}/counts` — the actual point positions were discarded on save, so a saved hand count could never be reopened and adjusted; the only edit path was delete-and-recount-from-scratch. Separately, `detect_droplets`'s (then `count_droplets`) watershed step already computed `peak_local_max` seed coordinates internally as `_fill_and_watershed`'s markers, but only the final region count survived to `cells.auto_count` — the seed coordinates were computed and thrown away.
+
+### Plan
+
+1. **Schema** — two new `jsonb` columns, no migrations folder in this repo so applied by hand in Supabase (see SQL below): `counts.points` (array of `{x, y}` percent-of-crop, matching the Count screen's existing marker convention) and `cells.auto_points` (same shape, the watershed seeds behind `auto_count`).
+2. **`api/detection.py`** — `_fill_and_watershed` returns `(labels, coords)` instead of just `labels`, so callers get the local-maxima pixel coordinates alongside the label array. `count_droplets` renamed `detect_droplets`, now returns `(count, points)` where `points` is filtered to only the seeds whose region survives `MIN_DROPLET_AREA_PX` (so `len(points) == count` always).
+3. **`api/main.py`**:
+   - `cells_from_tif` converts `detect_droplets`'s pixel-coordinate points to percent-of-crop and writes them to `cells.auto_points` alongside `auto_count`.
+   - `CountBody` gains an optional `points: list[{x, y}]` field; `create_count` persists it.
+   - New `PUT /counts/{count_id}` endpoint (mirrors `create_count`'s shape) so a saved count's value/points can be updated in place instead of only created/deleted.
+4. **`app.js`**:
+   - `finishCount()` now sends `points: markers.map(m => ({x, y}))` on every save (both local test-mode and real API paths).
+   - `state.editingCount` (`{ id, points }` or `null`) added, reset on every `navigate('count', …)` call so a stale edit target can't leak into a fresh count.
+   - Cells screen detail panel: a count with saved `points` renders as a `<button class="count-edit-btn">` instead of a plain `<span>`; clicking it navigates to `count` with `editingCount` set.
+   - `renderCount()` preloads `editingCount.points` as markers when present; `finishCount()` branches to `PUT /counts/{id}` instead of `POST .../counts` when `countState.editingCountId` is set. Topbar shows "· editing saved count" while in this mode.
+   - Counts without stored `points` (pre-existing fixture/legacy data) render as a plain non-interactive span — editing only applies where points exist, so old counts still work via delete-and-recount.
+
+```sql
+alter table counts add column points jsonb;
+alter table cells add column auto_points jsonb;
+```
+
+### Scope
+
+Storage + a full reopen-and-edit flow for hand counts, per the user's explicit choice when asked. Auto-count points are stored but not yet surfaced/visualized in the UI (not requested — `cells.auto_count` display is unchanged). The DB migration is not applied here; the user will run the `ALTER TABLE` statements above directly against Supabase (same pattern as the earlier `source_filename` column addition — see Phase 11c entry in `docs/tasks.md`).
+
+### Verification
+
+Served with `python -m http.server`, drove with a temporary headless-Chrome harness (`_verify.html`, deleted after use — Playwright/Node unavailable in this environment) calling `app.js`'s global functions directly: logged in via the `local:` test token, opened Cell 2 (`test-cond-001`, 1 pre-existing pointless count), clicked "Count", placed 3 markers via `addMarkerAt(20,20)/(50,50)/(75,30)`, called `finishCount()`. Re-selecting the cell showed both counts — confirmed via DOM dump that the new "3" is a `<button class="count-value count-edit-btn">` (the old "4" stayed a plain `<span>`, no stored points). Clicked the edit button: DOM dump confirmed `Total: 3`, three `.count-marker` elements, and the cell-name label read "Cell 2 · editing saved count"; a screenshot of the Count screen showed the 3 markers rendered at the same three positions they were placed at. Auto-count point storage (`detect_droplets`, `cells_from_tif`) verified separately with a synthetic 5-blob image confirming `count == len(points)` and each point lands on its blob's center. Zero console errors in the harness run.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry; Future section's "marker/location coordinates (currently count only)" line checked off. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

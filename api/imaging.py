@@ -86,7 +86,7 @@ def normalize_to_uint16(plane: np.ndarray) -> np.ndarray:
     """Linear min/max stretch to fill the 16-bit range. Unlike
     render_display_image's percentile clip, this is a strictly monotonic
     transform of the crop's own actual min/max — no data is discarded, so
-    detection.count_droplets (Otsu threshold + watershed) gives the same
+    detection.detect_droplets (Otsu threshold + watershed) gives the same
     result on the normalized crop as on the raw plane."""
     low, high = plane.min(), plane.max()
     if high <= low:
