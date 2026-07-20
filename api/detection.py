@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import ndimage as ndi
+from skimage.exposure import equalize_adapthist
 from skimage.feature import peak_local_max
 from skimage.filters import threshold_otsu
 from skimage.measure import regionprops
@@ -14,12 +15,19 @@ BACKGROUND_BALL_RADIUS_PX = 12
 # cores of clumped/touching droplets pass, shrinking the foreground mask
 # and pulling touching droplets apart before fill-holes/watershed even run.
 THRESHOLD_FACTOR = 1.5
+# CLAHE clip limit for the stored hand-count image (render_hand_count_image
+# only — detect_droplets doesn't use this). Previously tuned 0.01 -> 0.005
+# because skimage's 0.01 default visibly widened each droplet's footprint
+# (a smeared/blurred look); 0.003 trims that smearing further while still
+# lifting droplets out of low local contrast.
+CLAHE_CLIP_LIMIT = 0.003
 
 
 def subtract_background(plane: np.ndarray) -> np.ndarray:
     """Rolling-ball background subtraction (radius 12px), returned as
-    uint16. Flattens uneven illumination — step 1 of the shared
-    hand-count/auto-count pipeline (see threshold_binary, detect_droplets)."""
+    uint16. Flattens uneven illumination — shared first step of both
+    render_hand_count_image's grayscale render and detect_droplets's
+    threshold/watershed pipeline (see threshold_binary)."""
     if plane.size == 0 or plane.max() <= plane.min():
         return plane.astype(np.uint16)  # empty/flat crop — let threshold_binary's guard handle it
 
@@ -30,8 +38,8 @@ def subtract_background(plane: np.ndarray) -> np.ndarray:
 def threshold_binary(flattened: np.ndarray) -> np.ndarray:
     """Otsu threshold against a dark background (foreground = bright
     droplets), scaled by THRESHOLD_FACTOR and returned as a boolean mask.
-    Step 2 of the shared hand-count/auto-count pipeline — equivalent to
-    ImageJ's Image > Adjust > Threshold with "Dark background", applied."""
+    Step 2 of detect_droplets's pipeline — equivalent to ImageJ's
+    Image > Adjust > Threshold with "Dark background", applied."""
     if flattened.size == 0 or flattened.max() <= flattened.min():
         return np.zeros_like(flattened, dtype=bool)
 
@@ -42,11 +50,9 @@ def threshold_binary(flattened: np.ndarray) -> np.ndarray:
     return flattened > thresh
 
 
-def _fill_and_watershed(mask: np.ndarray, watershed_line: bool) -> tuple[np.ndarray, np.ndarray]:
+def _fill_and_watershed(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Shared mechanics for steps 3+ (fill holes -> distance-transform
-    watershed), called independently by render_hand_count_image and
-    detect_droplets — each passes its own mask instance, so the two never
-    share a single watershed computation.
+    watershed), used by detect_droplets.
 
     Filling holes closes out-of-focus droplet centers that threshold_binary
     would otherwise leave as gaps in the mask. A Euclidean distance
@@ -73,36 +79,33 @@ def _fill_and_watershed(mask: np.ndarray, watershed_line: bool) -> tuple[np.ndar
     markers = np.zeros(distance.shape, dtype=int)
     markers[tuple(coords.T)] = np.arange(1, len(coords) + 1)
 
-    labels = watershed(-distance, markers, mask=filled, watershed_line=watershed_line)
+    labels = watershed(-distance, markers, mask=filled)
     return labels, coords
 
 
 def render_hand_count_image(plane: np.ndarray) -> np.ndarray:
-    """Full pipeline run only for the stored hand-count image
-    (cells.image_url): background subtraction -> dark-background threshold
-    -> fill holes -> distance-transform watershed. `watershed_line=True`
-    burns a 1px background gap between touching droplets, so droplets that
-    were merged in the mask appear visually separated in the stored image.
+    """Rolling-ball background subtraction + CLAHE contrast enhancement,
+    returned as a real grayscale uint16 image (not a binary threshold mask)
+    for the stored hand-count image (cells.image_url). Flattens uneven
+    illumination and lifts droplets out of low local contrast without
+    reducing the crop to black/white regions.
 
-    This watershed pass is not shared with detect_droplets — the auto-count
-    pipeline reruns its own subtract_background/threshold_binary and its
-    own watershed independently; see detect_droplets."""
-    if plane.size == 0:
-        return plane.astype(np.uint16)
-
+    Not shared with detect_droplets, which runs its own independent
+    threshold/watershed pipeline on the raw normalized crop; see
+    detect_droplets."""
     flattened = subtract_background(plane)
-    mask = threshold_binary(flattened)
-    labels, _ = _fill_and_watershed(mask, watershed_line=True)
-    return (labels > 0).astype(np.uint16) * 65535
+    if flattened.size == 0 or flattened.max() <= flattened.min():
+        return flattened
+
+    enhanced = equalize_adapthist(flattened, clip_limit=CLAHE_CLIP_LIMIT)  # float64 in [0, 1]
+    return (enhanced * 65535).astype(np.uint16)
 
 
 def detect_droplets(plane: np.ndarray) -> tuple[int, list[tuple[int, int]]]:
-    """Auto-count pipeline. Starts from its own subtract_background ->
-    threshold_binary pass — the same two steps render_hand_count_image
-    runs, but recomputed independently here rather than reusing that
-    result — then its own fill-holes -> watershed (no visible split line
-    needed, since nothing here gets rendered) to split touching droplets
-    before counting regions.
+    """Auto-count pipeline: subtract_background -> dark-background threshold
+    -> fill-holes -> watershed to split touching droplets before counting
+    regions. Independent of render_hand_count_image's grayscale render —
+    neither shares any intermediate result with the other.
 
     Returns (count, points): count is the number of regions passing the
     area filter, and points is the (row, col) pixel coordinate of each
@@ -114,7 +117,7 @@ def detect_droplets(plane: np.ndarray) -> tuple[int, list[tuple[int, int]]]:
 
     flattened = subtract_background(plane)
     mask = threshold_binary(flattened)
-    labels, coords = _fill_and_watershed(mask, watershed_line=False)
+    labels, coords = _fill_and_watershed(mask)
     if coords.size == 0:
         return 0, []
 

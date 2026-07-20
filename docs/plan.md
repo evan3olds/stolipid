@@ -1869,3 +1869,31 @@ Served with `python -m http.server`, drove with a temporary headless-Chrome harn
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+**Request:** "Revert the image processing for the hand counts so its still grayscale, but remove some of the blur."
+
+### Diagnosis
+
+Traced `cells.image_url`'s rendering (`render_hand_count_image` in `api/detection.py`) back through git history. It started as a grayscale render (`preprocess_for_detection`: rolling-ball background subtraction + CLAHE), got its blur reduced once already (`CLAHE_CLIP_LIMIT` `0.01` → `0.005`), then across two later commits ("ImageJ processing", "tif name on cell sidebar + watershed before handcount", "Image processing watershed change") was replaced entirely by an Otsu-threshold + fill-holes + watershed pipeline rendered as a binary (0/65535) black-and-white mask — no grayscale left. `detect_droplets` (auto-count) had already been decoupled into its own independent pipeline by that point, so reverting the hand-count render doesn't touch auto-count at all.
+
+### Plan
+
+`api/detection.py`:
+- Rewrite `render_hand_count_image(plane)` to `subtract_background` → `equalize_adapthist` (CLAHE) → uint16, dropping the threshold/fill-holes/watershed steps entirely.
+- Reintroduce `CLAHE_CLIP_LIMIT`, set to `0.003` (below the `0.005` last used) to trim blur/smearing further than before.
+- Simplify `_fill_and_watershed` to drop the now-unused `watershed_line` parameter (only `detect_droplets` calls it after this change).
+- Update stale docstrings that described the old shared binary pipeline.
+
+`api/main.py`: fix the comment above the `cells_from_tif` crop loop that described `render_hand_count_image`/`detect_droplets` as sharing a threshold/watershed pass.
+
+Leave `detect_droplets`, `threshold_binary`, `MIN_DROPLET_AREA_PX`, `THRESHOLD_FACTOR`, `BACKGROUND_BALL_RADIUS_PX` untouched — the auto-count algorithm and its stored `auto_count`/`auto_points` are out of scope; only the *stored image* changes.
+
+### Verification
+
+No live Render/Supabase deploy to exercise end-to-end. Verified in isolation: `ast.parse` on both changed files; a synthetic 200×200 plane with 3 Gaussian blobs run through `render_hand_count_image` produces a 298-level grayscale image (not binary 0/65535); the same plane run through `detect_droplets` still returns count 3 with correct blob coordinates, confirming the auto-count path is unaffected by the render change.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

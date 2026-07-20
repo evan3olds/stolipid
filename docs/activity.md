@@ -1244,3 +1244,31 @@ Served with `python -m http.server`, drove with a temporary headless-Chrome harn
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Hand-count image reverted to grayscale, blur trimmed further
+
+**Request:** "Revert the image processing for the hand counts so its still grayscale, but remove some of the blur."
+
+`cells.image_url` (the stored hand-count image) had drifted, across several prior commits, from a grayscale render into a stark binary (0/65535) black-and-white watershed mask — `render_hand_count_image` ran `subtract_background` → `threshold_binary` → fill-holes → watershed and rendered `labels > 0`, no grayscale left at all. Traced the history back to an earlier grayscale approach (`preprocess_for_detection`, rolling-ball background subtraction + CLAHE contrast enhancement) that had itself been tuned once before for excess blur (`CLAHE_CLIP_LIMIT` `0.01` → `0.005`, "Less blur" commit) before being replaced entirely by the binary pipeline.
+
+### `api/detection.py`
+
+- `render_hand_count_image(plane)` reverted to a real grayscale render: `subtract_background` (rolling-ball, unchanged `BACKGROUND_BALL_RADIUS_PX=12`) → `equalize_adapthist` (CLAHE) → scaled back to uint16. No longer touches `threshold_binary`/fill-holes/watershed at all.
+- `CLAHE_CLIP_LIMIT` reintroduced at `0.003` — lower than the `0.005` it was last tuned to, per the user's request to trim the smearing/blur further. (skimage's `0.01` default was the version reported as "very blurry" back when this path was first added; `0.005` improved it; `0.003` continues that direction.)
+- `detect_droplets` (the auto-count path) is unchanged — still its own independent `subtract_background` → `threshold_binary` → fill-holes → watershed pass, never touching `render_hand_count_image`'s output.
+- `_fill_and_watershed` dropped its `watershed_line` parameter (always hardcoded to the watershed default now) since `detect_droplets` was its only remaining caller after `render_hand_count_image` stopped using it.
+- Stale docstrings referencing the old shared binary pipeline (`subtract_background`, `threshold_binary`, `detect_droplets`) updated to reflect the current split.
+
+### `api/main.py`
+
+- Comment above the `cells_from_tif` per-box crop loop updated — no longer claims `render_hand_count_image` and `detect_droplets` share a threshold/watershed pass; now correctly describes `render_hand_count_image` as producing the grayscale render and `detect_droplets` as an independent auto-count pass.
+
+### Verification
+
+No live Supabase/Render deploy available to exercise end-to-end, so verified the Python pipeline directly: built a synthetic 200×200 uint16 plane with 3 Gaussian-blob "droplets" over noise, ran `render_hand_count_image` and confirmed the output is a genuine multi-level grayscale image (298 distinct intensity levels spanning the full 0–65535 range) rather than the old binary 0/65535-only mask. Ran `detect_droplets` on the same synthetic plane and confirmed it still finds all 3 blobs at their correct coordinates, unaffected by the `render_hand_count_image` change. `ast.parse` confirms both `api/detection.py` and `api/main.py` are syntactically valid.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
