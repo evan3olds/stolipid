@@ -118,25 +118,28 @@
    semantic status tokens invert lightness only, keeping their original
    hue, so danger/warn/success stay conceptually red/amber/green. */
 :root[data-theme="sage"] {
-  /* --surface-page is the one true "background" — everything else in this
-     family (cards, panels, dropdowns, chips, table stripes/headers) was
-     *lighter* than the page in Paper (elevation cue), so a plain 1-l
-     invert would make them *darker* than the page in Sage and collapse
-     that cue. +0.06 keeps them reading as elevated surfaces. */
-  --surface-page:         oklch(from var(--surface-page-paper) calc(1 - l) c 132);
-  --surface-card:         oklch(from var(--surface-card-paper) calc(1 - l + 0.06) c 132);
-  --surface-stripe:       oklch(from var(--surface-stripe-paper) calc(1 - l + 0.06) c 132);
-  --surface-chip:         oklch(from var(--surface-chip-paper) calc(1 - l + 0.06) c 132);
-  --surface-tint:         oklch(from var(--surface-tint-paper) calc(1 - l + 0.06) c 132);
-  --surface-tint-2:       oklch(from var(--surface-tint-2-paper) calc(1 - l + 0.06) c 132);
-  --surface-header:       oklch(from var(--surface-header-paper) calc(1 - l + 0.06) c 132);
-  --surface-header-hover: oklch(from var(--surface-header-hover-paper) calc(1 - l + 0.06) c 132);
-  --surface-input:        oklch(from var(--surface-input-paper) calc(1 - l) c 132);
+  /* Surfaces and borders are deliberately NOT a plain 1-l invert here.
+     A plain invert made --surface-page and --surface-card both land near
+     0.03-0.07 lightness — indistinguishable near-blacks, so folder cards
+     disappeared into the page. These get explicit lightness targets
+     instead (still deriving hue/chroma from their own -paper value via
+     `from`), forming a visible gray-scale ramp: page < stripe < card <
+     header < chip < tint < tint-2 < border-default < border-strong <
+     border-emphasis, so every surface and its border reads clearly. */
+  --surface-page:         oklch(from var(--surface-page-paper) 0.06 c 132);
+  --surface-card:         oklch(from var(--surface-card-paper) 0.14 c 132);
+  --surface-stripe:       oklch(from var(--surface-stripe-paper) 0.09 c 132);
+  --surface-chip:         oklch(from var(--surface-chip-paper) 0.18 c 132);
+  --surface-tint:         oklch(from var(--surface-tint-paper) 0.2  c 132);
+  --surface-tint-2:       oklch(from var(--surface-tint-2-paper) 0.23 c 132);
+  --surface-header:       oklch(from var(--surface-header-paper) 0.17 c 132);
+  --surface-header-hover: oklch(from var(--surface-header-hover-paper) 0.21 c 132);
+  --surface-input:        oklch(from var(--surface-input-paper) 0.05 c 132);
 
-  --border-default:  oklch(from var(--border-default-paper) calc(1 - l) c 132);
-  --border-strong:   oklch(from var(--border-strong-paper) calc(1 - l) c 132);
-  --border-emphasis: oklch(from var(--border-emphasis-paper) calc(1 - l) c 132);
-  --border-faint:    oklch(from var(--border-faint-paper) calc(1 - l) c 132);
+  --border-default:  oklch(from var(--border-default-paper) 0.3  c 132);
+  --border-strong:   oklch(from var(--border-strong-paper) 0.36 c 132);
+  --border-emphasis: oklch(from var(--border-emphasis-paper) 0.44 c 132);
+  --border-faint:    oklch(from var(--border-faint-paper) 0.15 c 132);
 
   --text-primary:     oklch(from var(--text-primary-paper) calc(1 - l) c 132);
   --icon-fill:         oklch(from var(--icon-fill-paper) calc(1 - l) c 132);

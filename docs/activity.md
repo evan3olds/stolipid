@@ -1053,6 +1053,14 @@ Served the repo with `python -m http.server` and drove it with Python Playwright
 - Reloaded after toggling to Sage: `document.documentElement.dataset.theme` was still `sage` and there was no flash of Paper on the reload before that (confirmed the inverse too — reloading after toggling back to Paper stays Paper).
 - Zero console/page errors across every screenshot pass.
 
+### Follow-up: Sage was still too dark to make out folder cards
+
+**Feedback:** after shipping the above, the user reported the dark theme was too dark — folder cards weren't distinguishable from the page background; asked for something "gray or a bit lighter."
+
+The `calc(1 - l + 0.06)` elevation bump wasn't enough: `--surface-page-paper` (0.965) and `--surface-card-paper` (0.99) are only 0.025 apart in Paper, so even after the +0.06 bump their dark equivalents (~0.035 and ~0.07) were both still near-black and easy to confuse. Replaced the formula-derived approach for the surface/border token family specifically with explicit, hand-tuned lightness targets (still using `oklch(from var(--x-paper) <L> c 132)` to keep deriving hue/chroma from each token's own paper value, just with a fixed target `L` instead of a `1-l`-based calc) — a visible gray-scale ramp: page (0.06) < stripe (0.09) < surface-input (0.05, intentionally darkest as a sunken field) < card (0.14) < border-faint (0.15) < header (0.17) < chip (0.18) < tint (0.20) < header-hover (0.21) < tint-2 (0.23) < border-default (0.30) < border-strong (0.36) < border-emphasis (0.44). Text/accent/semantic tokens were untouched — those already read correctly in testing.
+
+Re-verified with the same Playwright screenshot pass: folder cards, the Add Experiment modal, and the Conditions detail panel now show a clearly visible gray card against the darker page, with borders that stand out from both. Paper mode screenshots confirmed unchanged (only the `[data-theme="sage"]` block was touched).
+
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 13 items checked off with implementation notes. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
