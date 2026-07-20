@@ -16,11 +16,19 @@ async function api(path, options = {}) {
 
 const app = document.getElementById('app');
 
-// Runtime-configurable props (Phase 13 will make these user-settable)
+// Runtime-configurable props (see CLAUDE.md / PRD §10). appTitle and
+// prototypeBadge are developer-set constants; theme has a user-facing
+// toggle (top bar) and persists to localStorage, overriding this default.
 const CONFIG = {
   appTitle: 'Cell Archive',
   prototypeBadge: true,
+  theme: 'paper',
 };
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem('theme', theme);
+}
 
 // Static Help screen content — one card per workflow step (PRD 5.9)
 const HELP_CONTENT = [
@@ -172,8 +180,8 @@ function renderLogin(mode = 'login') {
   app.innerHTML = `
     <div class="login-screen">
       <form class="login-card" id="login-form">
-        <div class="login-eyebrow">Biology Dept &middot; Cell Archive</div>
-        <h1 class="login-title">Cell Archive</h1>
+        <div class="login-eyebrow">Biology Dept &middot; ${CONFIG.appTitle}</div>
+        <h1 class="login-title">${CONFIG.appTitle}</h1>
         <div class="login-field">
           <label for="login-email">Email</label>
           <input id="login-email" name="email" type="email" autocomplete="email" required>
@@ -293,7 +301,7 @@ function renderResetPassword(accessToken) {
   app.innerHTML = `
     <div class="login-screen">
       <form class="login-card" id="reset-form">
-        <div class="login-eyebrow">Biology Dept &middot; Cell Archive</div>
+        <div class="login-eyebrow">Biology Dept &middot; ${CONFIG.appTitle}</div>
         <h1 class="login-title">Set a new password</h1>
         <div class="login-field">
           <label for="reset-password">New password</label>
@@ -368,6 +376,7 @@ function renderShell(screen) {
 
 function topbarHTML() {
   const initial = (currentUser()[0] || 'U').toUpperCase();
+  const theme = document.documentElement.dataset.theme === 'sage' ? 'sage' : 'paper';
   return `
     <header class="topbar">
       <div class="topbar-left">
@@ -377,7 +386,12 @@ function topbarHTML() {
         <span class="topbar-title">${CONFIG.appTitle}</span>
         ${CONFIG.prototypeBadge ? '<span class="badge">Prototype</span>' : ''}
       </div>
-      <div class="avatar" title="${currentUser()}">${initial}</div>
+      <div class="topbar-right">
+        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Switch theme">
+          <span class="theme-toggle-dot"></span>${theme === 'sage' ? 'Sage' : 'Paper'}
+        </button>
+        <div class="avatar" title="${currentUser()}">${initial}</div>
+      </div>
     </header>
   `;
 }
@@ -453,6 +467,13 @@ function wireShell(screen) {
 
   document.getElementById('hamburger').addEventListener('click', openSidebar);
   backdrop.addEventListener('click', closeSidebar);
+
+  const themeToggle = document.getElementById('theme-toggle');
+  themeToggle.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'sage' ? 'paper' : 'sage';
+    applyTheme(next);
+    themeToggle.innerHTML = `<span class="theme-toggle-dot"></span>${next === 'sage' ? 'Sage' : 'Paper'}`;
+  });
 
   // Esc closes the drawer. The listener lives on document, so detach the
   // previous render's handler before attaching this one.
@@ -2769,6 +2790,9 @@ function wireRawData() {
 // here with the session in the URL hash rather than a route — check for that
 // before falling back to the normal logged-in/logged-out boot.
 (function boot() {
+  document.title = CONFIG.appTitle;
+  applyTheme(localStorage.getItem('theme') || CONFIG.theme);
+
   const hashParams = Object.fromEntries(new URLSearchParams(window.location.hash.slice(1)).entries());
   if (hashParams.access_token) {
     history.replaceState(null, '', window.location.pathname + window.location.search);
