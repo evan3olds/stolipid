@@ -1017,3 +1017,42 @@ Ran the real app: served the repo with `python -m http.server` and drove it with
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 5 amended with a note. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Phase 13 — Configurable Props (theme, appTitle, prototypeBadge)
+
+**Request:** implement the next open phase in `docs/tasks.md`. `CONFIG` (`app.js`) already had `appTitle`/`prototypeBadge` as hardcoded constants from Phase 1, scaffolded for this phase. User decision during planning: `appTitle`/`prototypeBadge` stay developer-set constants (no UI), but `theme` gets a user-clickable toggle in the top bar, persisted across sessions — and, per a plan-review correction, **Sage is a real dark theme**, not just a different accent hue on a light background.
+
+### `style.css` — token system + dark theme
+
+`style.css` had ~161 `oklch()` calls but only ~60 distinct literal values, nearly all sharing one of four hue families: 75 (neutral), 45 (accent), 30/25 (danger), 145 (success/simulated-image). A dark theme needs surfaces and text to swap roles (light↔dark), which a simple hue swap can't do, so this became a proper token refactor:
+
+- Every distinct color got a `--token-paper` (the literal, never overridden) and a `--token` (the active value, defaults to `-paper`) pair in `:root`, grouped as surfaces/borders/text/accent/semantic-status.
+- `:root[data-theme="sage"]` reassigns each active token using CSS relative-color syntax, e.g. `--surface-page: oklch(from var(--surface-page-paper) calc(1 - l) c 132)`. Neutral/border/text/accent tokens invert lightness and re-hue to sage green (132). Semantic tokens (`--danger`, `--danger-strong`, `--danger-light`, `--warn-text`, `--success-text`, `--success-text-2`, `--success-tint`) invert lightness only and keep their original hue (`c h` instead of `c 132`), so danger/warn/success stay conceptually red/amber/green in both themes rather than all trending green.
+- **First bug found in testing:** the dark override initially read `--surface-page: oklch(from var(--surface-page) calc(1 - l) c 132)` — referencing the *same* custom property name being defined, on the same element (`:root` also matches `:root[data-theme="sage"]`). Per the CSS custom-properties spec this is a dependency cycle and the property's computed value becomes the guaranteed-invalid value (empty), not an error — so nothing looked broken except every themed color silently disappearing (page rendered plain browser-default white/black). Fixed by having every dark override reference the `-paper` variable instead of the active token itself, which never gets redefined and so can't cycle.
+- **Second issue found in testing:** a plain `1 - l` invert on "elevated" surfaces (cards, panels, dropdowns, chips, table stripes/headers — literals that were *lighter* than the page background in Paper) made them slightly *darker* than the page in Sage, inverting the elevation cue instead of preserving it — modals and cards were nearly invisible against the page. Fixed by adding a `+ 0.06` lightness bump to just that surface family's dark-override formula (`calc(1 - l + 0.06)`), so they read as visibly elevated in both themes. `--surface-input` (form fields) was left as a plain invert — inset fields reading darker than their containing card is the conventional dark-UI look and read correctly as-is.
+- Deliberately **excluded from tokenization** (left as hardcoded literals, fixed regardless of theme):
+  - The entire "Count screen" CSS block — PRD 5.6 mandates it's always dark-mode regardless of the shell theme.
+  - `cell-thumb-bg`, `addphotos-file-thumb`, `canvas-frame` (`oklch(0.18 0.01 145)`) and `cell-thumb-droplet` (`oklch(0.78 0.19 145)`) — these render the simulated fluorescence-microscopy placeholder image, which represents image content, not UI chrome, so it stays dark/green regardless of app theme.
+  - `oklch(0.98 0.005 75)` (light text/border sitting on accent/danger/dark-overlay-colored surfaces, e.g. button text) and the `oklch(0.2 0.02 75 / alpha)` family (modal backdrops, box-shadows, dark tooltip/overlay backgrounds) — these are meant to stay constant regardless of shell theme (buttons keep enough contrast for light text in both themes; overlays are conventionally dark-translucent either way).
+- `.graph-select` gained `appearance: none` — headless-Chromium testing showed the native `<select>` closed-box chrome doesn't reliably honor a custom dark `background-color`, even though the computed style was correct; this is a native-widget theming quirk that predates this change but was only visible once Sage's background stopped coincidentally matching the browser's default white. Trade-off: the native dropdown arrow is now gone in both themes (no custom arrow added, to keep scope contained); the control is still fully clickable/functional.
+
+### `app.js`
+
+- `CONFIG` gained `theme: 'paper'` as the shipped default.
+- New `applyTheme(theme)`: sets `document.documentElement.dataset.theme` and persists to `localStorage`.
+- `boot()` now resolves `localStorage.getItem('theme') || CONFIG.theme` and calls `applyTheme()` before the first `navigate()`, so there's no flash of the wrong theme on load. Also sets `document.title = CONFIG.appTitle` here (previously hardcoded "Lipid Counter" in `index.html`).
+- `topbarHTML()` gained a `#theme-toggle` pill button (next to the avatar) showing the current theme name; `wireShell()` wires its click to flip `paper`/`sage`, call `applyTheme()`, and update its own label — no full shell re-render needed since the swap is pure CSS custom-property cascading off the `data-theme` attribute.
+- `renderLogin()` and `renderResetPassword()`'s hardcoded "Cell Archive" eyebrow/title strings replaced with `${CONFIG.appTitle}` (the top bar already used it).
+- `prototypeBadge` needed no code changes — already fully wired in Phase 1; confirmed still correct after the CSS refactor since `.badge` uses `var(--accent)`.
+
+### Verification
+
+Served the repo with `python -m http.server` and drove it with Python Playwright (headless Chromium 149, which supports relative-color `oklch(from ...)` syntax), logging in with the local test account.
+- Walked Experiments → Conditions → Cells → Graph → Raw Data → Help → About, plus the Add Experiment modal, the card three-dot menu, the sidebar drawer, and the Add Photos screen, toggling the theme and screenshotting each — confirmed Sage renders as a genuine dark theme (near-black page, elevated lighter cards/panels/dropdowns, legible danger/warn/success colors, sage-green accent) and Paper is pixel-identical to before the refactor.
+- Confirmed `document.title` and the login screen both reflect `CONFIG.appTitle`.
+- Reloaded after toggling to Sage: `document.documentElement.dataset.theme` was still `sage` and there was no flash of Paper on the reload before that (confirmed the inverse too — reloading after toggling back to Paper stays Paper).
+- Zero console/page errors across every screenshot pass.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 13 items checked off with implementation notes. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

@@ -1,7 +1,5 @@
 /* Paper theme tokens */
 :root {
-  --bg:           oklch(0.965 0.008 75);
-  --accent:       oklch(0.56 0.10 45);
   --font-body:    'IBM Plex Sans', sans-serif;
   --font-mono:    'IBM Plex Mono', monospace;
   --font-heading: 'Newsreader', serif;
@@ -19,6 +17,150 @@
   --series-6: #e34948; /* red */
   --series-7: #e87ba4; /* magenta */
   --series-8: #eb6834; /* orange */
+
+  /* Surfaces, borders, text, accent, and semantic-status tokens are each
+     declared twice: a "-paper" literal (never overridden — the fixed light
+     value) and an active token that defaults to it. [data-theme="sage"]
+     below only reassigns the active token, computed from the *-paper*
+     variable — never from itself, since a custom property can't reference
+     its own value across a more-specific rule on the same element (that's
+     a dependency cycle and resolves to nothing). */
+  --surface-page-paper:         oklch(0.965 0.008 75);
+  --surface-card-paper:         oklch(0.99  0.005 75);
+  --surface-stripe-paper:       oklch(0.975 0.006 75);
+  --surface-chip-paper:         oklch(0.96  0.008 75);
+  --surface-tint-paper:         oklch(0.93  0.01  75);
+  --surface-tint-2-paper:       oklch(0.9   0.01  75);
+  --surface-header-paper:       oklch(0.94  0.01  75);
+  --surface-header-hover-paper: oklch(0.9   0.015 75);
+  --surface-input-paper:        oklch(1     0     0);
+
+  --surface-page:         var(--surface-page-paper);
+  --surface-card:         var(--surface-card-paper);
+  --surface-stripe:       var(--surface-stripe-paper);
+  --surface-chip:         var(--surface-chip-paper);
+  --surface-tint:         var(--surface-tint-paper);
+  --surface-tint-2:       var(--surface-tint-2-paper);
+  --surface-header:       var(--surface-header-paper);
+  --surface-header-hover: var(--surface-header-hover-paper);
+  --surface-input:        var(--surface-input-paper);
+
+  /* Borders */
+  --border-default-paper:  oklch(0.88 0.01  75);
+  --border-strong-paper:   oklch(0.85 0.01  75);
+  --border-emphasis-paper: oklch(0.8  0.02  75);
+  --border-faint-paper:    oklch(0.92 0.008 75);
+
+  --border-default:  var(--border-default-paper);
+  --border-strong:   var(--border-strong-paper);
+  --border-emphasis: var(--border-emphasis-paper);
+  --border-faint:    var(--border-faint-paper);
+
+  /* Text */
+  --text-primary-paper:      oklch(0.2  0.02 75);
+  --icon-fill-paper:         oklch(0.3  0.02 75);
+  --text-emphasis-paper:     oklch(0.3  0.03 75);
+  --text-heading-fill-paper: oklch(0.25 0.02 75);
+  --text-label-paper:        oklch(0.35 0.02 75);
+  --text-body-paper:         oklch(0.4  0.03 75);
+  --text-body-2-paper:       oklch(0.4  0.02 75);
+  --text-muted-paper:        oklch(0.45 0.03 75);
+  --text-secondary-paper:    oklch(0.5  0.03 75);
+  --text-faint-paper:        oklch(0.7  0.01 75);
+  --text-faint-2-paper:      oklch(0.7  0.03 75);
+
+  --text-primary:      var(--text-primary-paper);
+  --icon-fill:          var(--icon-fill-paper);
+  --text-emphasis:      var(--text-emphasis-paper);
+  --text-heading-fill:  var(--text-heading-fill-paper);
+  --text-label:         var(--text-label-paper);
+  --text-body:          var(--text-body-paper);
+  --text-body-2:        var(--text-body-2-paper);
+  --text-muted:         var(--text-muted-paper);
+  --text-secondary:     var(--text-secondary-paper);
+  --text-faint:         var(--text-faint-paper);
+  --text-faint-2:       var(--text-faint-2-paper);
+
+  /* Accent */
+  --accent-paper:             oklch(0.56 0.10 45);
+  --accent-tint-soft-paper:   oklch(0.93 0.02 45);
+  --accent-tint-strong-paper: oklch(0.93 0.05 45);
+
+  --accent:             var(--accent-paper);
+  --accent-tint-soft:   var(--accent-tint-soft-paper);
+  --accent-tint-strong: var(--accent-tint-strong-paper);
+
+  /* Semantic status — hue is fixed across themes (danger stays red, success
+     stays green); only lightness inverts for dark-surface contrast. */
+  --danger-paper:         oklch(0.48 0.14 30);
+  --danger-strong-paper:  oklch(0.5  0.16 30);
+  --danger-light-paper:   oklch(0.65 0.16 30);
+  --warn-text-paper:      oklch(0.5  0.12 40);
+  --success-text-paper:   oklch(0.4  0.1  145);
+  --success-text-2-paper: oklch(0.4  0.08 145);
+  --success-tint-paper:   oklch(0.9  0.03 145);
+
+  --danger:         var(--danger-paper);
+  --danger-strong:  var(--danger-strong-paper);
+  --danger-light:   var(--danger-light-paper);
+  --warn-text:      var(--warn-text-paper);
+  --success-text:   var(--success-text-paper);
+  --success-text-2: var(--success-text-2-paper);
+  --success-tint:   var(--success-tint-paper);
+
+  --bg:     var(--surface-page);
+}
+
+/* Sage theme — a dark theme. Every active token above is re-derived from
+   its own "-paper" literal via CSS relative-color syntax rather than
+   hand-authored, so the two palettes can't drift out of sync:
+   neutral/accent tokens invert lightness and re-hue to sage green (132);
+   semantic status tokens invert lightness only, keeping their original
+   hue, so danger/warn/success stay conceptually red/amber/green. */
+:root[data-theme="sage"] {
+  /* --surface-page is the one true "background" — everything else in this
+     family (cards, panels, dropdowns, chips, table stripes/headers) was
+     *lighter* than the page in Paper (elevation cue), so a plain 1-l
+     invert would make them *darker* than the page in Sage and collapse
+     that cue. +0.06 keeps them reading as elevated surfaces. */
+  --surface-page:         oklch(from var(--surface-page-paper) calc(1 - l) c 132);
+  --surface-card:         oklch(from var(--surface-card-paper) calc(1 - l + 0.06) c 132);
+  --surface-stripe:       oklch(from var(--surface-stripe-paper) calc(1 - l + 0.06) c 132);
+  --surface-chip:         oklch(from var(--surface-chip-paper) calc(1 - l + 0.06) c 132);
+  --surface-tint:         oklch(from var(--surface-tint-paper) calc(1 - l + 0.06) c 132);
+  --surface-tint-2:       oklch(from var(--surface-tint-2-paper) calc(1 - l + 0.06) c 132);
+  --surface-header:       oklch(from var(--surface-header-paper) calc(1 - l + 0.06) c 132);
+  --surface-header-hover: oklch(from var(--surface-header-hover-paper) calc(1 - l + 0.06) c 132);
+  --surface-input:        oklch(from var(--surface-input-paper) calc(1 - l) c 132);
+
+  --border-default:  oklch(from var(--border-default-paper) calc(1 - l) c 132);
+  --border-strong:   oklch(from var(--border-strong-paper) calc(1 - l) c 132);
+  --border-emphasis: oklch(from var(--border-emphasis-paper) calc(1 - l) c 132);
+  --border-faint:    oklch(from var(--border-faint-paper) calc(1 - l) c 132);
+
+  --text-primary:     oklch(from var(--text-primary-paper) calc(1 - l) c 132);
+  --icon-fill:         oklch(from var(--icon-fill-paper) calc(1 - l) c 132);
+  --text-emphasis:     oklch(from var(--text-emphasis-paper) calc(1 - l) c 132);
+  --text-heading-fill: oklch(from var(--text-heading-fill-paper) calc(1 - l) c 132);
+  --text-label:        oklch(from var(--text-label-paper) calc(1 - l) c 132);
+  --text-body:         oklch(from var(--text-body-paper) calc(1 - l) c 132);
+  --text-body-2:       oklch(from var(--text-body-2-paper) calc(1 - l) c 132);
+  --text-muted:        oklch(from var(--text-muted-paper) calc(1 - l) c 132);
+  --text-secondary:    oklch(from var(--text-secondary-paper) calc(1 - l) c 132);
+  --text-faint:        oklch(from var(--text-faint-paper) calc(1 - l) c 132);
+  --text-faint-2:      oklch(from var(--text-faint-2-paper) calc(1 - l) c 132);
+
+  --accent:             oklch(from var(--accent-paper) calc(1 - l) c 132);
+  --accent-tint-soft:   oklch(from var(--accent-tint-soft-paper) calc(1 - l) c 132);
+  --accent-tint-strong: oklch(from var(--accent-tint-strong-paper) calc(1 - l) c 132);
+
+  --danger:         oklch(from var(--danger-paper) calc(1 - l) c h);
+  --danger-strong:  oklch(from var(--danger-strong-paper) calc(1 - l) c h);
+  --danger-light:   oklch(from var(--danger-light-paper) calc(1 - l) c h);
+  --warn-text:      oklch(from var(--warn-text-paper) calc(1 - l) c h);
+  --success-text:   oklch(from var(--success-text-paper) calc(1 - l) c h);
+  --success-text-2: oklch(from var(--success-text-2-paper) calc(1 - l) c h);
+  --success-tint:   oklch(from var(--success-tint-paper) calc(1 - l) c h);
 }
 
 *, *::before, *::after {
@@ -30,7 +172,7 @@
 body {
   background: var(--bg);
   font-family: var(--font-body);
-  color: oklch(0.2 0.02 75);
+  color: var(--text-primary);
   min-height: 100dvh;
 }
 
@@ -60,7 +202,7 @@ body {
   font-size: 0.75rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: oklch(0.45 0.03 75);
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -80,16 +222,16 @@ body {
 .login-field label {
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  color: oklch(0.35 0.02 75);
+  color: var(--text-label);
 }
 
 .login-field input {
   font-family: var(--font-body);
   font-size: 1rem;
   padding: 0.625rem 0.75rem;
-  border: 1px solid oklch(0.85 0.01 75);
+  border: 1px solid var(--border-strong);
   border-radius: 0.375rem;
-  background: oklch(1 0 0);
+  background: var(--surface-input);
   color: inherit;
 }
 
@@ -117,7 +259,7 @@ body {
 .login-error {
   font-family: var(--font-body);
   font-size: 0.875rem;
-  color: oklch(0.5 0.18 30);
+  color: var(--danger-strong);
   text-align: center;
   min-height: 1.25em;
 }
@@ -125,7 +267,7 @@ body {
 .login-message {
   font-family: var(--font-body);
   font-size: 0.875rem;
-  color: oklch(0.4 0.1 145);
+  color: var(--success-text);
   text-align: center;
 }
 
@@ -164,14 +306,20 @@ body {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid oklch(0.88 0.01 75);
-  background: oklch(0.99 0.005 75);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-card);
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
 }
 
 .topbar-title {
@@ -206,13 +354,13 @@ body {
 }
 
 .hamburger:hover {
-  background: oklch(0.93 0.01 75);
+  background: var(--surface-tint);
 }
 
 .hamburger span {
   display: block;
   height: 2px;
-  background: oklch(0.3 0.02 75);
+  background: var(--icon-fill);
   border-radius: 1px;
 }
 
@@ -230,6 +378,34 @@ body {
   font-weight: 500;
 }
 
+/* Theme toggle */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.55rem;
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  background: var(--surface-tint);
+}
+
+.theme-toggle-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
 /* Subheader */
 .subheader {
   display: flex;
@@ -237,7 +413,7 @@ body {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid oklch(0.9 0.01 75);
+  border-bottom: 1px solid var(--surface-tint-2);
 }
 
 .subheader-left {
@@ -255,14 +431,14 @@ body {
   height: 1.75rem;
   font-size: 1rem;
   background: none;
-  border: 1px solid oklch(0.85 0.01 75);
+  border: 1px solid var(--border-strong);
   border-radius: 0.375rem;
   cursor: pointer;
   color: inherit;
 }
 
 .back-btn:hover {
-  background: oklch(0.93 0.01 75);
+  background: var(--surface-tint);
 }
 
 .breadcrumb {
@@ -280,7 +456,7 @@ body {
   border: none;
   padding: 0;
   font: inherit;
-  color: oklch(0.45 0.03 75);
+  color: var(--text-muted);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -291,11 +467,11 @@ body {
 }
 
 .crumb-current {
-  color: oklch(0.2 0.02 75);
+  color: var(--text-primary);
 }
 
 .crumb-sep {
-  color: oklch(0.7 0.01 75);
+  color: var(--text-faint);
 }
 
 .primary-action {
@@ -335,7 +511,7 @@ body {
 }
 
 .stub-note {
-  color: oklch(0.45 0.03 75);
+  color: var(--text-muted);
   font-size: 0.9375rem;
 }
 
@@ -348,8 +524,8 @@ body {
 }
 
 .help-card {
-  background: oklch(0.99 0.005 75);
-  border: 1px solid oklch(0.88 0.01 75);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
   border-radius: 0.5rem;
   padding: 1.125rem;
 }
@@ -364,14 +540,14 @@ body {
 .help-card-body {
   font-size: 0.875rem;
   line-height: 1.5;
-  color: oklch(0.4 0.03 75);
+  color: var(--text-body);
 }
 
 /* About screen */
 .about-panel {
   max-width: 40rem;
-  background: oklch(0.99 0.005 75);
-  border: 1px solid oklch(0.88 0.01 75);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
   border-radius: 0.5rem;
   padding: 1.5rem;
   display: flex;
@@ -392,7 +568,7 @@ body {
 .about-section-body {
   font-size: 0.9375rem;
   line-height: 1.6;
-  color: oklch(0.3 0.03 75);
+  color: var(--text-emphasis);
 }
 
 .about-links {
@@ -430,8 +606,8 @@ body {
   bottom: 0;
   width: 16rem;
   max-width: 80vw;
-  background: oklch(0.99 0.005 75);
-  border-right: 1px solid oklch(0.88 0.01 75);
+  background: var(--surface-card);
+  border-right: 1px solid var(--border-default);
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
@@ -450,7 +626,7 @@ body {
   font-size: 0.75rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
   margin-bottom: 0.75rem;
 }
 
@@ -473,11 +649,11 @@ body {
 }
 
 .sidebar-link:hover {
-  background: oklch(0.93 0.01 75);
+  background: var(--surface-tint);
 }
 
 .sidebar-link.active {
-  background: oklch(0.93 0.02 45);
+  background: var(--accent-tint-soft);
   color: var(--accent);
   font-weight: 600;
 }
@@ -496,7 +672,7 @@ body {
 }
 
 .sidebar-logout:hover {
-  background: oklch(0.93 0.01 75);
+  background: var(--surface-tint);
 }
 
 /* ---- Shared folder grid + detail panel layout (Experiments, Conditions, Cells) ---- */
@@ -515,8 +691,8 @@ body {
 
 .folder-card {
   position: relative;
-  background: oklch(0.99 0.005 75);
-  border: 1px solid oklch(0.88 0.01 75);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
   border-radius: 0 0.5rem 0.5rem 0.5rem;
   padding: 0.875rem;
   padding-top: 1.125rem;
@@ -531,14 +707,14 @@ body {
   left: -1px;
   width: 2.5rem;
   height: 0.4rem;
-  background: oklch(0.88 0.01 75);
+  background: var(--border-default);
   border-radius: 0.25rem 0.25rem 0 0;
   transition: background 0.12s ease;
 }
 
 .folder-card:hover {
   box-shadow: 0 2px 8px oklch(0.2 0.02 75 / 0.1);
-  border-color: oklch(0.8 0.02 75);
+  border-color: var(--border-emphasis);
 }
 
 .folder-card.selected {
@@ -568,15 +744,15 @@ body {
 .folder-meta-item {
   font-family: var(--font-mono);
   font-size: 0.6875rem;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
 }
 
 /* Detail panel */
 .detail-panel {
   width: 260px;
   flex-shrink: 0;
-  background: oklch(0.99 0.005 75);
-  border: 1px solid oklch(0.88 0.01 75);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
   border-radius: 0.5rem;
   padding: 1.25rem;
   display: none;
@@ -608,7 +784,7 @@ body {
   font-size: 0.6875rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
 }
 
 .detail-value {
@@ -617,7 +793,7 @@ body {
 
 .detail-notes {
   font-size: 0.875rem;
-  color: oklch(0.35 0.02 75);
+  color: var(--text-label);
   line-height: 1.5;
   white-space: pre-wrap;
 }
@@ -647,11 +823,11 @@ body {
   padding: 3rem 1rem;
   text-align: center;
   font-size: 0.9375rem;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
 }
 
 .error-state {
-  color: oklch(0.48 0.14 30);
+  color: var(--danger);
 }
 
 /* ---- Cells screen ---- */
@@ -688,13 +864,13 @@ body {
 }
 
 .status-tag-needs {
-  background: oklch(0.93 0.05 45 / 0.5);
-  color: oklch(0.5 0.12 40);
+  background: oklch(from var(--accent-tint-strong) l c h / 0.5);
+  color: var(--warn-text);
 }
 
 .status-tag-counted {
-  background: oklch(0.9 0.03 145 / 0.5);
-  color: oklch(0.4 0.08 145);
+  background: oklch(from var(--success-tint) l c h / 0.5);
+  color: var(--success-text-2);
 }
 
 .detail-average {
@@ -719,14 +895,14 @@ body {
   justify-content: space-between;
   font-size: 0.9375rem;
   padding: 0.25rem 0.5rem;
-  background: oklch(0.96 0.008 75);
+  background: var(--surface-chip);
   border-radius: 0.375rem;
 }
 
 .count-delete-btn {
   border: none;
   background: none;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
@@ -734,12 +910,12 @@ body {
 }
 
 .count-delete-btn:hover {
-  color: oklch(0.48 0.14 30);
+  color: var(--danger);
 }
 
 .count-confirm-label {
   font-size: 0.8125rem;
-  color: oklch(0.48 0.14 30);
+  color: var(--danger);
 }
 
 .count-confirm-actions {
@@ -759,7 +935,7 @@ body {
 
 .count-confirm-btn {
   border: none;
-  background: oklch(0.48 0.14 30);
+  background: var(--danger);
   color: oklch(0.98 0.005 75);
 }
 
@@ -768,13 +944,13 @@ body {
 }
 
 .count-cancel-btn {
-  border: 1px solid oklch(0.8 0.02 75);
+  border: 1px solid var(--border-emphasis);
   background: none;
-  color: oklch(0.4 0.02 75);
+  color: var(--text-body-2);
 }
 
 .count-cancel-btn:hover {
-  background: oklch(0.93 0.01 75);
+  background: var(--surface-tint);
 }
 
 .count-cta-btn {
@@ -808,7 +984,7 @@ body {
 }
 
 .modal {
-  background: oklch(0.99 0.005 75);
+  background: var(--surface-card);
   border-radius: 0.5rem;
   width: 100%;
   max-width: 26rem;
@@ -838,7 +1014,7 @@ body {
 .modal-field label {
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  color: oklch(0.35 0.02 75);
+  color: var(--text-label);
 }
 
 .modal-field input,
@@ -846,9 +1022,9 @@ body {
   font-family: var(--font-body);
   font-size: 0.9375rem;
   padding: 0.5625rem 0.75rem;
-  border: 1px solid oklch(0.85 0.01 75);
+  border: 1px solid var(--border-strong);
   border-radius: 0.375rem;
-  background: oklch(1 0 0);
+  background: var(--surface-input);
   color: inherit;
 }
 
@@ -865,7 +1041,7 @@ body {
 
 .modal-error {
   font-size: 0.875rem;
-  color: oklch(0.48 0.14 30);
+  color: var(--danger);
   min-height: 1.25em;
   margin-top: -0.25rem;
 }
@@ -881,14 +1057,14 @@ body {
   font-size: 0.875rem;
   padding: 0.5rem 0.875rem;
   background: none;
-  border: 1px solid oklch(0.85 0.01 75);
+  border: 1px solid var(--border-strong);
   border-radius: 0.375rem;
   cursor: pointer;
   color: inherit;
 }
 
 .modal-cancel:hover {
-  background: oklch(0.93 0.01 75);
+  background: var(--surface-tint);
 }
 
 .modal-save {
@@ -915,11 +1091,11 @@ body {
 .modal-confirm-message {
   font-size: 0.9375rem;
   line-height: 1.5;
-  color: oklch(0.35 0.02 75);
+  color: var(--text-label);
 }
 
 .modal-danger {
-  background: oklch(0.5 0.16 30);
+  background: var(--danger-strong);
 }
 
 .modal-danger:hover {
@@ -940,19 +1116,19 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: oklch(0.99 0.005 75 / 0.85);
-  border: 1px solid oklch(0.88 0.01 75 / 0.6);
+  background: oklch(from var(--surface-card) l c h / 0.85);
+  border: 1px solid oklch(from var(--border-default) l c h / 0.6);
   border-radius: 0.375rem;
   font-size: 1.125rem;
   line-height: 1;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
 .card-menu-btn:hover,
 .card-menu-btn[aria-expanded="true"] {
-  background: oklch(0.9 0.01 75);
-  color: oklch(0.2 0.02 75);
+  background: var(--surface-tint-2);
+  color: var(--text-primary);
 }
 
 .card-menu-dropdown {
@@ -963,8 +1139,8 @@ body {
   right: 0;
   margin-top: 0.25rem;
   min-width: 8rem;
-  background: oklch(0.99 0.005 75);
-  border: 1px solid oklch(0.85 0.01 75);
+  background: var(--surface-card);
+  border: 1px solid var(--border-strong);
   border-radius: 0.5rem;
   box-shadow: 0 4px 16px oklch(0.2 0.02 75 / 0.15);
   overflow: hidden;
@@ -986,11 +1162,11 @@ body {
 }
 
 .card-menu-item:hover {
-  background: oklch(0.93 0.01 75);
+  background: var(--surface-tint);
 }
 
 .card-menu-item-danger {
-  color: oklch(0.48 0.14 30);
+  color: var(--danger);
 }
 
 /* ---- ICC quality pill ---- */
@@ -1008,12 +1184,12 @@ body {
 .icc-pill-none,
 .icc-pill-poor,
 .icc-pill-moderate {
-  background: oklch(0.93 0.01 75);
-  color: oklch(0.5 0.03 75);
+  background: var(--surface-tint);
+  color: var(--text-secondary);
 }
 
 .icc-pill-good {
-  background: oklch(0.93 0.05 45);
+  background: var(--accent-tint-strong);
   color: var(--accent);
 }
 
@@ -1036,8 +1212,8 @@ body {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.875rem 1.25rem;
-  border-bottom: 1px solid oklch(0.88 0.01 75);
-  background: oklch(0.99 0.005 75);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-card);
 }
 
 .addphotos-topbar-left {
@@ -1054,7 +1230,7 @@ body {
 .addphotos-instructions {
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
 }
 
 .addphotos-topbar-actions {
@@ -1065,7 +1241,7 @@ body {
 
 .addphotos-error {
   font-size: 0.875rem;
-  color: oklch(0.48 0.14 30);
+  color: var(--danger);
   text-align: center;
   min-height: 1.25em;
   padding: 0 1.25rem;
@@ -1085,7 +1261,7 @@ body {
   flex-direction: column;
   gap: 0.75rem;
   padding: 1rem;
-  border-right: 1px solid oklch(0.88 0.01 75);
+  border-right: 1px solid var(--border-default);
   overflow-y: auto;
 }
 
@@ -1097,7 +1273,7 @@ body {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
 }
 
 .addphotos-add-files-btn {
@@ -1132,12 +1308,12 @@ body {
 }
 
 .addphotos-file:hover {
-  background: oklch(0.96 0.008 75);
+  background: var(--surface-chip);
 }
 
 .addphotos-file.active {
   border-color: var(--accent);
-  background: oklch(0.93 0.05 45 / 0.4);
+  background: oklch(from var(--accent-tint-strong) l c h / 0.4);
 }
 
 .addphotos-file-thumb {
@@ -1165,11 +1341,11 @@ body {
 .addphotos-file-error {
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  color: oklch(0.7 0.03 75);
+  color: var(--text-faint-2);
 }
 
 .addphotos-file-error {
-  color: oklch(0.65 0.16 30);
+  color: var(--danger-light);
 }
 
 .addphotos-file-info {
@@ -1186,7 +1362,7 @@ body {
 .addphotos-file-count {
   font-family: var(--font-mono);
   font-size: 0.6875rem;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
 }
 
 .addphotos-empty {
@@ -1199,7 +1375,7 @@ body {
 
 .addphotos-empty p {
   font-size: 0.875rem;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
 }
 
 /* Canvas */
@@ -1215,12 +1391,12 @@ body {
 .addphotos-canvas-empty {
   text-align: center;
   font-size: 0.9375rem;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
   padding: 3rem 1rem;
 }
 
 .addphotos-canvas-error {
-  color: oklch(0.48 0.14 30);
+  color: var(--danger);
 }
 
 .canvas-frame {
@@ -1248,7 +1424,7 @@ body {
 .photo-box {
   position: absolute;
   border: 2px dashed var(--accent);
-  background: oklch(0.56 0.1 45 / 0.18);
+  background: oklch(from var(--accent) l c h / 0.18);
   cursor: move;
 }
 
@@ -1289,7 +1465,7 @@ body {
 }
 
 .photo-box-remove:hover {
-  background: oklch(0.48 0.14 30);
+  background: var(--danger);
 }
 
 .photo-box-handle {
@@ -1304,7 +1480,9 @@ body {
   cursor: nwse-resize;
 }
 
-/* ---- Count screen (full-screen, dark-mode, bypasses the shell) ---- */
+/* ---- Count screen (full-screen, dark-mode, bypasses the shell) ----
+   Always dark regardless of the Paper/Sage shell theme (PRD 5.6), so
+   these colors are intentionally NOT tokenized/themed. */
 .count-screen {
   display: flex;
   flex-direction: column;
@@ -1468,14 +1646,14 @@ body {
 }
 
 .mini-chart-mean {
-  stroke: oklch(0.3 0.02 75);
+  stroke: var(--icon-fill);
   stroke-width: 2;
 }
 
 .mini-chart-label {
   font-family: var(--font-mono);
   font-size: 6px;
-  fill: oklch(0.5 0.03 75);
+  fill: var(--text-secondary);
 }
 
 /* ---- Graph screen ---- */
@@ -1488,8 +1666,8 @@ body {
 .graph-sidebar {
   width: 260px;
   flex-shrink: 0;
-  background: oklch(0.99 0.005 75);
-  border: 1px solid oklch(0.88 0.01 75);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
   border-radius: 0.5rem;
   padding: 1.25rem;
   display: flex;
@@ -1508,17 +1686,18 @@ body {
 .graph-field label {
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  color: oklch(0.35 0.02 75);
+  color: var(--text-label);
 }
 
 .graph-select {
   font-family: var(--font-body);
   font-size: 0.875rem;
   padding: 0.5rem 0.625rem;
-  border: 1px solid oklch(0.85 0.01 75);
+  border: 1px solid var(--border-strong);
   border-radius: 0.375rem;
-  background: oklch(1 0 0);
+  background: var(--surface-input);
   color: inherit;
+  appearance: none;
 }
 
 .graph-select:focus {
@@ -1567,14 +1746,14 @@ body {
   gap: 0.5rem;
   font-size: 0.8125rem;
   padding: 0.375rem 0.5rem;
-  background: oklch(0.96 0.008 75);
+  background: var(--surface-chip);
   border-radius: 0.375rem;
 }
 
 .graph-selected-remove {
   border: none;
   background: none;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
@@ -1583,7 +1762,7 @@ body {
 }
 
 .graph-selected-remove:hover {
-  color: oklch(0.48 0.14 30);
+  color: var(--danger);
 }
 
 .graph-main {
@@ -1606,7 +1785,7 @@ body {
   margin-bottom: 1rem;
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  color: oklch(0.4 0.02 75);
+  color: var(--text-body-2);
 }
 
 .graph-legend-item {
@@ -1642,33 +1821,33 @@ body {
 }
 
 .graph-gridline {
-  stroke: oklch(0.88 0.01 75);
+  stroke: var(--border-default);
   stroke-width: 1;
 }
 
 .graph-axis-tick {
   font-family: var(--font-mono);
   font-size: 10px;
-  fill: oklch(0.5 0.03 75);
+  fill: var(--text-secondary);
 }
 
 .graph-axis-label {
   font-family: var(--font-mono);
   font-size: 11px;
-  fill: oklch(0.5 0.03 75);
+  fill: var(--text-secondary);
 }
 
 .graph-col-label {
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
-  fill: oklch(0.25 0.02 75);
+  fill: var(--text-heading-fill);
 }
 
 .graph-col-sublabel {
   font-family: var(--font-mono);
   font-size: 10px;
-  fill: oklch(0.5 0.03 75);
+  fill: var(--text-secondary);
 }
 
 .graph-tooltip {
@@ -1711,9 +1890,9 @@ body {
   font-family: var(--font-body);
   font-size: 0.875rem;
   padding: 0.5rem 0.625rem;
-  border: 1px solid oklch(0.85 0.01 75);
+  border: 1px solid var(--border-strong);
   border-radius: 0.375rem;
-  background: oklch(1 0 0);
+  background: var(--surface-input);
   color: inherit;
 }
 
@@ -1742,7 +1921,7 @@ body {
 .rawdata-table-wrap {
   flex: 1;
   overflow: auto;
-  border: 1px solid oklch(0.88 0.01 75);
+  border: 1px solid var(--border-default);
   border-radius: 0.5rem;
 }
 
@@ -1770,9 +1949,9 @@ body {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  background: oklch(0.94 0.01 75);
-  color: oklch(0.4 0.03 75);
-  border-bottom: 1px solid oklch(0.85 0.01 75);
+  background: var(--surface-header);
+  color: var(--text-body);
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .rawdata-th-sortable {
@@ -1792,7 +1971,7 @@ body {
 .rawdata-sort-arrow {
   font-size: 0.55rem;
   line-height: 1;
-  color: oklch(0.75 0.01 75);
+  color: var(--text-faint);
 }
 
 .rawdata-sort-arrow.active {
@@ -1800,7 +1979,7 @@ body {
 }
 
 .rawdata-th-sortable:hover {
-  background: oklch(0.9 0.015 75);
+  background: var(--surface-header-hover);
 }
 
 .rawdata-th-sortable:focus-visible {
@@ -1809,11 +1988,11 @@ body {
 }
 
 .rawdata-table tbody tr:nth-child(even) {
-  background: oklch(0.975 0.006 75);
+  background: var(--surface-stripe);
 }
 
 .rawdata-table td {
-  border-bottom: 1px solid oklch(0.92 0.008 75);
+  border-bottom: 1px solid var(--border-faint);
 }
 
 .rawdata-table td:nth-child(n+4) {
@@ -1828,6 +2007,6 @@ body {
 .rawdata-empty {
   text-align: center;
   white-space: normal;
-  color: oklch(0.5 0.03 75);
+  color: var(--text-secondary);
   padding: 2rem 1rem;
 }
