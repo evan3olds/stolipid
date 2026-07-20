@@ -126,20 +126,20 @@
      `from`), forming a visible gray-scale ramp: page < stripe < card <
      header < chip < tint < tint-2 < border-default < border-strong <
      border-emphasis, so every surface and its border reads clearly. */
-  --surface-page:         oklch(from var(--surface-page-paper) 0.06 c 132);
-  --surface-card:         oklch(from var(--surface-card-paper) 0.14 c 132);
-  --surface-stripe:       oklch(from var(--surface-stripe-paper) 0.09 c 132);
-  --surface-chip:         oklch(from var(--surface-chip-paper) 0.18 c 132);
-  --surface-tint:         oklch(from var(--surface-tint-paper) 0.2  c 132);
-  --surface-tint-2:       oklch(from var(--surface-tint-2-paper) 0.23 c 132);
-  --surface-header:       oklch(from var(--surface-header-paper) 0.17 c 132);
-  --surface-header-hover: oklch(from var(--surface-header-hover-paper) 0.21 c 132);
-  --surface-input:        oklch(from var(--surface-input-paper) 0.05 c 132);
+  --surface-page:         oklch(from var(--surface-page-paper) 0.22 c 132);
+  --surface-card:         oklch(from var(--surface-card-paper) 0.32 c 132);
+  --surface-stripe:       oklch(from var(--surface-stripe-paper) 0.26 c 132);
+  --surface-chip:         oklch(from var(--surface-chip-paper) 0.38 c 132);
+  --surface-tint:         oklch(from var(--surface-tint-paper) 0.4  c 132);
+  --surface-tint-2:       oklch(from var(--surface-tint-2-paper) 0.44 c 132);
+  --surface-header:       oklch(from var(--surface-header-paper) 0.36 c 132);
+  --surface-header-hover: oklch(from var(--surface-header-hover-paper) 0.42 c 132);
+  --surface-input:        oklch(from var(--surface-input-paper) 0.18 c 132);
 
-  --border-default:  oklch(from var(--border-default-paper) 0.3  c 132);
-  --border-strong:   oklch(from var(--border-strong-paper) 0.36 c 132);
-  --border-emphasis: oklch(from var(--border-emphasis-paper) 0.44 c 132);
-  --border-faint:    oklch(from var(--border-faint-paper) 0.15 c 132);
+  --border-default:  oklch(from var(--border-default-paper) 0.5  c 132);
+  --border-strong:   oklch(from var(--border-strong-paper) 0.56 c 132);
+  --border-emphasis: oklch(from var(--border-emphasis-paper) 0.64 c 132);
+  --border-faint:    oklch(from var(--border-faint-paper) 0.34 c 132);
 
   --text-primary:     oklch(from var(--text-primary-paper) calc(1 - l) c 132);
   --icon-fill:         oklch(from var(--icon-fill-paper) calc(1 - l) c 132);

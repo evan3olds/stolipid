@@ -1061,6 +1061,10 @@ The `calc(1 - l + 0.06)` elevation bump wasn't enough: `--surface-page-paper` (0
 
 Re-verified with the same Playwright screenshot pass: folder cards, the Add Experiment modal, and the Conditions detail panel now show a clearly visible gray card against the darker page, with borders that stand out from both. Paper mode screenshots confirmed unchanged (only the `[data-theme="sage"]` block was touched).
 
+### Follow-up: user asked for Sage "way lighter"
+
+Bumped every value in the surface/border lightness ramp by roughly +0.16–0.18: page 0.06→0.22, card 0.14→0.32, chip 0.18→0.38, tint 0.20→0.40, tint-2 0.23→0.44, header 0.17→0.36, header-hover 0.21→0.42, stripe 0.09→0.26, input 0.05→0.18, border-default 0.30→0.50, border-strong 0.36→0.56, border-emphasis 0.44→0.64, border-faint 0.15→0.34 — same relative ramp shape, just shifted up into charcoal-gray territory instead of near-black. Text/accent/semantic tokens untouched (still read correctly at the new, lighter surface levels). Re-verified with the same screenshot pass; Paper confirmed unchanged.
+
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 13 items checked off with implementation notes. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
