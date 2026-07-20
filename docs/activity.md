@@ -1299,3 +1299,31 @@ Served the site with `python -m http.server` and drove it with a headless-Chromi
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 8 amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Graph screen: metric selector (auto count / hand count avg / combined avg)
+
+**Request:** "In the graph, add options to view only the auto counts, the average hand counts, or the average of both."
+
+The Graph screen previously only plotted `cells.auto_count` per cell (and its condition mean), matching the original Phase 9 scope note that this was deliberately *not* the hand-count average (that's what the Conditions screen's mini chart uses). This adds a way to switch between the two, plus a combined view, without touching the mini chart's behavior.
+
+### `app.js`
+
+- Added `GRAPH_METRICS` (`auto`/`hand`/`combined`), each with a sidebar option label and a y-axis label.
+- Added `cellValueForMetric(cell, metric)`: returns `cellAutoCount(cell)` for `'auto'`, `cellAverage(cell)` (existing hand-count-average helper) for `'hand'`, and for `'combined'` averages the two — falling back to whichever one is present if only one exists, `null` if neither does. Added `conditionMeanForMetric(cond, metric)`, the condition-level equivalent of the existing `conditionAutoCountMean` (removed — now dead code, superseded by this).
+- `graphState` gained a `metric` field (default `'auto'`, matching the prior fixed behavior), persisted across add/remove within a visit the same way `colorAssignments` already does.
+- Sidebar gained a "Metric" `<select>` (`#graph-metric-select`), styled with the existing `.graph-field`/`.graph-select` classes to match the Experiment/Condition selects. Its `change` handler sets `graphState.metric` and re-renders the chart area.
+- `renderGraphScatterSVG` now takes `metric` and uses `cellValueForMetric`/`conditionMeanForMetric` instead of the old auto-only helpers for both per-cell dot placement and the mean tick; y-axis label pulled from `GRAPH_METRICS[metric].axisLabel`.
+- Tooltip: kept the existing "Hand counts"/"Auto count" rows unconditionally (still useful context regardless of what's plotted), and appends one more row with the metric's label and the plotted value — but only when the metric isn't `'auto'`, since otherwise that row would just repeat the existing "Auto count" line verbatim.
+
+### Verification
+
+Served with `python -m http.server` and drove it with a headless-Chromium Playwright script (Python sync API — no `chromium-cli` on this machine). Logged in with the `local:` test account, navigated to Graph, added all three conditions of the "Serum Starvation Timecourse" experiment, and stepped through all three metric options:
+
+- Confirmed the metric `<select>` lists all three options with the expected labels and the y-axis label text updates correctly for each.
+- Screenshot per metric confirms the plotted dots/means actually move: "Auto count" only shows the 2 cells (out of 4 per condition) that have an `auto_count` in the local test fixtures; "Average hand count" shows all 4 cells per condition (test fixtures have hand counts on every cell); "Average of both" shows a distinct in-between layout from "Average hand count" (confirming it isn't silently falling back to one or the other).
+- Hovering a dot with `'combined'` selected on a cell that has an `auto_count` but no hand counts (`counts: []`) confirmed the tooltip's added row reads "Average of both: 3.0" — matching a pure fallback to the auto count, not `null`/`NaN`.
+- Checked `console --errors`-equivalent (`page.on('console', ...)` filtered to `error`) across the whole run: zero.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 9 amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

@@ -1919,3 +1919,29 @@ No live Supabase/Render deploy, so verified via a headless-Chromium Playwright s
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 8 amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+**Request:** "In the graph, add options to view only the auto counts, the average hand counts, or the average of both."
+
+### Diagnosis
+
+Graph screen (`renderGraphScatterSVG`/`conditionAutoCountMean` in `app.js`) was hardwired to `cells.auto_count` per the original Phase 9 design note that this was deliberately distinct from the hand-count average used by the Conditions screen's mini chart. `cellAverage(cell)` (hand-count average) already existed as a helper; there was no per-cell helper that combined the two.
+
+### Plan
+
+`app.js`:
+- Add `GRAPH_METRICS` map (`auto`/`hand`/`combined`) with sidebar label + y-axis label per option.
+- Add `cellValueForMetric(cell, metric)` and `conditionMeanForMetric(cond, metric)`; `'combined'` averages `cellAutoCount`/`cellAverage`, falling back to whichever is present if only one exists. Remove `conditionAutoCountMean` (superseded, otherwise dead).
+- `graphState` gets a `metric` field, default `'auto'` (preserves existing behavior for anyone not touching the new control), persisted across add/remove the same way `colorAssignments` already is.
+- New sidebar `<select id="graph-metric-select">` using the existing `.graph-field`/`.graph-select` styling; `change` sets `graphState.metric` and re-renders the chart area.
+- `renderGraphScatterSVG` takes `metric`, uses the new metric-aware helpers for dot placement and the mean tick, and pulls the y-axis label from `GRAPH_METRICS`.
+- Tooltip keeps its existing Hand counts/Auto count rows and appends a metric-value row only when the metric isn't `'auto'` (avoids duplicating the Auto count row).
+
+### Verification
+
+Served with `python -m http.server`, drove with a headless-Chromium Playwright script (Python sync API — no `chromium-cli` on this machine). Logged in with the `local:` test account, added all three conditions of "Serum Starvation Timecourse" to the graph, and stepped through all three metric options, screenshotting each. Confirmed the y-axis label and plotted dots/means change per metric (auto: 2 of 4 cells per condition plotted, matching which test fixtures have `auto_count`; hand: all 4 plotted; combined: a distinct in-between layout, not identical to either pure mode). Hovered a dot with `'combined'` selected on a cell with `auto_count` but no hand counts and confirmed the tooltip's added row correctly falls back to the auto value rather than showing `null`/`NaN`. Zero console errors across the run.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 9 amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
