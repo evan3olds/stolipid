@@ -956,3 +956,29 @@ Ran the real app: served the repo with `python -m http.server` and drove it with
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 9 and Phase 10 items updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Phase 12 — Static Content Screens (Help & About)
+
+**Request:** implement the next open task in `docs/tasks.md` — the Help and About screens were wired into navigation (sidebar, breadcrumbs, `SCREENS` metadata) since Phase 3 but still fell through to the generic `screenStub()` placeholder.
+
+### `app.js`
+
+- Added `HELP_CONTENT` (array of `{ title, body }`) and `ABOUT_CONTENT` (`{ purpose, origin, status, links }`) next to `CONFIG`, so both screens' copy lives in one place and is easy to edit without touching render logic, per PRD 5.9 ("content editable in app config"). `HELP_CONTENT` has one card per workflow step (Experiments, Conditions, Cells & Add Photos, Counting, Graph, Raw data) plus a card explaining ICC. `ABOUT_CONTENT.links` starts as an empty array — no citation/protocol links exist yet — and the About screen only renders that section when it's non-empty.
+- Added `initHelp`/`renderHelpHTML` and `initAbout`/`renderAboutHTML`, following the same `.content`-swap pattern as `initRawData`/`initGraph`. Both are synchronous (no API calls — the content is static), unlike the data-driven screens.
+- Wired both into `navigate()` alongside the other `init*` calls.
+
+### `style.css`
+
+- `.help-grid`/`.help-card`: card grid reusing the existing surface language (`oklch(0.99 0.005 75)` background, `oklch(0.88 0.01 75)` border, `0.5rem` radius) already used by `.folder-card`/`.detail-panel`, rather than inventing a new visual style.
+- `.about-panel`/`.about-section`/`.about-links`: single-column panel with mono uppercase section labels in `--accent` (matching the existing label convention elsewhere in the app) and serif-free body text.
+
+### Verification
+
+Ran the real app: served the repo with `python -m http.server` and drove it with Python Playwright (real Chrome channel), logging in with the local test account (`docs/test-accounts.json`).
+- Help: opened via the sidebar; screenshot confirms all 7 cards render with titles and body text in the correct grid layout.
+- About: opened via the sidebar; screenshot confirms Purpose/Origin/Status sections render; the links section is correctly omitted since `ABOUT_CONTENT.links` is empty.
+- No console/page errors on either screen.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 12 items updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

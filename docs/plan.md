@@ -1619,3 +1619,26 @@ Served the site with `python -m http.server` and drove it with Python Playwright
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 9 and Phase 10 items updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+## Plan: Phase 12 — Static Content Screens (Help & About)
+
+### Context
+
+Both screens were already wired into navigation (sidebar links, `SCREENS` metadata, breadcrumbs) since Phase 3, but `navigate()` fell through to the generic `screenStub()` placeholder for them — the same placeholder mechanism Graph/Raw Data used before their real phases landed.
+
+### Plan
+
+1. `app.js` — add `HELP_CONTENT` (array of `{ title, body }`) and `ABOUT_CONTENT` (`{ purpose, origin, status, links }`) config blocks near `CONFIG`, so content is data-driven per PRD 5.9 ("content editable in app config"). `HELP_CONTENT`: one card per major workflow step (Experiments, Conditions, Cells & Add Photos, Counting, Graph, Raw data) plus an ICC/reliability card. `ABOUT_CONTENT`: purpose/origin/status paragraphs plus an empty `links` array (no citation/protocol links defined yet), with the links section only rendered when non-empty.
+2. `app.js` — add `initHelp()`/`renderHelpHTML()` and `initAbout()`/`renderAboutHTML()` following the existing `.content`-swap pattern used by `initRawData`/`initGraph`; both are synchronous since there's no API call. Wire both into `navigate()`.
+3. `style.css` — add `.help-grid`/`.help-card` (card grid reusing the existing folder-card/detail-panel surface tokens) and `.about-panel`/`.about-section`/`.about-links` (single-column panel with mono uppercase section labels in `--accent`).
+4. Update `docs/tasks.md` Phase 12 checkboxes.
+
+### Verification
+
+Served the site with `python -m http.server` and drove it with Python Playwright (real Chrome channel) using the local test account: screenshotted the Help screen (7 cards render correctly) and the About screen (Purpose/Origin/Status sections render, links section correctly omitted since empty). No console errors on either screen.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 12 items updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

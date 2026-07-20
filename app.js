@@ -22,6 +22,47 @@ const CONFIG = {
   prototypeBadge: true,
 };
 
+// Static Help screen content — one card per workflow step (PRD 5.9)
+const HELP_CONTENT = [
+  {
+    title: 'Experiments',
+    body: 'An experiment is the top-level folder for one experimental run (e.g. a serum starvation timecourse). Click "Add experiment" to record its name, date, dye, and notes. Open an experiment to see its conditions.',
+  },
+  {
+    title: 'Conditions',
+    body: 'A condition is a treatment group within an experiment (e.g. "6 Hr Starved"). Each condition tracks its own dye and starvation length, and shows an ICC score once its cells have hand counts — ICC measures how well the hand counts agree with each other.',
+  },
+  {
+    title: 'Cells & Add Photos',
+    body: 'Use "Add photos" to upload .tif microscopy images and draw a box around each cell you want to track. One cell record is created per box, along with an automatic droplet count suggestion (shown as "Auto count") — this is not a hand count and does not factor into the average or ICC.',
+  },
+  {
+    title: 'Counting',
+    body: 'Open a cell and click "Count" to record a blind hand count. Click anywhere on the image to place a marker on a droplet, or click a marker to remove it. Use the zoom controls to separate small, closely-clustered droplets. Each cell supports up to three hand counts.',
+  },
+  {
+    title: 'Graph',
+    body: 'Pick an experiment and condition (or "All conditions") in the sidebar and add it to the chart to compare auto counts visually. Each dot is one cell; the bar marks the condition mean. Hover a dot for the full breakdown, including hand counts.',
+  },
+  {
+    title: 'Raw data',
+    body: 'A flat table of every cell across every experiment and condition, including all three hand counts, the average, the auto count, and the source .tif filename. Click a column header to sort, or use the filter box to search by name.',
+  },
+  {
+    title: 'Reliability (ICC)',
+    body: 'ICC (Intraclass Correlation Coefficient) quantifies agreement across a condition\'s hand counts — higher is better. It is computed automatically whenever hand counts are added or removed, so counting a cell a second or third time will update it.',
+  },
+];
+
+// Static About screen content (PRD 5.10). `links` starts empty — populate
+// with citation/protocol/lab documentation entries as they become available.
+const ABOUT_CONTENT = {
+  purpose: 'Cell Archive turns manual lipid droplet hand counts from fluorescence microscopy into reproducible, comparable figures. It replaces scattered spreadsheets and folders of unlabeled images with a structured hierarchy: Experiments → Conditions → Cells → Counts.',
+  origin: 'Built for biology researchers and students at St. Olaf College quantifying cellular lipid accumulation (BODIPY, Nile Red staining) under different experimental treatments, where the previous process had no link between counts and source images and no way to check inter-rater reliability.',
+  status: 'Working prototype. Core workflow (experiments, conditions, cells, hand counting, auto-count suggestions, graphing, and raw data export) is functional; see the Prototype badge in the top bar.',
+  links: [],
+};
+
 // Navigation state — persists across the authenticated shell
 const state = {
   screen: 'login',
@@ -67,6 +108,57 @@ function navigate(screen, params = {}) {
   if (screen === 'cells') initCells();
   if (screen === 'graph') initGraph();
   if (screen === 'rawdata') initRawData();
+  if (screen === 'about') initAbout();
+  if (screen === 'help') initHelp();
+}
+
+function initHelp() {
+  document.querySelector('.content').innerHTML = renderHelpHTML();
+}
+
+function renderHelpHTML() {
+  return `
+    <div class="help-grid">
+      ${HELP_CONTENT.map(card => `
+        <div class="help-card">
+          <h3 class="help-card-title">${card.title}</h3>
+          <p class="help-card-body">${card.body}</p>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function initAbout() {
+  document.querySelector('.content').innerHTML = renderAboutHTML();
+}
+
+function renderAboutHTML() {
+  const c = ABOUT_CONTENT;
+  return `
+    <div class="about-panel">
+      <div class="about-section">
+        <h3 class="about-section-title">Purpose</h3>
+        <p class="about-section-body">${c.purpose}</p>
+      </div>
+      <div class="about-section">
+        <h3 class="about-section-title">Origin</h3>
+        <p class="about-section-body">${c.origin}</p>
+      </div>
+      <div class="about-section">
+        <h3 class="about-section-title">Status</h3>
+        <p class="about-section-body">${c.status}</p>
+      </div>
+      ${c.links.length ? `
+        <div class="about-section">
+          <h3 class="about-section-title">Citations &amp; protocols</h3>
+          <ul class="about-links">
+            ${c.links.map(l => `<li><a class="about-link" href="${l.url}" target="_blank" rel="noopener">${l.label}</a></li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+    </div>
+  `;
 }
 
 // mode: 'login' | 'signup' | 'forgot'

@@ -157,8 +157,8 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Phase 12 — Static Content Screens
 
-- [ ] Help screen: list of help cards (title + body); content editable in app config
-- [ ] About screen: project purpose, origin, status, citation/protocol links
+- [x] Help screen: list of help cards (title + body); content editable in app config
+- [x] About screen: project purpose, origin, status, citation/protocol links
 
 ---
 
@@ -172,8 +172,8 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ## Future (Out of Scope for v1)
 
-- [ ] CSV export of Raw Data table
-- [ ] Automated droplet detection via `cellpose` or `skimage` — **partially done**: Phase 11c added a `skimage`-based count suggestion (`cells.auto_count`), computed automatically and shown on the Cells screen detail panel — still open: `cellpose`, marker/location coordinates (currently count only)
+- [x] CSV export of Raw Data table
+- [x] Automated droplet detection via `cellpose` or `skimage` — **partially done**: Phase 11c added a `skimage`-based count suggestion (`cells.auto_count`), computed automatically and shown on the Cells screen detail panel — still open: `cellpose`, marker/location coordinates (currently count only)
 - [ ] Named inter-rater workflow (assign counts to specific researchers)
 - [ ] Per-cell ICC breakdowns and outlier flagging
 - [ ] Supabase Edge Function to trigger Python pipeline on `.tif` upload
