@@ -982,3 +982,38 @@ Ran the real app: served the repo with `python -m http.server` and drove it with
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 12 items updated. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Condition dye removed as a per-condition field
+
+**Request:** condition folders shouldn't have their own dye — it's universal to all conditions within an experiment — but the Conditions screen sidebar (detail panel) should still show the dye value for ease of analysis.
+
+### `app.js`
+
+- `navigate('conditions', ...)` calls (Experiments screen "Open experiment" click and double-click) now pass `dye: exp.dye` alongside `id`/`name` in the `experiment` param, so `state.experiment.dye` is available once the user is on the Conditions screen.
+- Conditions screen detail panel's "Dye" row now reads `state.experiment?.dye` instead of `cond.dye`.
+- Conditions grid folder-card dye chip removed — showing the same value on every card in an experiment was redundant now that it isn't a per-condition property.
+- Add Condition ("New slide") and Edit Condition modals: removed the Dye input field and its entry from the POST/PUT payloads.
+- `TEST_CONDITIONS` fixtures: removed the now-unused `dye` key from all 5 local dev-mode conditions (dye already exists on the corresponding `TEST_EXPERIMENTS` entries).
+- `HELP_CONTENT`'s Conditions card body updated to note dye is set once at the experiment level and shown on the condition detail panel for reference, rather than describing it as a per-condition property.
+
+### `api/main.py`
+
+- `ConditionBody` dropped the `dye` field.
+- `create_condition` and `update_condition` no longer read or write `dye` on the `conditions` table.
+- Experiment-level `dye` (on `ExperimentBody`/`create_experiment`/`update_experiment`) is unchanged — dye still lives there.
+- The `conditions.dye` Supabase column itself is left in place but now unused — no migration was run in this environment (same caveat as the `cells.source_filename` column addition earlier: no live Supabase credentials here). Dropping it is optional cleanup the user can do directly in Supabase if desired.
+
+### Docs
+
+`CLAUDE.md` and `docs/PRD.md` schema/field references updated to drop `dye` from the `conditions` table/Condition data model, with a note that the Conditions detail panel displays the parent experiment's dye for reference.
+
+### Verification
+
+Ran the real app: served the repo with `python -m http.server` and drove it with Python Playwright (real Chrome channel), logging in with the local test account.
+- Conditions screen for "Serum Starvation Timecourse" (experiment dye: BODIPY): folder cards no longer show a dye chip; selecting a condition shows "Dye: BODIPY" in the detail panel, correctly sourced from the experiment rather than the condition.
+- Add Condition modal ("New slide") and Edit Condition modal: confirmed no Dye field is present in either form.
+- No console/page errors on any of the above.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 5 amended with a note. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

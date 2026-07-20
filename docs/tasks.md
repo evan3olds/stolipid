@@ -48,6 +48,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Single-click to select → detail panel showing condition name, dye, starvation length, cell count, ICC + quality label
 - [x] Mini scatter chart in detail panel (one column per condition, per-cell average dots, condition mean bar)
 - [x] "New slide" button + Add Condition modal (Name, Dye, Starvation length in hours, Notes) → write to `conditions` table
+- [x] `dye` removed as a condition-level field — it's universal across all conditions in an experiment. Add/Edit Condition modals dropped the Dye input; `conditions.dye` is no longer read or written by the frontend or `api/main.py`'s `ConditionBody`/`create_condition`/`update_condition`. The Conditions detail panel still shows a "Dye" row for at-a-glance analysis, now sourced from `state.experiment.dye` (passed through on navigation from the Experiments screen) instead of the condition record. Folder-card dye chip removed from the Conditions grid since it's redundant across every card in an experiment. Requested by the user; existing `conditions.dye` Supabase column is left in place but unused (no migration run in this environment, consistent with prior schema-change entries)
 
 ---
 

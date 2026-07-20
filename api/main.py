@@ -263,7 +263,6 @@ def delete_experiment(experiment_id: str, user=Depends(get_current_user)):
 
 class ConditionBody(BaseModel):
     name: str
-    dye: Optional[str] = None
     starvation: Optional[float] = None
     notes: Optional[str] = None
 
@@ -288,7 +287,6 @@ def create_condition(experiment_id: str, body: ConditionBody, user=Depends(get_c
         .insert({
             "experiment_id": experiment_id,
             "name": body.name,
-            "dye": body.dye,
             "starvation": body.starvation,
             "notes": body.notes,
         })
@@ -304,7 +302,6 @@ def update_condition(condition_id: str, body: ConditionBody, user=Depends(get_cu
         supabase.table("conditions")
         .update({
             "name": body.name,
-            "dye": body.dye,
             "starvation": body.starvation,
             "notes": body.notes,
         })

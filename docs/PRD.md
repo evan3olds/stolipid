@@ -40,7 +40,7 @@ Biology researchers at St. Olaf routinely count lipid droplets in fluorescence m
 | Term | Definition |
 |---|---|
 | **Experiment** | A top-level folder representing one experimental run (e.g., serum starvation timecourse). Has a name, date, dye, and notes. |
-| **Condition** | A sub-folder within an experiment representing one treatment group (e.g., "6 Hr Starved"). Has a dye and starvation length. |
+| **Condition** | A sub-folder within an experiment representing one treatment group (e.g., "6 Hr Starved"). Has a starvation length; dye is set once at the experiment level and shown here for reference. |
 | **Cell** | One individual cell extracted from a microscopy image. Belongs to a condition. |
 | **Hand count** | A single manual count of lipid droplets in a cell image. Up to 3 per cell (for blinded inter-rater reliability). |
 | **Average** | The mean of a cell's hand counts. Used for all summary statistics. |
@@ -69,12 +69,12 @@ Biology researchers at St. Olaf routinely count lipid droplets in fluorescence m
 - Grid of condition folder cards showing name and metadata
 - Single-click to select; double-click to open
 - Detail panel shows:
-  - Condition name, dye, starvation length, cell count
+  - Condition name, dye (inherited from the parent experiment), starvation length, cell count
   - ICC value + quality label (e.g., "Good", "Excellent")
   - Mini scatter chart: one column per condition, dots = per-cell averages, bar = condition mean
 - "New slide" button opens a modal to create a condition
 
-**Add Condition Modal fields:** Name, Dye, Starvation length (hours), Notes
+**Add Condition Modal fields:** Name, Starvation length (hours), Notes
 
 ### 5.4 Cells (Screen 5)
 - Breadcrumb: Experiments / [Experiment] / [Condition]
@@ -145,7 +145,7 @@ Biology researchers at St. Olaf routinely count lipid droplets in fluorescence m
 Experiment
   id, name, date, dye, notes
   └── Condition[]
-        id, name, dye, starvation (hours), notes
+        id, name, starvation (hours), notes
         └── Cell[]
               id, name
               └── counts: number[]   // up to 3 hand counts
@@ -193,7 +193,7 @@ experiments
   id uuid PK, name text, date date, dye text, notes text, created_by uuid FK
 
 conditions
-  id uuid PK, experiment_id uuid FK, name text, dye text, starvation text, notes text
+  id uuid PK, experiment_id uuid FK, name text, starvation text, notes text
 
 cells
   id uuid PK, condition_id uuid FK, name text, image_url text, auto_count integer, source_filename text

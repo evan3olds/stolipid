@@ -30,7 +30,7 @@ const HELP_CONTENT = [
   },
   {
     title: 'Conditions',
-    body: 'A condition is a treatment group within an experiment (e.g. "6 Hr Starved"). Each condition tracks its own dye and starvation length, and shows an ICC score once its cells have hand counts — ICC measures how well the hand counts agree with each other.',
+    body: 'A condition is a treatment group within an experiment (e.g. "6 Hr Starved"). Dye is set once at the experiment level and shown here for reference; each condition tracks its own starvation length, and shows an ICC score once its cells have hand counts — ICC measures how well the hand counts agree with each other.',
   },
   {
     title: 'Cells & Add Photos',
@@ -511,7 +511,6 @@ const TEST_CONDITIONS = {
     {
       id: 'test-cond-001',
       name: '0 Hr Starved',
-      dye: 'BODIPY',
       starvation: 0,
       notes: 'Baseline, fed condition.',
       icc: 0.88,
@@ -525,7 +524,6 @@ const TEST_CONDITIONS = {
     {
       id: 'test-cond-002',
       name: '6 Hr Starved',
-      dye: 'BODIPY',
       starvation: 6,
       notes: '',
       icc: 0.93,
@@ -539,7 +537,6 @@ const TEST_CONDITIONS = {
     {
       id: 'test-cond-003',
       name: '24 Hr Starved',
-      dye: 'BODIPY',
       starvation: 24,
       notes: 'High variance between raters on Cell 2.',
       icc: 0.61,
@@ -554,7 +551,6 @@ const TEST_CONDITIONS = {
     {
       id: 'test-cond-004',
       name: 'Untreated',
-      dye: 'Nile Red',
       starvation: null,
       notes: '',
       icc: 0.79,
@@ -566,7 +562,6 @@ const TEST_CONDITIONS = {
     {
       id: 'test-cond-005',
       name: 'Oleic Acid 24hr',
-      dye: 'Nile Red',
       starvation: null,
       notes: 'Robust droplet accumulation observed across all cells.',
       icc: 0.95,
@@ -785,7 +780,7 @@ function wireExperiments(experiments) {
     panel.classList.add('visible');
 
     document.getElementById('detail-open').addEventListener('click', () => {
-      navigate('conditions', { experiment: { id: exp.id, name: exp.name } });
+      navigate('conditions', { experiment: { id: exp.id, name: exp.name, dye: exp.dye } });
     });
   }
 
@@ -793,7 +788,7 @@ function wireExperiments(experiments) {
     card.addEventListener('click', () => selectExperiment(card.dataset.id));
     card.addEventListener('dblclick', () => {
       const exp = experiments.find(e => String(e.id) === card.dataset.id);
-      if (exp) navigate('conditions', { experiment: { id: exp.id, name: exp.name } });
+      if (exp) navigate('conditions', { experiment: { id: exp.id, name: exp.name, dye: exp.dye } });
     });
     card.addEventListener('keydown', e => {
       if (e.key === 'Enter') selectExperiment(card.dataset.id);
@@ -1095,7 +1090,6 @@ function renderConditionsHTML(conditions) {
             ${cardMenuHTML(cond.id)}
             <div class="folder-name">${escHtml(cond.name)}</div>
             <div class="folder-meta">
-              ${cond.dye ? `<span class="folder-meta-item">${escHtml(cond.dye)}</span>` : ''}
               ${cond.starvation != null ? `<span class="folder-meta-item">${cond.starvation} hr</span>` : ''}
               <span class="folder-meta-item">${cellCount} cell${cellCount !== 1 ? 's' : ''}</span>
             </div>
@@ -1130,7 +1124,7 @@ function wireConditions(conditions) {
       <div class="detail-name">${escHtml(cond.name)}</div>
       <div class="detail-row">
         <span class="detail-label">Dye</span>
-        <span class="detail-value">${cond.dye ? escHtml(cond.dye) : '—'}</span>
+        <span class="detail-value">${state.experiment?.dye ? escHtml(state.experiment.dye) : '—'}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Starvation</span>
@@ -1223,10 +1217,6 @@ function openAddConditionModal(onSuccess) {
           <input id="modal-name" type="text" required autocomplete="off">
         </div>
         <div class="modal-field">
-          <label for="modal-dye">Dye</label>
-          <input id="modal-dye" type="text" autocomplete="off" placeholder="e.g. BODIPY">
-        </div>
-        <div class="modal-field">
           <label for="modal-starvation">Starvation length (hours)</label>
           <input id="modal-starvation" type="number" min="0" step="1">
         </div>
@@ -1264,7 +1254,6 @@ function openAddConditionModal(onSuccess) {
         method: 'POST',
         body: JSON.stringify({
           name:       document.getElementById('modal-name').value,
-          dye:        document.getElementById('modal-dye').value,
           starvation: starvationVal === '' ? null : Number(starvationVal),
           notes:      document.getElementById('modal-notes').value,
         }),
@@ -1291,10 +1280,6 @@ function openEditConditionModal(cond, onSuccess) {
         <div class="modal-field">
           <label for="modal-name">Name</label>
           <input id="modal-name" type="text" required autocomplete="off" value="${escHtml(cond.name || '')}">
-        </div>
-        <div class="modal-field">
-          <label for="modal-dye">Dye</label>
-          <input id="modal-dye" type="text" autocomplete="off" placeholder="e.g. BODIPY" value="${escHtml(cond.dye || '')}">
         </div>
         <div class="modal-field">
           <label for="modal-starvation">Starvation length (hours)</label>
@@ -1330,7 +1315,6 @@ function openEditConditionModal(cond, onSuccess) {
     const starvationVal = document.getElementById('modal-starvation').value;
     const updated = {
       name:       document.getElementById('modal-name').value,
-      dye:        document.getElementById('modal-dye').value,
       starvation: starvationVal === '' ? null : Number(starvationVal),
       notes:      document.getElementById('modal-notes').value,
     };

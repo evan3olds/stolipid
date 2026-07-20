@@ -1642,3 +1642,27 @@ Served the site with `python -m http.server` and drove it with Python Playwright
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 12 items updated. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+## Plan: Remove dye as a per-condition field
+
+### Context
+
+User request: condition folders shouldn't have their own dye — it's universal to all conditions within an experiment — but the Conditions screen's detail panel (sidebar) should still show the dye value for ease of analysis, sourced from the parent experiment instead.
+
+### Plan
+
+1. `app.js` — pass `dye: exp.dye` through both `navigate('conditions', { experiment: {...} })` calls on the Experiments screen so `state.experiment.dye` is available on the Conditions screen.
+2. `app.js` — Conditions detail panel's Dye row reads `state.experiment?.dye` instead of `cond.dye`; remove the dye chip from the Conditions folder-card grid (redundant once it's not per-condition); remove the Dye field from both Add Condition and Edit Condition modals and their payloads; strip `dye` from the `TEST_CONDITIONS` local fixtures; update the Help screen's Conditions card copy.
+3. `api/main.py` — drop `dye` from `ConditionBody` and stop reading/writing it in `create_condition`/`update_condition`. Leave `ExperimentBody`/experiment endpoints untouched (dye still lives at the experiment level). Leave the `conditions.dye` Supabase column in place but unused — no live Supabase credentials in this environment to run a migration.
+4. `CLAUDE.md`/`docs/PRD.md` — drop `dye` from the `conditions` schema/data-model references, note the Conditions detail panel now displays the parent experiment's dye.
+5. `docs/tasks.md` — amend the Phase 5 section with a note describing the change.
+
+### Verification
+
+Served the site with `python -m http.server` and drove it with Python Playwright (real Chrome channel) using the local test account: confirmed the Conditions grid for "Serum Starvation Timecourse" no longer shows a per-card dye chip, confirmed the detail panel shows "Dye: BODIPY" (the experiment's dye) when a condition is selected, and confirmed neither the Add Condition nor Edit Condition modal has a Dye field. No console errors.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 5 amended with a note. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
