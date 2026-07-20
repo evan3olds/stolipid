@@ -29,7 +29,7 @@ There is no source tree yet. When building out the actual app, the target struct
 Four tables with this hierarchy:
 ```
 experiments (id, name, date, dye, notes, created_by)
-  └── conditions (id, experiment_id, name, dye, starvation, notes, icc)
+  └── conditions (id, experiment_id, name, starvation, notes, icc)
         └── cells (id, condition_id, name, image_url, auto_count, source_filename)
               └── counts (id, cell_id, value, counted_by, created_at)
 ```
@@ -37,6 +37,7 @@ experiments (id, name, date, dye, notes, created_by)
 - `condition.icc` is written by the Python pipeline and stored as a column
 - `cells.auto_count` is a machine-suggested droplet count (rolling-ball background subtraction → dark-background Otsu threshold → binary fill-holes → distance-transform watershed), written by the Python pipeline at cell-creation time — not a hand count, not included in `cell.average`/`condition.icc`
 - `cells.source_filename` is the original uploaded `.tif` filename, written by the Python pipeline at cell-creation time (one source file can produce multiple cells, one per annotated box)
+- Dye is set once at the experiment level, not per-condition — the Conditions screen detail panel displays the parent experiment's dye for reference
 - Row-Level Security: researchers only read/write their own experiment data
 
 ### Python API (Render)
