@@ -1439,3 +1439,26 @@ Served locally (`python -m http.server`) and drove it with headless Playwright/C
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Add Photos screen: labeled the model selector and moved it to the top right
+
+**Request:** "In the add photos screen, add the words 'Auto-count model: ' before the selector for the model, and also move the model selector to be at the top right of the screen."
+
+### `app.js`
+
+- `renderAddPhotosHTML()`'s topbar-left no longer holds `<select id="addphotos-algorithm">`. It now sits in a new `.addphotos-topbar-right` group alongside the existing Cancel/Create buttons, wrapped in `.addphotos-algorithm-field` with a preceding `<label class="addphotos-algorithm-label" for="addphotos-algorithm">Auto-count model: </label>`. `id="addphotos-algorithm"` is unchanged, so `wireAddPhotos()`'s existing `change` listener needed no edit.
+
+### `style.css`
+
+- `.addphotos-topbar-right`: new column flex group (`align-items: flex-end`), holding the algorithm field above the existing `.addphotos-topbar-actions` row, right-aligned under the topbar's `space-between`.
+- `.addphotos-algorithm-field`: new row flex wrapper for the label + select.
+- `.addphotos-algorithm-label`: new rule, mono/secondary-text styling matching `.addphotos-instructions`.
+- `.addphotos-algorithm-select`: dropped the `margin-top` it had when stacked under the instructions line (no longer needed now that it's in its own row).
+
+### Verification
+
+Served locally (`python -m http.server`) and drove it with headless Playwright/Chromium using the `local:` test account: logged in, drilled Experiments → Conditions → Cells → Add Photos, screenshot-confirmed the "Auto-count model:" label + selector render at the top right of the screen, above the Cancel/Create buttons, with "Standard" pre-selected. Zero console/page errors.
+
+## Final step (per project convention)
+
+`docs/activity.md` updated with this entry. No `docs/tasks.md` change — this is a UI-copy/layout tweak to already-shipped Phase 11c work, not a new task-list item. No `docs/plan.md` entry — the change was small enough not to warrant a separate plan (single Edit to markup + CSS, no design decisions to record).

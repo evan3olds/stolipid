@@ -1784,14 +1784,19 @@ function renderAddPhotosHTML() {
         <div class="addphotos-topbar-left">
           <div class="addphotos-condition">${escHtml(conditionName)}</div>
           <div class="addphotos-instructions">Click anywhere on the image to box a cell.</div>
-          <select class="addphotos-algorithm-select" id="addphotos-algorithm">
-            <option value="otsu_watershed" ${addPhotosState.algorithm === 'otsu_watershed' ? 'selected' : ''}>Standard</option>
-            <option value="fm_edge_overlay" ${addPhotosState.algorithm === 'fm_edge_overlay' ? 'selected' : ''}>FM_edge_overlay (ALDQ)</option>
-          </select>
         </div>
-        <div class="addphotos-topbar-actions">
-          <button class="modal-cancel" id="addphotos-cancel">Cancel</button>
-          <button class="primary-action" id="addphotos-create" ${totalBoxes === 0 ? 'disabled' : ''}>Create ${totalBoxes} cell${totalBoxes !== 1 ? 's' : ''}</button>
+        <div class="addphotos-topbar-right">
+          <div class="addphotos-algorithm-field">
+            <label class="addphotos-algorithm-label" for="addphotos-algorithm">Auto-count model: </label>
+            <select class="addphotos-algorithm-select" id="addphotos-algorithm">
+              <option value="otsu_watershed" ${addPhotosState.algorithm === 'otsu_watershed' ? 'selected' : ''}>Standard</option>
+              <option value="fm_edge_overlay" ${addPhotosState.algorithm === 'fm_edge_overlay' ? 'selected' : ''}>FM_edge_overlay (ALDQ)</option>
+            </select>
+          </div>
+          <div class="addphotos-topbar-actions">
+            <button class="modal-cancel" id="addphotos-cancel">Cancel</button>
+            <button class="primary-action" id="addphotos-create" ${totalBoxes === 0 ? 'disabled' : ''}>Create ${totalBoxes} cell${totalBoxes !== 1 ? 's' : ''}</button>
+          </div>
         </div>
       </header>
       <div class="addphotos-error" id="addphotos-error"></div>
