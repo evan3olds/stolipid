@@ -1371,3 +1371,49 @@ Served with `python -m http.server`, drove with a headless-Chromium Playwright s
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 9 amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Auto-count: FM_edge_overlay added as a second, switchable detection algorithm
+
+**Request:** Port the lab's `assets/ALDQ.ijm-20181102151807.txt` ImageJ macro's LD-determination steps (its `FM_edge_overlay` count + maxima grid) into the Python auto-count pipeline, with the macro's settings dialog hardcoded to fixed values instead of prompted. Requested as a second, switchable algorithm — not a replacement for the existing Otsu/watershed pipeline.
+
+### `api/detection.py`
+
+- Existing `detect_droplets` body renamed **verbatim** to `_detect_droplets_otsu_watershed` — no logic changes, so its behavior is unchanged from before this entry.
+- New `_detect_droplets_fm_edge_overlay(plane)`: a direct port of the macro's LD-determination section (lines ~1058–1230), built from four new helpers:
+  - `_iterative_sharpen` — the macro's `sixteenbitsegmentation()` unsharp-mask add-back loop, run `FM_PREPROCESS_ITERATIONS=3` times with `sigma=FM_BLUR_DURING_SIGMA=1`, clipped to the 16-bit range each cycle (only the macro's 16-bit branch is needed since `normalize_to_uint16` already puts every crop on a 0–65535 scale).
+  - `_edge_particle_mask` — Sobel ("Find Edges") → 8-bit rescale → `_phansalkar_threshold` (Fiji `Auto_Local_Threshold`'s Phansalkar defaults: k=0.25, r=0.5, p=2, q=10, radius `FM_LOCAL_THRESHOLD_RADIUS=10`) → invert → fill-holes/watershed (reuses the existing `_fill_and_watershed`, unchanged) → keeps only regions with `15 <= area <= 1,000,000` px and `0.4 <= circularity <= 1.0` (`FM_MIN/MAX_PARTICLE_AREA_PX`, `FM_MIN/MAX_CIRCULARITY`).
+  - `_find_maxima` — `skimage.morphology.h_maxima(image, h=FM_FIND_MAXIMA_NOISE=4000)` as the closest available equivalent to ImageJ's prominence-based `Find Maxima`, reduced to one (brightest-pixel) point per surviving plateau.
+  - The final count/grid is the intersection: maxima (found on the sharpened image additionally blurred by `FM_BLUR_AFTER_SIGMA=1`) that land on a pixel `_edge_particle_mask` accepted — implemented as a direct mask lookup per maximum rather than the macro's own ImageJ-specific pixel-arithmetic trick (`Subtract create`/`Invert` on a point-selection-restricted `Apply LUT`), since that trick's exact semantics can't be verified without running Fiji. The macro's own inline comment states the intent this directly implements: *"Local maxima that were not located on edge defined particles are lost here!"*
+- `varwsblurring` (Classic Watershed Blurring, macro value 2) and the macro's per-image pixel-size dialog (6.5 µm) are recorded as `FM_CLASSIC_WATERSHED_BLUR_RESERVED`/`FM_PIXEL_SIZE_UM_RESERVED` — both only feed the macro's optional LD-volume/Classic-Watershed-flooding branch (`title16`–`title20`), which this port doesn't implement, and neither has any effect on the pixel-based size/circularity thresholds actually used.
+- New public `detect_droplets(plane, algorithm="otsu_watershed")` dispatcher (`DETECTION_ALGORITHMS = ("otsu_watershed", "fm_edge_overlay")`) replaces the old function as the module's public entry point; raises `ValueError` on an unrecognized algorithm name.
+- New imports: `skimage.filters.sobel`, `skimage.morphology.h_maxima`. No new dependency — both are already in `scikit-image` (already in `api/requirements.txt`).
+
+### `api/main.py`
+
+- `cells_from_tif` gains `algorithm: str = Form("otsu_watershed")`, validated against `DETECTION_ALGORITHMS` (`422` on an unrecognized value, same pattern as the existing `boxes` JSON-parse-failure check just above it), passed straight through to `detect_droplets(normalized_crop, algorithm=algorithm)`.
+- Each created cell row now also stores `auto_algorithm` (the algorithm string) for provenance — new `cells.auto_algorithm` **text** column, **not yet applied to the live Supabase `cells` table** (same situation as `source_filename`/`auto_points`/`counts.points` before it): run `alter table cells add column auto_algorithm text;` directly against Supabase before this deploys.
+
+### `app.js` / `style.css`
+
+- `addPhotosState` (reset in `renderAddPhotos()`) gains `algorithm: 'otsu_watershed'`.
+- `renderAddPhotosHTML()`'s topbar-left gained a `<select id="addphotos-algorithm">` with two options, "Standard" (`otsu_watershed`, default-selected) and "FM_edge_overlay (ALDQ)" (`fm_edge_overlay`) — applies to every file/box created in that Add Photos session (no per-box granularity).
+- `wireAddPhotos()` wires the select's `change` event to update `addPhotosState.algorithm` directly (no full re-render needed).
+- `confirmAddPhotos()`'s per-file `FormData` gains `formData.append('algorithm', addPhotosState.algorithm)` alongside the existing `boxes` field. The local-test-account branch ignores it, same as it already ignores real detection entirely.
+- `style.css`: new `.addphotos-algorithm-select` rule, matching `.graph-select`'s look (theme tokens, `appearance: none`) sized down to sit under the mono instructions line.
+
+### CLAUDE.md
+
+Updated the `cells.auto_count`/`cells.auto_points` schema bullets to describe both algorithms and document the new `cells.auto_algorithm` column.
+
+### Verification
+
+No live Supabase credentials in this environment (same as every prior Phase 11c entry), so full `POST /conditions/{id}/cells/from-tif` end-to-end verification isn't possible here. Instead:
+
+- A standalone script loaded `assets/Image_43391.tif` (cropped to its central 40%×40%, `820×820`px) via `imaging.load_tif_plane`/`normalize_to_uint16` and called `detect_droplets` with both `algorithm` values: `otsu_watershed` → 176 droplets (0.85s), `fm_edge_overlay` → 184 droplets (1.20s), both with `len(points) == count` and no exceptions; `detect_droplets(crop, algorithm="bogus")` raised `ValueError` as expected. `_detect_droplets_otsu_watershed`'s body is a verbatim rename of the pre-change `detect_droplets` (confirmed by inspection, not just by the run), so its behavior is unchanged.
+- Rendered both algorithms' points as a dot overlay on the crop (Pillow, saved to the scratchpad) and visually confirmed `fm_edge_overlay`'s markers land on the bright droplet puncta inside the cell body, not on background — comparable coverage/density to the existing `otsu_watershed` overlay.
+- Served the site locally (`python -m http.server`) and drove it with a headless Playwright/Chromium script using the `local:` test account (`test@example.com`/`test`): logged in, drilled Experiments → Conditions → Cells → Add Photos, confirmed `#addphotos-algorithm` renders with `Standard`/`FM_edge_overlay (ALDQ)` options and `otsu_watershed` pre-selected (screenshot-verified), switching it updates `addPhotosState.algorithm`, and — with the algorithm switched — uploading `assets/Image_43391.tif` and clicking the canvas still draws a box correctly (screenshot-verified). Zero console/page errors across both runs.
+- `api/detection.py` and the edited region of `api/main.py` are syntactically valid (`ast.parse`); a full `import main` isn't possible in this local environment independent of this change — `pandas`/`pingouin` (an existing `api/requirements.txt` dependency) aren't installed here, the same pre-existing environment gap noted by prior entries' "no live Supabase credentials" caveat.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

@@ -1277,6 +1277,23 @@ body {
   color: var(--text-secondary);
 }
 
+.addphotos-algorithm-select {
+  margin-top: 0.375rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.375rem;
+  background: var(--surface-input);
+  color: inherit;
+  appearance: none;
+}
+
+.addphotos-algorithm-select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .addphotos-topbar-actions {
   display: flex;
   gap: 0.75rem;

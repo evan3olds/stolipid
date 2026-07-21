@@ -1988,3 +1988,51 @@ No `chromium-cli`/Playwright/Node available in this environment. Served with `py
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 6 amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Plan: FM_edge_overlay auto-count as a second, switchable detection algorithm
+
+## Context
+
+`assets/ALDQ.ijm-20181102151807.txt` is the lab's original Fiji macro for counting lipid droplets (LDs). Its "LD determination" section (lines ~1058–1230) computes a final count it calls `_FM_edge_overlay` (`title12`) plus a `_FM_only` maxima grid (`title11`), by intersecting two independent analyses of the same preprocessed image: (1) an **edge/particle mask** — Find Edges → Auto Local Threshold (Phansalkar) → invert → fill holes → watershed → filter by size + circularity, and (2) a **Find Maxima** pass (noise-tolerance based) on a separately-blurred copy of the same image. A local maximum only counts as an LD if it lands on a pixel the particle mask accepted — the macro's own comment states this explicitly: *"Local maxima that were not located on edge defined particles are lost here!"* That intersection *is* `FM_edge_overlay`.
+
+Cell Archive's Python pipeline (`api/detection.py`) already had an auto-count slot for exactly this: `cells.auto_count` + `cells.auto_points`, computed by `detect_droplets()` — a rolling-ball/Otsu/watershed pipeline that had already gone through several ALDQ-inspired reworks (`docs/tasks.md` Phase 11c history) but was never a direct, parameter-faithful port of the actual macro. The user wanted this added as a **second, switchable algorithm**, selected per upload from the Add Photos screen — not a replacement. The existing pipeline stays exactly as-is (renamed, not rewritten) and remains the default.
+
+The macro's settings dialog was hardcoded for the new algorithm (no prompts): 3 preprocessing iterations, blur sigma 1 during/after, Find Maximum noise tolerance 4000, Auto Local Threshold radius 10, particle size 15–1,000,000 px, circularity 0.4–1.0. `varwsblurring` (Classic Watershed Blurring, 2) and the pixel-size dialog (6.5 µm) only feed the macro's optional LD-volume/Classic-Watershed-flooding branch, which is out of scope — recorded as reserved constants, not wired into any calculation.
+
+## Switch mechanism
+
+The Add Photos screen (`app.js`) is where `.tif` files become `cells` rows. A `<select id="addphotos-algorithm">` in its topbar (Standard / FM_edge_overlay (ALDQ), default Standard) sets `addPhotosState.algorithm`, sent as an extra `algorithm` field on each file's `FormData` POST to `/conditions/{id}/cells/from-tif` — one choice per Add Photos session, applied to every file/box created in it. `api/main.py`'s `cells_from_tif` gained `algorithm: str = Form("otsu_watershed")`, validated against `detection.DETECTION_ALGORITHMS` (422 on an unrecognized value), passed through to `detect_droplets(normalized_crop, algorithm=algorithm)`, and stored on the created cell as `auto_algorithm` for provenance.
+
+`api/detection.py`'s `detect_droplets` became a thin dispatcher:
+```python
+DETECTION_ALGORITHMS = ("otsu_watershed", "fm_edge_overlay")
+
+def detect_droplets(plane, algorithm="otsu_watershed"):
+    if algorithm not in DETECTION_ALGORITHMS:
+        raise ValueError(f"Unknown detection algorithm: {algorithm!r}")
+    if algorithm == "fm_edge_overlay":
+        return _detect_droplets_fm_edge_overlay(plane)
+    return _detect_droplets_otsu_watershed(plane)
+```
+`_detect_droplets_otsu_watershed` is the previous `detect_droplets` body moved verbatim — no logic changes.
+
+## Algorithm mapping for `_detect_droplets_fm_edge_overlay` (macro → Python)
+
+1. **Iterative highpass-sharpening** (`_iterative_sharpen`, ×3, sigma 1): per cycle, blur → subtract (clip negative to 0) → re-blur → add back onto the running image, clipped to `[0, 65535]` each cycle (only the macro's 16-bit branch is needed since crops are already `normalize_to_uint16`'d).
+2. **Edge/particle mask** (`_edge_particle_mask`), run on the sharpened image *before* the "blur after" step: `sobel()` for Find Edges → min/max-normalize to uint8 → `_phansalkar_threshold` (Fiji's Phansalkar defaults k=0.25, r=0.5, p=2, q=10, radius 10) → invert → reuse the existing `_fill_and_watershed(mask)` for fill-holes+watershed (labels only) → keep regions via `regionprops` where `15 <= area <= 1,000,000` and `0.4 <= min(4π·area/perimeter², 1) <= 1`.
+3. **Find Maxima** (`_find_maxima`), run on the sharpened image *after* an additional `gaussian_filter(sigma=1)`: `skimage.morphology.h_maxima(image, h=4000)` (closest available equivalent to ImageJ's prominence-based `MaximumFinder`), one brightest-pixel point per surviving plateau.
+4. **Overlay intersection**: `points = [pt for pt in maxima if particle_mask[pt]]`. The macro's own pixel-arithmetic trick for this step depends on ImageJ-specific point-selection/Apply-LUT semantics unverifiable outside Fiji, so this port implements the macro's stated intent directly (a mask lookup) instead. `count = len(points)`.
+
+## Files modified
+
+`api/detection.py` (rename + new algorithm + dispatcher + new imports `sobel`, `h_maxima`), `api/main.py` (`algorithm` Form param + validation + `auto_algorithm` storage), `app.js` (`addPhotosState.algorithm`, the new `<select>`, its wiring, and the extra `FormData` field), `style.css` (`.addphotos-algorithm-select`), `CLAUDE.md` (schema bullets for both algorithms + `auto_algorithm`), `docs/tasks.md`/`docs/activity.md`/`docs/plan.md` (this entry).
+
+## Verification
+
+No live Supabase credentials in this environment, so full `POST .../cells/from-tif` end-to-end verification wasn't possible. Instead: a standalone script against a crop of `assets/Image_43391.tif` confirmed both algorithms return sane `(count, points)` (`otsu_watershed`: 176; `fm_edge_overlay`: 184, both `len(points) == count`), a dot-overlay render confirmed the new algorithm's points visually land on droplet puncta, and `detect_droplets(..., algorithm="bogus")` raised `ValueError`. Ran the app locally with the `local:` test account via headless Playwright and confirmed (screenshots) the Add Photos `<select>` renders with `Standard` pre-selected and switching it to `fm_edge_overlay` still lets box-drawing work, with zero console errors. `api/detection.py`/`api/main.py` are syntactically valid; a full `import main` isn't possible in this local environment regardless of this change (`pandas`/`pingouin` aren't installed here).
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

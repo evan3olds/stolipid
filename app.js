@@ -1752,7 +1752,7 @@ function renderPhotoPreviewSVG(name) {
 let addPhotosState = null;
 
 function renderAddPhotos() {
-  addPhotosState = { files: [], activeFileId: null };
+  addPhotosState = { files: [], activeFileId: null, algorithm: 'otsu_watershed' };
   refreshAddPhotos();
 }
 
@@ -1771,6 +1771,10 @@ function renderAddPhotosHTML() {
         <div class="addphotos-topbar-left">
           <div class="addphotos-condition">${escHtml(conditionName)}</div>
           <div class="addphotos-instructions">Click anywhere on the image to box a cell.</div>
+          <select class="addphotos-algorithm-select" id="addphotos-algorithm">
+            <option value="otsu_watershed" ${addPhotosState.algorithm === 'otsu_watershed' ? 'selected' : ''}>Standard</option>
+            <option value="fm_edge_overlay" ${addPhotosState.algorithm === 'fm_edge_overlay' ? 'selected' : ''}>FM_edge_overlay (ALDQ)</option>
+          </select>
         </div>
         <div class="addphotos-topbar-actions">
           <button class="modal-cancel" id="addphotos-cancel">Cancel</button>
@@ -2013,6 +2017,7 @@ async function confirmAddPhotos() {
       const formData = new FormData();
       formData.append('file', file.rawFile);
       formData.append('boxes', JSON.stringify(file.boxes.map(({ x, y, w, h }) => ({ x, y, width: w, height: h }))));
+      formData.append('algorithm', addPhotosState.algorithm);
       await apiUpload(`/conditions/${state.condition.id}/cells/from-tif`, formData);
     }
     navigate('cells');
@@ -2040,6 +2045,11 @@ function wireAddPhotos() {
 
   document.getElementById('addphotos-cancel').addEventListener('click', () => {
     navigate('cells');
+  });
+
+  const algorithmSelect = document.getElementById('addphotos-algorithm');
+  algorithmSelect.addEventListener('change', () => {
+    addPhotosState.algorithm = algorithmSelect.value;
   });
 
   const createBtn = document.getElementById('addphotos-create');

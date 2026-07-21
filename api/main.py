@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from supabase import create_client
 
-from detection import detect_droplets, render_hand_count_image
+from detection import DETECTION_ALGORITHMS, detect_droplets, render_hand_count_image
 from imaging import (
     crop_array_percent,
     encode_png,
@@ -394,6 +394,7 @@ def cells_from_tif(
     condition_id: str,
     file: UploadFile = File(...),
     boxes: str = Form(...),
+    algorithm: str = Form("otsu_watershed"),
     user=Depends(get_current_user),
 ):
     owned_condition(condition_id, user.id)
@@ -402,6 +403,9 @@ def cells_from_tif(
         box_list = [BoxPct(**b) for b in json.loads(boxes)]
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid boxes payload: {e}")
+
+    if algorithm not in DETECTION_ALGORITHMS:
+        raise HTTPException(status_code=422, detail=f"Unknown detection algorithm: {algorithm!r}")
 
     tif_bytes = file.file.read()
     try:
@@ -430,7 +434,7 @@ def cells_from_tif(
         hand_count_crop = render_hand_count_image(normalized_crop)
         url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", encode_png_16(hand_count_crop))
 
-        auto_count, auto_coords = detect_droplets(normalized_crop)
+        auto_count, auto_coords = detect_droplets(normalized_crop, algorithm=algorithm)
         # Store as percent-of-crop {x, y}, matching the coordinate convention
         # the Count screen already uses for hand-count markers (app.js
         # addMarkerAt), so both point grids share one format.
@@ -448,6 +452,7 @@ def cells_from_tif(
                 "image_url": url,
                 "auto_count": auto_count,
                 "auto_points": auto_points,
+                "auto_algorithm": algorithm,
                 "source_filename": file.filename,
             })
             .execute()
