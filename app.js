@@ -545,9 +545,9 @@ const TEST_CONDITIONS = {
       notes: 'Baseline, fed condition.',
       icc: 0.88,
       cells: [
-        { id: 'test-cell-001', name: 'Cell 1', counts: [], auto_count: 3, auto_points: [{ x: 22, y: 30 }, { x: 58, y: 45 }, { x: 71, y: 68 }], source_filename: 'Image_43391.tif' },
+        { id: 'test-cell-001', name: 'Cell 1', counts: [], auto_count: 3, auto_points: [{ x: 22, y: 30 }, { x: 58, y: 45 }, { x: 71, y: 68 }], auto_algorithm: 'otsu_watershed', source_filename: 'Image_43391.tif' },
         { id: 'test-cell-002', name: 'Cell 2', counts: [{ id: 'test-cnt-002-1', value: 4 }] },
-        { id: 'test-cell-003', name: 'Cell 3', counts: [{ id: 'test-cnt-003-1', value: 3 }, { id: 'test-cnt-003-2', value: 2 }], auto_count: 5, auto_points: [{ x: 15, y: 20 }, { x: 33, y: 50 }, { x: 52, y: 28 }, { x: 68, y: 60 }, { x: 82, y: 40 }], source_filename: 'Image_43391.tif' },
+        { id: 'test-cell-003', name: 'Cell 3', counts: [{ id: 'test-cnt-003-1', value: 3 }, { id: 'test-cnt-003-2', value: 2 }], auto_count: 5, auto_points: [{ x: 15, y: 20 }, { x: 33, y: 50 }, { x: 52, y: 28 }, { x: 68, y: 60 }, { x: 82, y: 40 }], auto_algorithm: 'fm_edge_overlay', source_filename: 'Image_43391.tif' },
         { id: 'test-cell-011', name: 'Cell 4', counts: [{ id: 'test-cnt-011-1', value: 3 }, { id: 'test-cnt-011-2', value: 4 }, { id: 'test-cnt-011-3', value: 3 }] },
       ],
     },
@@ -1033,6 +1033,18 @@ function cellAutoCount(cell) {
   return cell.auto_count != null ? cell.auto_count : null;
 }
 
+// Display labels for cells.auto_algorithm, matching the Add Photos screen's
+// #addphotos-algorithm option text so a cell's detail panel reads the same
+// name the researcher picked at upload time.
+const AUTO_ALGORITHM_LABELS = {
+  otsu_watershed: 'Standard',
+  fm_edge_overlay: 'FM_edge_overlay (ALDQ)',
+};
+
+function autoAlgorithmLabel(algorithm) {
+  return AUTO_ALGORITHM_LABELS[algorithm] || algorithm;
+}
+
 function truncateLabel(str, max = 10) {
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
@@ -1498,6 +1510,7 @@ function wireCells(cells) {
               </span>
             </li>
           </ul>
+          ${cell.auto_algorithm ? `<span class="detail-submeta">Model: ${escHtml(autoAlgorithmLabel(cell.auto_algorithm))}</span>` : ''}
         </div>
       ` : ''}
       <div class="detail-row">

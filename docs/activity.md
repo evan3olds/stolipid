@@ -1417,3 +1417,25 @@ No live Supabase credentials in this environment (same as every prior Phase 11c 
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Cells screen: detail panel shows which auto-count model produced `auto_count`
+
+**Request:** "Make the cell side panel show what auto model was used." Follow-up to the `fm_edge_overlay` second-algorithm entry above — now that `cells.auto_algorithm` exists, surface it where a researcher would actually read it.
+
+### `app.js`
+
+- New `AUTO_ALGORITHM_LABELS` map + `autoAlgorithmLabel(algorithm)` helper (next to `cellAutoCount`), reusing the exact display text the Add Photos `<select id="addphotos-algorithm">` already uses ("Standard" / "FM_edge_overlay (ALDQ)") so the label reads the same wherever it appears.
+- `wireCells`'s `renderDetail`: when `cell.auto_algorithm` is set, a `<span class="detail-submeta">Model: …</span>` line is appended directly under the Auto count row's `count-list` (inside the same `${cell.auto_count != null ? ... : ''}` block, so it never shows for a cell with no auto-count at all — there's nothing to attribute a model to).
+- `TEST_CONDITIONS` fixtures: `test-cell-001` gained `auto_algorithm: 'otsu_watershed'`, `test-cell-003` gained `auto_algorithm: 'fm_edge_overlay'`, so both labels — and the "no model line" case (`test-cell-002`, no `auto_count`) — are exercisable via the `local:` test account without a live backend.
+
+### `style.css`
+
+New `.detail-submeta` rule: small mono text (`0.6875rem`), `--text-secondary`, `margin-top: 0.25rem` — visually subordinate to the `.count-value`/`.detail-label` it sits under.
+
+### Verification
+
+Served locally (`python -m http.server`) and drove it with headless Playwright/Chromium using the `local:` test account: selected Cell 1 → detail panel shows "Model: Standard"; Cell 3 → "Model: FM_edge_overlay (ALDQ)"; Cell 2 (no `auto_count`) → zero `.detail-submeta` elements, confirming the line only appears alongside an actual auto-count. Screenshot-confirmed placement (directly under the Auto count row's value/View button, above Hand counts). Zero console/page errors.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

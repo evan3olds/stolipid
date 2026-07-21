@@ -2036,3 +2036,23 @@ No live Supabase credentials in this environment, so full `POST .../cells/from-t
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Plan: Cells detail panel shows the auto-count model
+
+## Context
+
+Follow-up to the `fm_edge_overlay` second-algorithm plan above. `cells.auto_algorithm` now exists but wasn't shown anywhere in the UI — the user asked for the Cells screen side panel to surface it.
+
+## What changed
+
+`app.js`: `AUTO_ALGORITHM_LABELS`/`autoAlgorithmLabel()` (reuses the Add Photos `<select>`'s option text) plus a `.detail-submeta` line in `renderDetail`, shown only when `cell.auto_algorithm` is set (i.e. only alongside an actual Auto count row). `TEST_CONDITIONS` fixtures updated so both labels and the "no model" case are all exercisable locally. `style.css` gained `.detail-submeta` (small muted mono text).
+
+## Verification
+
+Headless Playwright pass against the `local:` test account: Cell 1 shows "Model: Standard", Cell 3 shows "Model: FM_edge_overlay (ALDQ)", Cell 2 (no auto_count) shows no model line. Screenshot-confirmed placement. Zero console errors.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
