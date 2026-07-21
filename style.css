@@ -810,13 +810,6 @@ body {
   color: var(--text-secondary);
 }
 
-.detail-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
 .detail-value {
   font-size: 0.9375rem;
 }
@@ -1027,6 +1020,24 @@ body {
 
 .count-cta-btn:hover {
   filter: brightness(1.05);
+}
+
+.count-viewall-btn {
+  margin-top: 0.5rem;
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.375rem;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.count-viewall-btn:hover {
+  background: var(--surface-tint);
 }
 
 /* ---- Modal ---- */
@@ -1687,7 +1698,8 @@ body {
 
 /* "View all counts" overlays every hand count's grid at once. Fixed hue
    order, spaced well apart (25°/175°/85°) and off blue (230°, reserved for
-   auto count above) so up to 3 counts stay tellable apart at a glance. */
+   the auto-count group below) so up to 3 counts stay tellable apart at a
+   glance. */
 .count-marker-group-1 {
   background: oklch(0.58 0.22 25);
 }
@@ -1698,6 +1710,13 @@ body {
 
 .count-marker-group-3 {
   background: oklch(0.75 0.15 85);
+}
+
+/* Same blue as the standalone auto-count view (.count-marker-readonly's
+   default) so the auto grid reads consistently whether viewed alone or
+   folded into "View all counts". */
+.count-marker-group-auto {
+  background: oklch(0.7 0.15 230);
 }
 
 .count-legend {

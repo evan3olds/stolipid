@@ -2083,3 +2083,33 @@ Served the site locally (`python -m http.server`) and drove it with headless Pla
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Plan: "View all counts" also shows the auto count, moved below the Count button
+
+## Context
+
+Follow-up to the "View all counts" overlay above. Two changes requested: (1) include the auto-count grid in the overlay, not just hand counts; (2) move the button from beside the "Hand counts" label down to below the big "Count" CTA button.
+
+## What changed
+
+`app.js`:
+- `state.viewingAllCounts` reshaped from a plain counts array to `{ counts, autoPoints }` so a single navigation payload carries both. Built in `wireCells`'s `renderDetail` as `{ counts, autoPoints: cell.auto_points || null }`.
+- `renderCount()`'s `compareGroups` now appends one extra group after the hand-count groups when `autoPoints` is present: `{ label: 'Auto count', colorClass: 'count-marker-group-auto', value, markers }`. Hand-count groups are unaffected.
+- `renderDetail`'s markup: the "View all" button removed from next to the "Hand counts" label (the `.detail-label-row` wrapper it lived in is gone, since nothing else uses it) and re-added as its own full-width button, `#counts-viewall-btn`/`.count-viewall-btn`, text "View all counts", placed directly after the `needsMore`-gated "Count" CTA button. Shown whenever `counts.length > 0 || cell.auto_count != null` (previously hand-counts-only), so it now also appears for a cell with only an auto-count and zero hand counts.
+- `renderCountHTML`'s mode label generalized from "comparing N hand counts" to "comparing N counts" since the group list can now include the auto entry.
+
+`style.css`: new `.count-marker-group-auto` (same blue as `.count-marker-readonly`'s default, so the auto grid reads the same whether viewed alone or folded into this overlay). New `.count-viewall-btn`/`:hover` — full-width outlined secondary button (accent border/text, transparent fill) sitting under `.count-cta-btn`. Removed the now-unused `.detail-label-row`.
+
+## Verification
+
+Served locally (`python -m http.server`) and drove it with headless Playwright/Chromium via the `local:` test account:
+- Cell 3 (2 hand counts + auto_count 5): "View all counts" button renders below "Count" in the detail panel (screenshot). Opens to 3 groups — legend "Count 1: 3 · Count 2: 2 · Auto count: 5", 10 markers total, header "comparing 3 counts" (screenshot).
+- Cell 4 (3 hand counts, no auto_count): unaffected — 3 groups, no auto entry, 10 markers total.
+- Cell 1 (0 hand counts, auto_count 3): button still renders (screenshot) since an auto count exists; opens to a single "Auto count: 3" group, 3 markers.
+Zero console/page errors across all three checks.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

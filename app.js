@@ -1523,10 +1523,7 @@ function wireCells(cells) {
         </div>
       ` : ''}
       <div class="detail-row">
-        <div class="detail-label-row">
-          <span class="detail-label">Hand counts</span>
-          ${counts.length > 0 ? '<button class="count-edit-btn" id="counts-viewall-btn">View all</button>' : ''}
-        </div>
+        <span class="detail-label">Hand counts</span>
         ${counts.length === 0
           ? '<span class="detail-value">No counts yet.</span>'
           : `<ul class="count-list">${counts.map(c => `
@@ -1540,6 +1537,7 @@ function wireCells(cells) {
             `).join('')}</ul>`}
       </div>
       ${needsMore ? '<button class="count-cta-btn" id="count-cta">Count</button>' : ''}
+      ${(counts.length > 0 || cell.auto_count != null) ? '<button class="count-viewall-btn" id="counts-viewall-btn">View all counts</button>' : ''}
     `;
     panel.classList.add('visible');
 
@@ -1586,7 +1584,7 @@ function wireCells(cells) {
       viewAllBtn.addEventListener('click', () => {
         navigate('count', {
           cell: { id: cell.id, name: cell.name, image_url: cell.image_url },
-          viewingAllCounts: counts,
+          viewingAllCounts: { counts, autoPoints: cell.auto_points || null },
         });
       });
     }
@@ -2149,8 +2147,8 @@ const COUNT_ZOOM_MAX = 3;
 const COUNT_ZOOM_STEP = 0.5;
 
 // Fixed hue order for overlaying every hand count on one image (up to the
-// 3-count-per-cell limit — see CLAUDE.md). Kept off blue, which already
-// means "auto count" elsewhere on this screen.
+// 3-count-per-cell limit — see CLAUDE.md). Kept off blue, which is reserved
+// for the auto-count group (`count-marker-group-auto`) in the same overlay.
 const COUNT_GROUP_COLOR_CLASSES = ['count-marker-group-1', 'count-marker-group-2', 'count-marker-group-3'];
 
 function renderCount() {
@@ -2167,15 +2165,25 @@ function renderCount() {
       : (editing && editing.points)
         ? editing.points.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y }))
         : [],
-    // Viewing all hand counts overlays every saved count's grid at once,
-    // each in its own color, so raters can compare placement at a glance.
+    // "View all counts" overlays every saved hand count's grid plus the
+    // auto count's grid (if any) at once, each in its own color, so raters
+    // can compare placement — including against the machine suggestion —
+    // at a glance.
     compareGroups: viewingAll
-      ? viewingAll.map((c, i) => ({
-          label: `Count ${i + 1}`,
-          colorClass: COUNT_GROUP_COLOR_CLASSES[i % COUNT_GROUP_COLOR_CLASSES.length],
-          value: (c.points && c.points.length) || c.value || 0,
-          markers: (c.points || []).map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y })),
-        }))
+      ? [
+          ...viewingAll.counts.map((c, i) => ({
+            label: `Count ${i + 1}`,
+            colorClass: COUNT_GROUP_COLOR_CLASSES[i % COUNT_GROUP_COLOR_CLASSES.length],
+            value: (c.points && c.points.length) || c.value || 0,
+            markers: (c.points || []).map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y })),
+          })),
+          ...(viewingAll.autoPoints ? [{
+            label: 'Auto count',
+            colorClass: 'count-marker-group-auto',
+            value: viewingAll.autoPoints.length,
+            markers: viewingAll.autoPoints.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y })),
+          }] : []),
+        ]
       : null,
     zoom: COUNT_ZOOM_MIN,
     editingCountId: editing ? editing.id : null,
@@ -2209,7 +2217,7 @@ function renderCountHTML() {
     : markers.map(m => renderMarkerHTML(m, readOnly)).join('');
 
   const modeLabel = compareGroups
-    ? ` · comparing ${compareGroups.length} hand count${compareGroups.length === 1 ? '' : 's'}`
+    ? ` · comparing ${compareGroups.length} count${compareGroups.length === 1 ? '' : 's'}`
     : readOnly ? ' · auto count (view only)' : countState.editingCountId ? ' · editing saved count' : '';
 
   // A legend is mandatory whenever ≥2 series share a canvas so color is

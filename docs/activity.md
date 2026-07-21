@@ -1489,3 +1489,28 @@ Served the site locally (`python -m http.server`) and drove it with headless Pla
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Cells screen: "View all counts" now includes the auto count, moved below the Count button
+
+**Request:** "Make it show the auto counts, and move the view button to below the big count button."
+
+### `app.js`
+
+- `state.viewingAllCounts` reshaped to `{ counts, autoPoints }` (was a bare counts array) so the auto-count grid travels alongside the hand counts in one navigation payload; built as `{ counts, autoPoints: cell.auto_points || null }` in `renderDetail`.
+- `renderCount()`'s `compareGroups` appends a fourth group -- `{ label: 'Auto count', colorClass: 'count-marker-group-auto', ... }` -- whenever `autoPoints` is present, after the hand-count groups.
+- `renderDetail`: the button moved out of the "Hand counts" label row (that row and its now-unused `.detail-label-row` wrapper reverted to a plain label) and now renders as its own full-width `#counts-viewall-btn`/`.count-viewall-btn`, labeled "View all counts", directly below the `needsMore`-gated "Count" button. Visibility condition widened from `counts.length > 0` to `counts.length > 0 || cell.auto_count != null`, so it shows even for a cell with an auto-count but no hand counts yet.
+- `renderCountHTML`'s mode label generalized from "comparing N hand counts" to "comparing N counts" to cover the mixed hand+auto case.
+
+### `style.css`
+
+- `.count-marker-group-auto`: same blue as `.count-marker-readonly`'s default, so the auto grid looks identical whether viewed standalone or folded into this overlay.
+- `.count-viewall-btn`/`:hover`: full-width outlined secondary button (accent border/text, transparent background) styled to sit directly under `.count-cta-btn`.
+- Removed `.detail-label-row` (no longer referenced).
+
+### Verification
+
+Served locally (`python -m http.server`) and drove it with headless Playwright/Chromium via the `local:` test account: Cell 3 (2 hand counts + auto_count 5) -- screenshot confirms "View all counts" sits below "Count" in the detail panel; opening it shows 3 legend entries ("Count 1: 3 · Count 2: 2 · Auto count: 5"), 10 markers total, header "Cell 3 · comparing 3 counts" (screenshot). Cell 4 (3 hand counts, no auto) -- unchanged, 3 groups, 10 markers. Cell 1 (0 hand counts, auto_count 3) -- button still renders (screenshot), opens to a single "Auto count: 3" group with 3 markers. Zero console/page errors across all three.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
