@@ -1,0 +1,1440 @@
+//global variables		
+		
+		var example = "example";
+		var FindMaximum = "FindMaximum";
+		var experimenttitle = "experimenttitle";
+		var varblurring = "varblurring";
+		var amplicycle = "amplicycle";		//variable refers to segmentation cycles, they were called amplification cycles in the early stages of the project.
+		var ALT = "ALT"; 					//=auto local threshold
+		var celltype = "celltype";
+		var uppersize = "uppersize";
+		var lowersize = "lowersize";
+		var uppercircularity = "uppercircularity";
+		var lowercircularity = "lowercircularty";
+		var blurafterampli = "blurafterampli";
+		var savingz = "savingz";
+		var volumedet = "volumedet";
+		var userpixelsize = "userpixelsize";
+		var unit = "unit";
+		var upperWSlimit = "upperWSlimit";
+		var problem1 = false;
+		var problem2 = false;
+		var varwsblurring = "varwsblurring";
+		var blurafteramplinumber = "blurafteramplinumber";
+		var preview = "preview";
+		var previous_settings = "previous_settings";
+		
+
+
+
+		
+macro "Analysis Settings Action Tool - C000D1bD28D29D2aD35D36D37D39D44D49D54D55D59D66D67D68D69D79D7aD7bDa5Da6DaaDb4Db7DbbDc4Dc7DcbDd4Dd7Dd8DdbDe4De5De8DebDf8Df9DfaC000DeaC000D56C000Da9C000C111D8bC111D1aC111C222Df5C222Db6C222C333D78C333D2bC333D65C333Da7C444D45C444D38C444C555DbaDe7C555D27C555C666C777D34C777C888Dc8C888Db5C888Da4DabC888C999CaaaDe9CaaaCbbbCcccD8aCcccD77CcccCdddD57CdddCeeeD6aDfbCeeeD19D46CeeeD9aDb8CfffD26CfffDc6CfffD00D01D02D03D04D05D06D07D08D09D0aD0bD0cD0dD0eD0fD10D11D12D13D14D15D16D17D18D1cD1dD1eD1fD20D21D22D23D24D25D2cD2dD2eD2fD30D31D32D33D3aD3bD3cD3dD3eD3fD40D41D42D43D47D48D4aD4bD4cD4dD4eD4fD50D51D52D53D58D5aD5bD5cD5dD5eD5fD60D61D62D63D64D6bD6cD6dD6eD6fD70D71D72D73D74D75D76D7cD7dD7eD7fD80D81D82D83D84D85D86D87D88D89D8cD8dD8eD8fD90D91D92D93D94D95D96D97D98D99D9bD9cD9dD9eD9fDa0Da1Da2Da3Da8DacDadDaeDafDb0Db1Db2Db3Db9DbcDbdDbeDbfDc0Dc1Dc2Dc3Dc5Dc9DcaDccDcdDceDcfDd0Dd1Dd2Dd3Dd5Dd6Dd9DdaDdcDddDdeDdfDe0De1De2De3De6DecDedDeeDefDf0Df1Df2Df3Df4Df6Df7DfcDfdDfeDff"{
+
+
+function load_previous_settings() 	{
+									experiment = getDirectory("Select your previous experiment");
+							        if(File.exists(experiment + "experimental_settings.txt"))	{
+																				                parameters = File.openAsString(experiment + "experimental_settings.txt");
+																				                single_parameters = split(parameters,"\n");
+																								amplicycle_raw = single_parameters[1];
+																								varblurring_raw = single_parameters[2];
+																								blurafterampli_raw = single_parameters[3];
+																								blurafteramplinumber_raw = single_parameters[4];
+																								FindMaximum_raw = single_parameters[5];
+																								ALT_raw = single_parameters[6];
+																								lowersize_raw = single_parameters[7];
+																								uppersize_raw = single_parameters[8];
+																								lowercircularity_raw = single_parameters[9];
+																								uppercircularity_raw = single_parameters[10];
+																								varwsblurring_raw = single_parameters[11];
+																								amplicycle = parseInt(replace(amplicycle_raw,"Segmentationcycles:" + "   ",""));
+																								varblurring = parseInt(replace(varblurring_raw, "Blur During Segmentation Cycles:" + "   ", ""));
+																								blurafterampli = parseInt(replace(blurafterampli_raw, "Blur After Segmentation" + "   ", ""));
+																								blurafteramplinumber = parseInt(replace(blurafteramplinumber_raw, "with sigma:" + "   ", ""));
+																				               	FindMaximum = parseInt(replace(FindMaximum_raw, "Find Maximum Noise Tolerance:" + "   ", ""));
+																				               	ALT = parseInt(replace(ALT_raw, "Auto Local Threshold Radius:" + "   ", ""));
+																				               	lowersize = parseInt(replace(lowersize_raw, "Minimum Particle Size:" + "   ", ""));
+																				               	uppersize = parseInt(replace(uppersize_raw, "Maximum Particle Size:" + "   ", ""));
+																				               	lowercircularity = parseInt(replace(lowercircularity_raw, "Minimum Particle Circularity:" + "   ", ""));
+																				               	uppercircularity = parseInt(replace(uppercircularity_raw, "Maximum Particle Circularity:" + "   ",""));
+																				               	varwsblurring = parseInt(replace(varwsblurring_raw, "Classic Watershed Blurring:" + "   ",""));
+																				                
+																								print("Previous settings loaded from " + experiment);
+							        															}
+							        															
+							       else if(File.exists(experiment + "experimental_settings_preview.txt"))	{
+																				                parameters = File.openAsString(experiment + "experimental_settings_preview.txt");
+																				                single_parameters = split(parameters,"\n");
+																								amplicycle_raw = single_parameters[3];
+																								varblurring_raw = single_parameters[4];
+																								blurafterampli_raw = single_parameters[5];
+																								blurafteramplinumber_raw = single_parameters[6];
+																								FindMaximum_raw = single_parameters[7];
+																								ALT_raw = single_parameters[8];
+																								lowersize_raw = single_parameters[9];
+																								uppersize_raw = single_parameters[10];
+																								lowercircularity_raw = single_parameters[11];
+																								uppercircularity_raw = single_parameters[12];
+																								varwsblurring_raw = single_parameters[13];
+																								amplicycle = parseInt(replace(amplicycle_raw,"Segmentationcycles:" + "   ",""));
+																								varblurring = parseInt(replace(varblurring_raw, "Blur During Segmentation Cycles:" + "   ", ""));
+																								blurafterampli = parseInt(replace(blurafterampli_raw, "Blur After Segmentation" + "   ", ""));
+																								blurafteramplinumber = parseInt(replace(blurafteramplinumber_raw, "with sigma:" + "   ", ""));
+																				               	FindMaximum = parseInt(replace(FindMaximum_raw, "Find Maximum Noise Tolerance:" + "   ", ""));
+																				               	ALT = parseInt(replace(ALT_raw, "Auto Local Threshold Radius:" + "   ", ""));
+																				               	lowersize = parseInt(replace(lowersize_raw, "Minimum Particle Size:" + "   ", ""));
+																				               	uppersize = parseInt(replace(uppersize_raw, "Maximum Particle Size:" + "   ", ""));
+																				               	lowercircularity = parseInt(replace(lowercircularity_raw, "Minimum Particle Circularity:" + "   ", ""));
+																				               	uppercircularity = parseInt(replace(uppercircularity_raw, "Maximum Particle Circularity:" + "   ",""));
+																				               	varwsblurring = parseInt(replace(varwsblurring_raw, "Classic Watershed Blurring:" + "   ",""));
+																								
+																								print("Previous settings loaded from " + experiment);
+							        															}
+							        if(isNaN(varwsblurring) == true && File.exists(experiment + "experimental_settings_preview.txt") == true || File.exists(experiment + "experimental_settings.txt") == true) 							
+																				                {
+																				                volume_this_time = getBoolean("You did not analyze the LD volume in this experiment.\nDo you want to analyze it now?");
+																				                
+																							    
+																							    if(volume_this_time == true)	{
+																											                	volumedet = true;
+																											                	Dialog.create("Analysis settings");
+																											                	Dialog.addNumber("Classic Watershed Blurring:", 2, 0, 7, "");
+																											                	Dialog.show();
+																											                	varwsblurring = Dialog.getNumber(); 
+																											                										}
+																							    else 							{
+																							                					volumedet = false;
+																							                					}
+																				                }
+									else 														{
+																								volume_this_time = getBoolean("You did analyze the LD volume in this experiment.\nDo you also want to analyze it now?");
+																								if(volume_this_time == true)	{
+																							                					volumedet = true;
+																							                					}
+																							    else 							{
+																							                					volumedet = false;
+																							                					}
+																								}
+							        if(File.exists(experiment + "experimental_settings_preview.txt") == false && File.exists(experiment + "experimental_settings.txt") == false)	
+							        		{
+							        		exit("No previous settings found in this folder");
+							        		}
+
+									}
+//settings can be defined here for the algorithm; also features an icon in the imageJ bar
+  
+  title = "insert title";
+  Dialog.create("Analysis settings");
+  Dialog.addString("Title:", title, 5);
+  Dialog.addNumber("Segmentation Cycles:", 3, 0, 7, "");
+  Dialog.addNumber("Blur During Segmentation Cycles:", 1, 0, 7, "");
+  Dialog.addCheckbox("Blur After Segmentation:", true);
+  Dialog.addNumber("Blur-Sigma After Segmentation", 1, 0, 7, "");
+  Dialog.addMessage("");
+  Dialog.addNumber("Find Maximum Noise Tolerance:", 5000, 0, 7, "");
+  Dialog.addNumber("Auto Local Threshold Radius:", 12, 0, 7, "");
+  Dialog.addNumber("Minimum Particle Size:", 25, 0, 7, "pixel");
+  Dialog.addNumber("Maximum Particle Size:", 1000000, 0, 7, "pixel");
+  Dialog.addNumber("Minimum Particle Circularity:", 0.20, 2, 7, "");
+  Dialog.addNumber("Maximum Particle Circularity:", 1.00, 2, 7, "");
+  Dialog.addMessage("");
+  Dialog.addCheckbox("Estimate LD Volume", false);
+  Dialog.addNumber("Classic Watershed Blurring:", 2, 0, 7, "");
+  Dialog.addMessage("");
+  Dialog.addCheckbox("Save Settings", true);
+  Dialog.addMessage("");
+  Dialog.addCheckbox("Enable Preview Mode", false);
+  Dialog.addMessage("The preview mode will guide you through the\ncrucial steps to evaluate your settings.");
+  Dialog.addMessage("");
+  Dialog.addMessage("");
+  Dialog.addCheckbox("Load Previous Settings", false);
+  Dialog.addMessage("   ");
+  Dialog.addMessage("Press 3 to display the settings at any time.\nOpening this window again will erase your settings.");
+  Dialog.addMessage("");
+  Dialog.addMessage("Click okay to continue.");
+  Dialog.show();
+
+	
+
+	experimenttitle = Dialog.getString();
+	amplicycle = Dialog.getNumber();
+	varblurring = Dialog.getNumber();
+	blurafteramplinumber = Dialog.getNumber();
+	FindMaximum = Dialog.getNumber();
+	ALT = Dialog.getNumber();
+	lowersize = Dialog.getNumber();
+	uppersize = Dialog.getNumber();
+	lowercircularity = Dialog.getNumber();
+	uppercircularity = Dialog.getNumber();
+	blurafterampli = Dialog.getCheckbox();
+	volumedet = Dialog.getCheckbox();
+	savingz = Dialog.getCheckbox();
+	varwsblurring = Dialog.getNumber(); 
+	preview = Dialog.getCheckbox();
+	previous_settings = Dialog.getCheckbox();
+	if(previous_settings == true) 	{
+									load_previous_settings(); //overwrites the parameters from an existing file, leaves the option of preview mode
+									}
+	
+}
+
+
+
+
+macro "Q&A [3]" {
+	
+	//by pressing 3 the user gets information about the settings that are set for control purposes
+	
+	yes= "yes";
+	no = "no";
+	Dialog.create("Current Settings");
+ 	title = "insert title";
+ 	width=512; height=512;
+  	Dialog.addMessage("");
+  	Dialog.addMessage("_________________________________\nYou cannot change your settings here!\n_________________________________");
+  						
+  	Dialog.addMessage("");
+  	Dialog.addString("Title:", experimenttitle, 5);
+  	Dialog.addNumber("Segmentation Cycles:", amplicycle, 0, 7, "");
+  	Dialog.addNumber("Blur During Segmentation Cycles:", varblurring, 0, 7, "");
+	if(blurafterampli == true) 		{
+	  								Dialog.addString("Blur after amplification:", yes, 5);
+	  								}
+	if(blurafterampli == false)  	{
+	  								Dialog.addString("Blur after amplification:", no, 5);
+	  								}
+	Dialog.addNumber("Blur-Sigma After Segmentation", blurafteramplinumber, 0, 7, "");
+	Dialog.addNumber("Find Maximum Noise Tolerance:", FindMaximum, 0, 7, "");
+	Dialog.addNumber("Auto Local Threshold Radius:", ALT, 0, 7, "");
+	Dialog.addNumber("Minimum Particle Size:", lowersize, 0, 7, "pixel");
+    Dialog.addNumber("Maximum Particle Size:", uppersize, 0, 7, "pixel");
+    Dialog.addNumber("Minimum Particle Circularity:", lowercircularity, 2, 7, "");
+    Dialog.addNumber("Maximum Particle Circularity:", uppercircularity, 2, 7, "");
+	if(volumedet == true) 			{
+	  								Dialog.addString("Volume Estimation:", yes, 5);
+	  								}
+	if(volumedet == false)  		{
+	  								Dialog.addString("Volume Estimation:", no, 5);
+	  								}
+	Dialog.addNumber("Classic Watershed Blurring:", varwsblurring, 0, 7, "");
+	Dialog.addMessage("   ");
+	Dialog.addMessage("To continue, click okay");
+	Dialog.show();
+	Dialog.setLocation(255,255);	
+
+
+}
+
+
+	
+
+macro "LD finding Action Tool - C000D02D03D04D0cD0dD0eD11D12D13D14D1dD21D22D2dD70D80D81D90D91D92Da0Da1Da2Db0Db1Db2Dc0Dc1Dc2Dd0Dd1Dd2Dd3De0De1De2De3Df0Df1Df2Df3Df4C000D1cD31C000D2cD82C000Df5C000D71D93Dc3De4C000Da3C000D15Df6C000D60Db3C000D05D1eC000D23C000D0fC000D01C000C010D24D41C010D61C010D20D32C010D83C010D0bD51Dd4C010D50C010D10C010D1bC010C020D2bC020D2eC020D30C020D25C020Df7C020D72DfdC020De5C020C030D3dC030D40C030DedC040D84C040D16C040D06D1fDc4C040D94C040D26C040D00C040D3cD3eC040C050De6C050DfcC050D42C050Da4C050D33C050DfeC050DecC050C060DbfC060D38D62DdaC060D37D48C060D77C060D2aD87Db4C060D3bD88C060DcfDe7C060Df8C060C070D5fC070D27D52C070De9C070D86C070DeaC070D6fD73DeeC070D34Dd9C070D36D47DebC070D39C070C080D9eDd5C080D4eDaaDe8C080DcaC080D85DdbDddC080D58D8eC080D0aD4fD78C080D3aD9aD9dDbeC080D67D76DaeC080D35DafC080DdeC080D17C090D2fD57C090D99C090D1aDdfC090D3fC090D89DdcC090D68Df9C090Dc9DffC090D4dC090D28DbaC090D7eD95DceC090DfbC0a0D29C0a0D7fD98C0a0D07C0a0DabC0a0D9fC0a0Da9C0a0DadC0a0D5eD74Db9C0a0D43C0a0D8dC0a0D46DefC0a0D6eD75C0a0D49C0b0Dd8C0b0D8fC0b0D96DcbC0b0D18D9cC0b0D97C0b0DbbC0b0D63C0b0D08C0b0D9bC0b0D44DacDc5DcdDd7C0b0Dd6DfaC0b0D79C0c0D09C0c0Da5C0c0D45D8aC0c0DbdC0c0D19Db5C0c0D53D66C0c0C0d0D4cDa8C0d0D56C0d0DbcC0d0DccC0d0D59C0d0D7dC0d0Dc7C0d0D4bDc8C0e0D4aD65C0e0D8cC0e0Db8C0e0D5dD69C0e0D55C0e0D6dC0e0D8bC0e0Da6C0e0D64D7aDb6C0f0Dc6C0f0D54C0f0Da7Db7C0f0D5aC0f0D7cC0f0D7bC0f0D5bD5cD6aD6bD6c [6]"{
+		
+		requires("1.46b");
+		
+		List.setCommands;			
+    	if (List.get("Watershed Segmentation") == "") 		{ //checks if the classic watershed is installed
+															  Dialog.create("Plugin not found");
+															  Dialog.addMessage("The Classic Watershed Plugin is not installed.\n    \nSelect the Help button for the download link");
+															  Dialog.addHelp("<html>" + "The download link is: http://bigwww.epfl.ch/sage/soft/watershed/");
+															  Dialog.show();
+															  exit();
+				    										} 	
+
+	   	if (List.get("Morphological Filters") == "" || List.get("Morphological Filters (3D)") == "" || List.get("Directional Filtering") == "")		{ //checks if the MorphoLibJ is installed
+																										   											  Dialog.create("Plugin not found");
+																																					  Dialog.addMessage("The MorphoLibJ suite is not installed.\n    \nSelect the Help button for instructions.");
+																																					  Dialog.addHelp("<html>" + "Go to Fiji => Help => Update => Manage update sites and enable the IJPB-plugins (http://sites.imagej.net/IJPB-plugins/) ");
+																																					  Dialog.show();
+																																					  exit();
+																										   											}
+		
+		
+		if(isNaN(amplicycle) == true) 	{
+										exit("Please define your settings first.");
+										}
+		
+							
+		
+		origpath=getDirectory("Choose a Directory"); //user chooses the folder in which the images are located
+		print(origpath); //path is printed for documentation purposes
+				list = getFileList(origpath); 																							
+				for(a=0;a<list.length;a++)	{ 
+									if(endsWith(list[a],".tif")){
+		        								files=Array.concat(files,list[a]); //creates a file list with only tifs
+		        												}
+		        							} 		
+
+setBatchMode(true);		
+
+//////////////////////////////////////////////////////////////////////
+///////////////////////// Pre-Analysis Setup /////////////////////////		
+//////////////////////////////////////////////////////////////////////		
+
+
+		  
+		run("Set Measurements...", "area redirect=None decimal=3"); //sets up the measurements done by analyze particles if previous analyses used different settings
+		run("Input/Output...", "jpeg=100 gif=-1 file=.xls use use_file copy_column copy_row save_column save_row");
+		
+
+		
+		
+		
+		if (isOpen("Log")) 	{ //closes the Log window if it was open to get a clean start.
+							selectWindow("Log"); 
+							run("Close");
+							} 																	
+		if (isOpen("B&C")) 	{ //closes the brightness/contrast window to get a clean start
+							selectWindow("B&C"); 
+							run("Close");
+							}																	
+
+		
+  	  	if(savingz == true)	{	//writes the settings for documentation purposes
+  	  						print("Experimenttitle:" + "   " + experimenttitle); 												
+  	  						print("Segmentationcycles:" + "   " + amplicycle); 
+  	  						print("Blur During Segmentation Cycles:" + "   " + varblurring);
+  	 						print("Blur After Segmentation" + "   " + blurafterampli);
+  	 						if (blurafterampli == true)	{
+  	 													print("with sigma:" + "   " + blurafteramplinumber);
+  	 													}
+					  	 	else						{
+					  	 								print("with sigma:" + "   " + "0"); 
+					  	 								}
+  	  						print("Find Maximum Noise Tolerance:" + "   " + FindMaximum);
+  	  						print("Auto Local Threshold Radius:" + "   " + ALT);
+  	  						print("Minimum Particle Size:" + "   " + lowersize);
+	 						print("Maximum Particle Size:" + "   " + uppersize);
+	  						print("Minimum Particle Circularity:" + "   " + lowercircularity);
+	  						print("Maximum Particle Circularity:" + "   " + uppercircularity);
+	  						if (volumedet == true) 	{
+	  												print("Classic Watershed Blurring:" + "   " + varwsblurring);
+	  											 	}
+	  						else					{
+	  												print("No volume analysis was performed");
+	  												}
+							saveAs("txt", origpath + "experimental_settings"); 	//saves the settings for documentation purposes	
+							if (isOpen("Log")) 		{ //closes log window again since the parameters are saved now
+													selectWindow("Log"); 
+													run("Close");
+												 	}												
+						   }
+							
+																	
+  	
+  	
+  	function findspecificROI(roiName) { //this function is used to specifically find and save/remove ROIs from the ROI manager
+							countrois = roiManager("Count");
+							for (k=0; k<countrois; k++) { 
+										roiManager("Select", k); 
+										Name = Roi.getName(); 
+										if (matches(Name, roiName)) { 
+																	return k; 
+																	} 
+														}	 
+										return 1; 
+										} 
+	
+	
+	function findGLWSthreshold() 	{ //This function is used to determine the value classic watershed uses as max flooding value
+									var done = false;
+									selectWindow("Results");
+									for (b=254; b<nResults && !done; b--) {
+																			pixelnumber = getResult("Count", b);
+																			if (pixelnumber>0) {
+																								done = true;
+																								return b;
+							
+																								} 
+																			}
+									}
+
+	function sixteenbitsegmentation()	{//function for the segmentation of 16bit images
+										for (j=0; j<amplicycle; j++) 		{
+																				selectWindow(title);
+																				run("Duplicate...", title2);
+																				rename(title2);
+																				selectWindow(title2);
+																				run("Gaussian Blur...", "sigma=varblurring");	//blurs the image
+																				imageCalculator("Subtract create", title, title2); //substract the blurred image from the original => Highpass Filter! It is supposed to set negative gray values to zero as the code doesnt work otherwise
+																				rename(title3);
+																				selectWindow(title3);
+																				run("Apply LUT");
+																				setMinAndMax(0, 65535);
+																				selectWindow(title3);
+																				run("Gaussian Blur...", "sigma=varblurring");
+																				imageCalculator("Add create 32-bit", title, title3); //add the highpass filtered image to the original image 
+																				rename(title4);
+																				run("16-bit");	//normalize to 16bit
+																				selectWindow(title);
+																				close();
+																				selectWindow(title3);
+																				close();
+																				selectWindow(title2);
+																				close();
+																				selectWindow(title4);
+																				rename(title);
+																			}
+										}
+
+	function eightbitsegmentation()		{//function for the segmentation of 8bit images
+										for (j=0; j<amplicycle; j++) 	{
+																				selectWindow(title);
+																				run("Duplicate...", title2);
+																				rename(title2);
+																				selectWindow(title2);
+																				run("Gaussian Blur...", "sigma=varblurring");												//blurs the image
+																				imageCalculator("Subtract create", title, title2);												//substract the blurred image from the original => Highpass Filter! It is supposed to set negative gray values to zero as the code doesnt work otherwise
+																				rename(title3);
+																				selectWindow(title3);
+																				setMinAndMax(0, 255);
+																				selectWindow(title3);
+																				run("Gaussian Blur...", "sigma=varblurring");
+																				imageCalculator("Add create 32-bit", title, title3);											//add the highpass filtered image to the original image 
+																				rename(title4);
+																				run("8-bit");																					//and scale the result back to 16bit
+																				selectWindow(title);
+																				close();
+																				selectWindow(title3);
+																				close();
+																				selectWindow(title2);
+																				close();
+																				selectWindow(title4);
+																				rename(title);				
+																		}
+										}
+		function segmentnothappy() 													{//segments the image again if the user is not satisfied (only in preview)
+  																					Dialog.create("Analysis settings");
+  																					Dialog.addMessage("Please adjust the segmentation settings");
+  																					Dialog.addMessage("");
+																					Dialog.addNumber("Segmentation Cycles:", amplicycle);
+																					Dialog.addNumber("Blur During Segmentation Cycles:", varblurring);
+																					Dialog.addCheckbox("Blur after amplification:", true);
+																					Dialog.addNumber("Blur-Sigma After Segmentation", 1);
+																					Dialog.show();
+																					amplicycle = Dialog.getNumber();
+																					varblurring = Dialog.getNumber();
+																					blurafteramplinumber = Dialog.getNumber();
+																					setBatchMode("hide");
+																					selectWindow(title);
+																					close();
+																					selectWindow(title10);
+																					run("Duplicate...", title);
+																					rename(title);
+																					if (bitdepth == 16) {
+																										sixteenbitsegmentation();
+																										selectWindow(title);
+																										}								
+																					if (bitdepth == 8) 	{
+																										eightbitsegmentation();
+																										selectWindow(title);
+																										
+																										}
+																					run("Set... ", "zoom=20 x=1 y=1");
+																					setBatchMode("show");
+																					setLocation(firstimage,0,ifb,ifh);
+																					waitForUser("The image is now segmented. Zoom in and check for over/undersegmentation");
+																					segment_happy = getBoolean("This image is now segmented. Are you happy with the segmentation?");
+																					if(segment_happy == false) 	{
+																												segmentnothappy();
+																												}
+																					}		
+		function findmaximum_nothappy() 											{ //displays the maxima again if the user isn't satisfied (only in preview)
+  																					roiManager("Select", findspecificROI("total_maxima_found_preliminary"));
+  																					roiManager("Delete");
+  																					Dialog.create("Analysis settings");
+		  																			Dialog.addMessage("Please adjust the Find maximum noise tolerance");
+		  																			Dialog.addMessage("");
+																					Dialog.addNumber("Find Maximum Noise Tolerance:", FindMaximum	);
+																					Dialog.show();
+																					FindMaximum = Dialog.getNumber();
+																					selectWindow(title);
+																					run("Set... ", "zoom=20 x=1 y=1");
+																					roiManager("Select", findspecificROI("ROI_drawn"));
+																					run("Find Maxima...", "noise=FindMaximum output=[Point Selection]");
+																					Roi.setName("total_maxima_found_preliminary");															//adds it to the ROI manager
+														  							roiManager("Add");
+														  							
+																					selectWindow(title10);
+																					roiManager("Show All with labels");
+																					roiManager("Show None");
+																					roiManager("Select", findspecificROI("total_maxima_found_preliminary"));
+																					waitForUser("The local maxima are now displayed on the original image.\nZoom in and check if the lipid droplets are marked.");
+																					findmaximum_happy = getBoolean("The new local maxima are now displayed. Are you happy with the maxima?");
+																					if(findmaximum_happy == false) 	{
+																													findmaximum_nothappy();
+																													}
+																					}
+			function edges_nothappy()	{ //displays the detected edges if the user isnt satisfied
+																					selectWindow("Mask of LD edges");
+																					run("Close");
+																					selectWindow("LD edges");
+																					close();
+																					selectWindow(title5);
+																					Dialog.create("Analysis settings");
+																					Dialog.addNumber("Auto Local Threshold Radius:", ALT, 0, 7, "");
+																					Dialog.addNumber("Minimum Particle Size:", lowersize, 0, 7, "pixel");
+																				    Dialog.addNumber("Maximum Particle Size:", uppersize, 0, 7, "pixel");
+																				    Dialog.addNumber("Minimum Particle Circularity:", lowercircularity, 2, 7, "");
+																				    Dialog.addNumber("Maximum Particle Circularity:", uppercircularity, 2, 7, "");
+																					
+																					Dialog.show();
+																					ALT = Dialog.getNumber();
+																					lowersize = Dialog.getNumber();
+																					uppersize = Dialog.getNumber();
+																					lowercircularity = Dialog.getNumber();
+																					uppercircularity = Dialog.getNumber();
+																					run("Duplicate...", "LD edges");
+																					rename("LD edges");
+																					selectWindow("LD edges");
+																					setLocation(secondimage,0,ifb,ifh);
+																					
+																					run("Find Edges");
+																					run("8-bit");
+																					run("Auto Local Threshold", "method=Phansalkar radius=ALT parameter_1=0 parameter_2=0 white");
+																					run("Invert");
+																					run("Fill Holes");
+																					run("Watershed");
+																					run("Analyze Particles...", "size=lowersize-uppersize pixel circularity=lowercircularity-uppercircularity show=Masks");
+																					selectWindow("Mask of LD edges");
+																					setBatchMode("show");
+																					setLocation(secondimage,0,ifb,ifh);
+																					selectWindow(title5);
+																					setLocation(firstimage,0,ifb,ifh);
+																					waitForUser("These are the lipid droplets defined by their edges. Check if the detection is sufficient.\n\nNote that the particles will also be important for the volume analysis.");
+																					edges_happy = getBoolean("These are the particles defined by the edge detection. Are you happy with that?");
+																					if(edges_happy == false) 	{
+																												edges_nothappy();
+																												}
+																					else {
+																						selectWindow("Mask of LD edges");
+																						run("Close");
+																					}
+									}																				
+	
+//////////////////////////////////////////////////////////////////////
+////////////////////// Start of the actual macro /////////////////////		
+//////////////////////////////////////////////////////////////////////
+	
+																																	
+  	 	
+  	 	MonthNames = newArray("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"); //date and month display, feature for documentation of the analysis
+     	DayNames = newArray("Sun", "Mon","Tue","Wed","Thu","Fri","Sat");
+     	getDateAndTime(year, month, dayOfWeek, dayOfMonth, hour, minute, second, msec);
+    	TimeString ="Date: "+DayNames[dayOfWeek]+" ";
+     	if (dayOfMonth<10) {TimeString = TimeString+"0";}
+     	TimeString = TimeString+dayOfMonth+"-"+MonthNames[month]+"-"+year+"\nTime: ";
+     	if (hour<10) {TimeString = TimeString+"0";}
+     	TimeString = TimeString+hour+":";
+     	if (minute<10) {TimeString = TimeString+"0";}
+     	TimeString = TimeString+minute+":";
+     	if (second<10) {TimeString = TimeString+"0";}
+     	TimeString = TimeString+second;
+     	print(TimeString);
+  
+
+	
+
+	
+
+																														
+
+//////////////////////////////////////////////////////////////////////
+///////////////////// Start of the analysis loop /////////////////////		
+//////////////////////////////////////////////////////////////////////
+
+start=getTime();
+
+for (i=0; i<files.length; i++) { 
+    
+    if (endsWith(files[i], ".tif"))	{ 
+								
+showProgress(0);
+								open(origpath+files[i]);
+  								bitdepth = bitDepth();
+  								
+  								if(i>1 && preview == true) 		{
+  																Dialog.create("Keep preview mode activated?");
+  																Dialog.addCheckbox("Analyze this image in preview mode!", true);
+  																Dialog.addCheckbox("Permanently exit preview mode", false);
+  																Dialog.show();
+  																one_image_preview = Dialog.getCheckbox();
+  																all_image_preview = Dialog.getCheckbox();
+  																
+  																if(one_image_preview == true)	{
+  																								preview = true;
+  																								}
+  																else							{
+  																								preview = false;
+  																								}
+  																																
+																if(one_image_preview == false && all_image_preview == false)	{
+																																	preview = false;
+																																	}
+  																}	
+								getPixelSize(unit, pixelWidth, pixelHeight);
+										if (unit != "pixels") 	{ //if the image is already scaled, the scale is made global
+																userpixelsize = pixelWidth;
+																inverteduserpixelsize = 1/userpixelsize;
+																run("Properties...", "channels=1 slices=1 frames=1 unit=um pixel_width=userpixelsize pixel_height=userpixelsize voxel_depth=userpixelsize");
+																run("Set Scale...", "distance=inverteduserpixelsize known=1 pixel=1 unit=micron global");
+																}
+	 
+										if (unit == "pixels") 	{ //if the image is unscaled (units are just pixels), the user is asked to define the scale
+																Dialog.create("Properties Settings"); 												
+																Dialog.addMessage("Your image proportions are not microns. Please specify them below!");
+																Dialog.addNumber("How many micrometers is one pixel (0.10638 for JF 60x)?:", 0.10638);
+																Dialog.show();
+																Dialog.setLocation(255,255);
+																userpixelsize=Dialog.getNumber();
+																inverteduserpixelsize = 1/userpixelsize;
+																run("Properties...", "channels=1 slices=1 frames=1 unit=um pixel_width=userpixelsize pixel_height=userpixelsize voxel_depth=userpixelsize");
+																run("Set Scale...", "distance=inverteduserpixelsize known=1 pixel=1 unit=micron global");
+																}
+
+///titles and parameters///
+title = getTitle();																										
+title5 = getTitle();
+title2 = title + "_analyze";
+title3 = title2 + "_blurred";
+title4 = title + "_final";
+title6 = title5 + "_LD_edges";
+title7 = title6 + "_final";
+title8 = title7 + "_+FM";
+title9 = title + "_overlay";
+title10 = title + "_original";
+title11 = title + "_FM_only";
+title12 = title + "_FM_edge_overlay";
+title13 = title7 + "_duplicated";
+title14 = title + "_single_ROI";
+title15 = title + "_edge_ROI";
+title16 = title + "_volumes";
+title17 = title + "_CWS_overlay";
+title18 = title + "_temp_edge";
+title19 = title + "_watershedding";
+title20 = title + "_reconstructeddd";
+previewtitle = title + "_preview";
+h = screenHeight;		//screen settings needed for the image localization 																								
+b = screenWidth;
+firstimage = 0;
+secondimage = b-(b*0.5);
+ib = getWidth();		//image settings needed for image dimensions																								
+ih = getHeight();
+ifb = b*0.5;
+ifh = ifb*100;																														
+
+savetitle = title;
+path = origpath;
+analysispath = path + File.separator + savetitle + "_analysis" + File.separator;	//sets up a folder structure for each image where the output is saved
+
+
+								File.makeDirectory(analysispath);
+								if (bitdepth == 16) { //needed for 12 bit images to "convert" to 16bit range; doesn't "harm" 16bit images 
+													run("Apply LUT");
+													setMinAndMax(0, 65535);
+													
+													} 																								
+								if (isOpen("B&C")) 	{
+													selectWindow("B&C");
+													setLocation(5,5);	
+													}																								
+setBatchMode(false);
+								selectWindow(title);
+								run("Set... ", "zoom=20 x=1 y=1");
+								setLocation(firstimage,0,ifb,ifh);
+								
+								
+								setTool("polygon");
+								waitForUser("Use the polygon tool to outline the cell borders."); //lets the user define the polygon ROI around the cell of interest.
+								
+showProgress(0.1);		
+								type = selectionType();
+								if (type == -1) 							{	//if no selection was made, the whole image is analyzed
+												   							makeRectangle(0,0,ib,ih); 																	
+												   							Roi.setName("ROI_drawn");
+												   							roiManager("Add");
+												   							if (isOpen("ROI Manager")) 	{
+												   														selectWindow("ROI Manager"); 
+												   														setLocation(5,5);
+												   														}
+												   							}
+					   			if ((type >= 0 && type <= 4) || type == 9) 	{	//otherwise the selection is saved in the ROI manager	
+						   													Roi.setName("ROI_drawn");											
+						   													roiManager("Add");
+						   													if (isOpen("ROI Manager")) 	{
+						   																				selectWindow("ROI Manager"); 
+						   																				setLocation(5,5);
+						   																				}
+						   													}
+			
+								selectWindow(title);
+								makePoint(0,0);
+								selectWindow(title);
+								run("Duplicate...", title10); //Duplicates the image as the "backup" input image that is later saved as original input image
+								rename(title10);
+								setLocation(firstimage,0,ifb,ifh);
+								selectWindow(title);
+								setLocation(firstimage,0,ifb,ifh);
+			
+
+																						
+
+		
+//////////////////////////////////////////////////////////////////////
+///////////////// Amplification/Segmentation cycles //////////////////		
+//////////////////////////////////////////////////////////////////////
+
+setBatchMode(true);	
+								if (amplicycle == 0) 	{
+														print("No amplification cycles were used for " + title + " !");
+														}				
+		
+	
+								makeRectangle(0, 0, ib, ih);
+								
+								if (bitdepth == 16) { //segmentation step
+													sixteenbitsegmentation();
+													}
+showProgress(0.2);								
+								if (bitdepth == 8) 	{//segmentation step
+													eightbitsegmentation();
+													}
+						
+								if (isOpen("B&C")) 	{
+													selectWindow("B&C");
+													setLocation(5,5);	
+													}
+								
+			
+								selectWindow(title);
+								rename(title5);
+								
+								if (preview == true)	{
+														
+														if(blurafterampli == true) 	{
+																					run("Gaussian Blur...", "sigma=blurafteramplinumber");
+																					}
+														selectWindow(title);
+														
+														
+														setBatchMode("show");
+														run("Set... ", "zoom=20 x=1 y=1");
+														setLocation(firstimage,0,ifb,ifh);
+														waitForUser("The image is now segmented. Zoom in and check for over/undersegmentation");
+														segment_happy = getBoolean("Are you happy with the segmentation?");
+														
+														if(segment_happy == false) 	{
+																					segmentnothappy();
+																					}
+														
+														setBatchMode("hide");
+														selectWindow(title);
+														run("Set... ", "zoom=20 x=1 y=1");
+														roiManager("Select", findspecificROI("ROI_drawn"));
+														run("Find Maxima...", "noise=FindMaximum output=[Point Selection]");
+														Roi.setName("total_maxima_found_preliminary");															//adds it to the ROI manager
+					  									roiManager("Add");
+					  									
+														selectWindow(title10);
+														roiManager("Show All with labels");
+														roiManager("Show None");
+														roiManager("Select", findspecificROI("total_maxima_found_preliminary"));
+														setBatchMode("show");
+														
+														
+														
+														waitForUser("The local maxima are now displayed on the original image.\nZoom in and check if the lipid droplets are marked.");
+														findmaximum_happy = getBoolean("Are you happy with the maxima?");
+														
+														if(findmaximum_happy == false) 	{
+																						findmaximum_nothappy();
+																						}
+															
+														roiManager("Select", findspecificROI("total_maxima_found_preliminary"));
+  														roiManager("Delete");
+														selectWindow(title5);
+														run("Set... ", "zoom=20 x=1 y=1");
+														setLocation(firstimage,0,ifb,ifh);
+														
+														
+														
+														
+														makePoint(0,0);
+														run("Duplicate...", "LD edges");
+														rename("LD edges");
+														selectWindow("LD edges");
+														setLocation(secondimage,0,ifb,ifh);
+														run("Find Edges");
+														run("8-bit");
+														run("Auto Local Threshold", "method=Phansalkar radius=ALT parameter_1=0 parameter_2=0 white");
+														run("Invert");
+														run("Fill Holes");
+														run("Watershed");
+														run("Analyze Particles...", "size=lowersize-uppersize pixel circularity=lowercircularity-uppercircularity show=Masks");
+														selectWindow("Mask of LD edges");
+														setBatchMode("show");
+														setLocation(secondimage,0,ifb,ifh);
+
+														setBatchMode("show");
+														selectWindow(title10);
+														run("Set... ", "zoom=20 x=1 y=1");
+														setLocation(firstimage,0,ifb,ifh);
+														waitForUser("These are the lipid droplets defined by their edges. Check if the detection is sufficient.\n\nNote that the particles will also be important for the volume analysis.");
+														edges_happy = getBoolean("Are you happy with that?");
+														
+														if(edges_happy == false) 	{
+																					edges_nothappy();
+																					}
+														else						{
+																					if(isOpen("Mask of LD edges")) 	{
+																													selectWindow("Mask of LD edges");
+																													run("Close");
+																													}
+																					}
+														setBatchMode("show");
+														selectWindow(title10);
+														run("Set... ", "zoom=20 x=1 y=1");
+														setLocation(firstimage,0,ifb,ifh);
+														selectWindow(title5);
+														run("Set... ", "zoom=20 x=1 y=1");
+														setLocation(firstimage,0,ifb,ifh);
+														
+														setBatchMode("hide");
+														}
+								
+								
+								selectWindow(title5);
+								run("Duplicate...", "title=" + title6);
+
+
+																												
+
+//////////////////////////////////////////////////////////////////////
+///////////////////// Volume determination ///////////////////////////		
+//////////////////////////////////////////////////////////////////////																												
+																												
+								if (volumedet == true) {
+														inverteduserpixelsize = 1/userpixelsize; 																//pixel size is necessary for the volume determination in µm³
+														run("Set Scale...", "distance=inverteduserpixelsize known=1 pixel=1 unit=um global");					//sets Scale for the determination of volume in µm³
+														selectWindow(title6);
+														makePoint(0,0);
+														run("Duplicate...", "title=" + title16);
+														rename(title16);
+														selectWindow(title16);
+																													
+														roiManager("Select", findspecificROI("ROI_drawn"));
+														if(blurafterampli == true) 	{
+																					run("Gaussian Blur...", "sigma=blurafteramplinumber");
+																					}	
+											
+														
+														run("Find Maxima...", "noise=FindMaximum output=[Point Selection]");
+														Roi.setName("total_maxima_found");														
+						  								roiManager("Add");
+						  								selectWindow(title16);
+														run("8-bit");																							
+														run("Duplicate...", "title=" + title18);
+														rename(title18);
+														//****morphological reconstruction using the maxima defined above => lipid droplets get an area		
+														selectWindow(title18);
+showProgress(0.3);																						
+														run("Find Edges");
+														run("Auto Local Threshold", "method=Phansalkar radius=ALT parameter_1=0 parameter_2=0 white");	//edges are detected by "Find Edges" and Auto local threshold
+														run("Invert");
+														run("Fill Holes");
+														run("Analyze Particles...", "size=lowersize-uppersize pixel circularity=0.00-1.00 show=Masks clear");	//edge defined particles are counted and displayed	
+								  						selectWindow("Mask of " + title18);
+								  						roiManager("Select", findspecificROI("total_maxima_found"));									//local maxima are displayed on the edge defined particles
+								  						run("Interactive Morphological Reconstruction", "type=[By Dilation] connectivity=8");			//and are used for morphological reconstruction, defining the particles by the presence of local maxima by dilation
+								  						rename(title20);
+								  						run("Invert");
+								  						rename(title20);
+
+	
+														selectWindow(title16);
+														makeRectangle(0, 0, 0, 0);
+														
+														run("Gaussian Blur...", "sigma=varwsblurring"); 													//blurs the image so that the flooding watershed algorithm wont result in harsh segmentationsubstraction of "raw image" and edge particles to specify the regions that are flooded classic watershed			
+														imageCalculator("Subtract create 32-bit", title16, title20);
+														selectWindow("Result of " + title16);
+														
+														rename(title19);
+														selectWindow(title19);
+														setMinAndMax(0, 255);																					//negative values are set to zero (could also be achieved by not allowing the image calculator 32bit though)
+														run("8-bit");																							//image is converted from 32 bit to 8 bit
+														setMinAndMax(0,255);
+														if (isOpen("B&C")) 	{
+																			selectWindow("B&C");
+																			setLocation(5,5);	
+																			}
+														selectWindow(title19);
+														run("Invert");
+																														//finds out which value classic watershed uses as max flooding value => see function "findGLWSthreshold"; 
+																														//the problem is that the regions of interests are black and the background
+																														//is white. However, not every gray value is used (for example 1 and 2 are not needed) so I cannot set the watershed threshold to 1 
+																														//(as 0 is the background this would be straightforward)
+																														//and the plugin then watersheds the whole image, including the background which is not wanted. 
+																														
+														nBins = 256;
+										  				row = 0;
+										  						
+										 				getHistogram(values, counts, nBins);
+										 						for (x=0; x<nBins; x++) {
+													      								setResult("Count", row, counts[x]);
+													     								setResult("Value", row, values[x]);
+													      								row++;
+										   												}
+										  				updateResults();
+														makePoint(0,0);
+														selectWindow(title19);
+			
+
+																																															
+														
+														run("Watershed Segmentation", "blurring=0 watershed='0 1 0 " + findGLWSthreshold() + " 0 0'   display='4' "); 			//classic watershed by flooding (BIG EPFL)
+														
+														while(isOpen("Colorized Catchment Basins") == false) 	{ wait(1);
+																												} 																	//as long as the watershed isnt finished, do nothing
+														selectWindow("Colorized Catchment Basins");
+														
+														if (isOpen("Results")) 	{
+																				selectWindow("Results"); 
+																				run("Close");
+																				}
+														
+														
+														
+														
+														run("8-bit");
+														setAutoThreshold("Default dark");
+														run("Threshold...");
+														setThreshold(1, 255);
+														setOption("BlackBackground", false);
+														run("Convert to Mask");
+														roiManager("Select", findspecificROI("ROI_drawn")); 																	//analyzes particles only in the user defined cell of interest
+														run("Analyze Particles...", "size=0-Infinity circularity=0.00-1.00 add");
+														
+														roiManager("Save", analysispath + "CWS_particle_analysis" + ".zip"); 													//save the particles as ROI for documentation purposes
+														roiManager("Select", findspecificROI("total_maxima_found")); 															//deletes the maxima for now but adds it back again later
+														roiManager("Delete");
+														
+														roicountvolume = roiManager("Count");
+														if(isOpen("ROI Manager")) { 																							//measures all particles found (except the ROI_drawn, therefore n=1)
+															     					selectWindow("ROI Manager");
+																					for(n=1;n<roicountvolume;n++)	{
+																							   						roiManager("Select",n);
+																													roiManager("Measure");
+																													} 
+																					
+																					}
+																																								//calculation of volume for each particle and saves Area and Volume in two arrays which are saved in an 
+																																									//xls file individually and added up for the final results table
+showProgress(0.4);													
+																
+														for (e=0;e<nResults;e++)	{
+																					area = getResult("Area",e);
+																					radius = sqrt(area/3.14159);
+																					volume = (4/3)*3.14159*radius*radius*radius;
+																					setResult("Volume", e, volume);
+																					updateResults();
+																					setLocation(5,5);
+																					}
+										
+														volumeArray = newArray(nResults);
+														for (o=0; o<nResults; o++)	{
+										  											volumeArray[o] = getResult("Volume",o);
+																					}	
+														
+														total=0;
+														for (u=0;u<lengthOf(volumeArray);u++)	{
+										 														total=total+volumeArray[u];
+																								}
+										
+														areaArray = newArray(nResults);
+														for (p=0; p<nResults; p++)	{
+										  											areaArray[p] = getResult("Area",p);
+																					}	
+															
+														totale=0;
+														for (q=0;q<lengthOf(areaArray);q++)		{
+										 														totale=totale+areaArray[q];
+																								}
+														
+														
+														
+														if (isOpen("Results"))	{	
+																				selectWindow("Results");
+																				setLocation(5,5);		
+																				}
+														saveAs("results", analysispath + title + "_area_volume_raw.xls");
+														IJ.renameResults("Resultes");
+														setLocation(5,5);
+														if (isOpen("Resultes"))	{
+																				selectWindow("Resultes"); 
+																				run("Close");
+																				}
+													
+													
+														if (isOpen("Summary"))	{	
+																				selectWindow("Summary"); //saves the results to the Summary Table; in order to do that it needs to be renamed twice... did not find a more elegant way at least
+																				setLocation(5,5);
+																				IJ.renameResults("Results");
+																				endofsummary = nResults();
+																				setResult("Slice", endofsummary, title + "_CWS");
+																				setResult("Count", endofsummary, roicountvolume);	
+																				setResult("app.Vol. um^3", endofsummary, total);
+																				setResult("Total Area", endofsummary, totale);
+																				IJ.renameResults("Summary");
+																				setLocation(5,5);
+																				}
+														else 					{
+																				endofsummary = nResults();
+																				setResult("Slice", endofsummary, title + "_CWS");
+																				setResult("Count", endofsummary, roicountvolume);	
+																				setResult("app.Vol. um^3", endofsummary, total);
+																				setResult("Total Area", endofsummary, totale);
+																				IJ.renameResults("Summary");
+																				setLocation(5,5);
+																				}
+showProgress(0.5);
+														roidelete = roiManager("Count");
+														IJ.renameResults("Summary");
+														setLocation(5,5);
+														if(isOpen("ROI Manager")) 	{
+															for (t=1;t<roidelete;t++) 	{	 														//deletes all the particles as they are not longer needed
+														
+																						roiManager("Select", 1);
+																						roiManager("Delete");
+																						
+																						}
+																					}
+										
+																																						//close everything related to the volume determination
+														if(isOpen(title16)) {
+																			selectWindow(title16); 
+																			close();
+																			}
+														if(isOpen(title18)) {
+																			selectWindow(title18); 
+																			close();
+																			}
+														if(isOpen(title19)) {
+																			selectWindow(title19); 
+																			close();
+																			}
+														if(isOpen("Mask of " + title18)) 	{
+																							selectWindow("Mask of " + title18); 
+																							close();
+																							}
+														if(isOpen("Colorized Catchment Basins")) 	{	
+																									selectWindow("Colorized Catchment Basins"); 
+																									run("Analyze Particles...", "  show=Masks");
+																									saveAs("jpeg", analysispath + title + "_CWS");
+																									close();
+																									close();
+																									}
+													
+														if(isOpen("*rec")) {
+																			selectWindow("*rec"); 
+																			close();
+																			}
+														if(isOpen(title20)) {
+																			selectWindow(title20); 
+																			close();
+																			}
+														if(isOpen(title + "_CWS")) 	{
+																					selectWindow(title + "_CWS"); 
+																					close();
+																					}
+														if(isOpen("Threshold")) 	{
+																					selectWindow("Threshold"); 
+																					run("Close");
+																					}
+										
+													
+														
+													} //end of volume determination
+													
+//////////////////////////////////////////////////////////////////////
+///////////////////////// LD determination ///////////////////////////		
+//////////////////////////////////////////////////////////////////////	
+
+								
+								selectWindow(title10);
+showProgress(0.6);																												
+								selectWindow(title5);
+								roiManager("Select", findspecificROI("ROI_drawn"));
+								selectWindow(title6);
+								makeRectangle(0, 0, ib, ih);
+																																//Lipid droplet edges are defined here; edge detection serves as an internal control for the maxima detection
+								run("Find Edges");
+								run("8-bit");
+								run("Auto Local Threshold", "method=Phansalkar radius=ALT parameter_1=0 parameter_2=0 white");
+								run("Invert");
+								run("Fill Holes");
+								run("Watershed");
+								makePoint(0,0);
+								roiManager("Select", findspecificROI("ROI_drawn"));
+								
+					
+					
+								run("Analyze Particles...", "size=lowersize-uppersize pixel circularity=lowercircularity-uppercircularity show=Masks clear summarize add");		//counts the particles that are defined by the edges in the user defined Roi.contains(x, y)						
+								if (isOpen("Summary")) {selectWindow("Summary"); setLocation(5,5);}
+								selectWindow("Mask of " + title6);
+								run("Duplicate...", title7);
+								rename(title7);
+								selectWindow(title5);
+								Roi.setName("ROI_drawn");
+					   			roiManager("Add");
+					
+						
+								selectWindow(title5);
+							
+								if(blurafterampli == true) 	{
+															run("Gaussian Blur...", "sigma=blurafteramplinumber");
+															}
+							
+								roiManager("Select", findspecificROI("ROI_drawn"));								 
+								run("Find Maxima...", "noise=FindMaximum output=[Point Selection]");
+								Roi.setName("total_maxima_found");															//adds it to the ROI manager
+					  			roiManager("Add");
+					
+																														
+								selectWindow(title7); 																		//= binary image of edge defined particles
+								run("Duplicate...", title8);
+								rename(title8);
+								selectWindow(title8);
+								roiManager("Select", findspecificROI("total_maxima_found"));								//display local maxima on the binary image containing the edges	
+								setMinAndMax(255, 255); 																	//all pixels that have the local maximum are not set to white
+								if (isOpen("B&C")) 	{
+													selectWindow("B&C");
+													setLocation(5,5);	
+													}
+								run("Apply LUT");																			//all pixels that have the local maximum are now set to white
+
+								imageCalculator("Subtract create", title7, title8); 										//substraction of the image where local maxima are white and the "original" image without this modification yields black pixels corresponding to the maxima
+								run("Invert");																				//maxima are now white pixels on black background
+																														//NOTE! Local maxima that were not located on edge defined particles are lost here!
+								rename(title9);
+					
+					//counts maxima that are only on precalculated edges	
+								selectWindow(title9);
+								run("Find Maxima...", "noise=1 output=Count");												//finds the white pixels (corresponding to local maxima) that overlapped with an edge defined particle and counts them
+							   	if (isOpen("Results")) 	{																	//adds them to the ROI manager
+										       			selectWindow("Results");
+										       			numberfound = getResult("Count");
+										       			selectWindow("Results");
+										       			close();
+										   				}
+showProgress(0.7);										
+								if(numberfound > 0) 	{	
+														run("Find Maxima...", "noise=1 output=[Point Selection]");
+														Roi.setName("overlayed_counted_lipid_droplets");
+									  					roiManager("Add");
+									  					}
+							  	if(numberfound == 0) 	{	
+							  							makePoint(1, 1);
+							  							makePoint(2, 1);
+							  							Roi.setName("overlayed_counted_lipid_droplets");
+							  							roiManager("Add");
+							  							}
+							  																											
+								newImage(title11, "8-bit white", ib, ih, 1);
+								roiManager("Select", findspecificROI("total_maxima_found"));
+								setMinAndMax(255, 255);
+								run("Apply LUT");
+								if (isOpen("B&C")) 	{
+													selectWindow("B&C");
+													setLocation(5,5);	
+													}
+								run("Analyze Particles...", "size=0-Infinity circularity=0.00-1.00 show=Nothing summarize");
+					
+																														//measure maxima that overlayed with edge-particles
+								newImage(title12, "8-bit white", ib, ih, 1);		//again, I did not find a workaround to directly add the number of the maxima to the Summary table. So a new image is created where the maxima pixels are marked and counted by analyze particle.
+								selectWindow(title12);
+								roiManager("Select", findspecificROI("overlayed_counted_lipid_droplets"));
+								run("Brightness/Contrast...");
+								setMinAndMax(255, 255);
+								run("Apply LUT");
+								run("Analyze Particles...", "size=0-Infinity circularity=0.00-1.00 show=Nothing summarize");
+					
+					
+																														//ROIs are saved, partly individually, in the corresponding analysis folder.
+								
+								savetitle = title;
+								path = origpath;
+								analysispath = path + File.separator + savetitle + "_analysis" + File.separator;
+								
+								File.makeDirectory(analysispath);
+								roiManager("Select", findspecificROI("overlayed_counted_lipid_droplets"));
+					  			saveAs("Selection", analysispath + "overlayed_counted_lipid_droplets");
+					  			roiManager("Select", findspecificROI("total_maxima_found"));
+					  			saveAs("Selection", analysispath + "total_maxima_found");
+					  			roiManager("deselect");
+					  			roiManager("Save", analysispath + "edge_particles_and_maxima" + ".zip");
+									´
+								
+																														//make a image with both ROIs as a colored overlap and save the image
+								selectWindow(title10);
+								run("Duplicate...", "title=" + title14);
+								rename(title14);
+								run("Duplicate...", "title=" + title15);
+								
+								
+showProgress(0.8);							
+								rename(title15);
+								selectWindow(title14);
+								roiManager("Select", findspecificROI("total_maxima_found"));
+								run("Properties... ", "stroke=red point=Dot size=Tiny");								//marks all local maxima as red dots on the input image
+								run("Add Selection...");
+								roiManager("Deselect");
+								roiManager("Select", findspecificROI("overlayed_counted_lipid_droplets"));
+						
+								run("Properties... ", "stroke=green point=Dot size=Tiny");								//marks all local maxima that overlapped with edge defined particles as green dots (covering the red dots) on the input image
+								run("Add Selection...");
+					
+								run("Set... ", "zoom=3200 x=1 y=1");													//without the zoom the dots are too big. They only get small when zoomed in to a maximum...
+								saveAs("jpeg", analysispath + savetitle + "_both_maxima");
+								
+								if(preview == true)	{
+													setBatchMode("show");
+													run("Set... ", "zoom=20 x=1 y=1");
+													setLocation(firstimage,0,ifb,ifh);
+													
+													waitForUser("Please check if the LD detection was correct. Green dots indicate true LDs while red dots indicate excluded LDs");
+													LDcounthappy = getBoolean("Is the LD detection fine?");
+													if(LDcounthappy==false) {
+																			startover = getBoolean("Do want to start over with the same image?");
+																			if(startover == true)		{
+																											i=i-1;
+																										}
+																			}	
+													}
+					
+								selectWindow(title15);
+								roiManager("Select", findspecificROI("overlayed_counted_lipid_droplets"));
+								roiManager("Delete");
+								roiManager("Select", findspecificROI("total_maxima_found"));
+								roiManager("Delete");
+								selectWindow(title15);
+								roiManager("Show All without labels");													//displays the edge defined particles on the input image as yellow selections
+								
+								run("Set... ", "zoom=3200 x=1 y=1");
+								run("Flatten");
+								saveAs("jpeg", analysispath + savetitle + "_edges");
+								close();
+					
+								selectWindow(title10);
+								saveAs("jpeg", analysispath + savetitle + "_original");
+								rename(title10 + "_original");
+								
+								
+								
+								if (i == files.length-1) 		{ //removes scale so next images aren't affected
+																run("Set Scale...", "distance=0 known=0 pixel=1 unit=pixel global");
+																} 		
+								//closes images and windows if any are open																						
+								if (isOpen(title10 + "_original"))	{
+																	selectWindow(title10 + "_original"); 
+																	run("Close");
+																	}
+								if (isOpen(title15)) 				{
+																	selectWindow(title15); 
+																	close();
+																	}
+								if (isOpen(title14)) 				{
+																	selectWindow(title14); 
+																	close();
+																	}
+								if (isOpen(title12)) 				{
+																	selectWindow(title12); 
+																	close();
+																	}	
+								if (isOpen(title11)) 				{
+																	selectWindow(title11); 
+																	close();
+																	}
+								if (isOpen(title10)) 				{
+																	selectWindow(title10); 
+																	close();
+																	}
+showProgress(0.9);
+								if (isOpen(title9)) 				{
+																	selectWindow(title9); 
+																	close();
+																	}
+					       		if (isOpen(title8)) 				{
+					       											selectWindow(title8); 
+					       											close();
+					       											}
+					       		if (isOpen(title7)) 				{
+					       											selectWindow(title7); 
+					       											close();
+					       											}
+					       		if (isOpen(title6)) 				{
+					       											selectWindow(title6); 
+					       											close();
+					       											}
+					       		if (isOpen(title5)) 				{
+					       											selectWindow(title5); 
+					       											close();
+					       											}	
+					       		if (isOpen("Mask of " + title6)) 	{
+					       											selectWindow("Mask of " + title6); 
+					       											close();
+					       											}
+								if (isOpen("ROI Manager")) 			{
+																	selectWindow("ROI Manager"); 
+																	run("Close");
+																	}
+					  			if (isOpen("Results")) 				{
+					  												selectWindow("Results");
+					  												run("Close");
+					  												}
+					  			
+					  																									//prints the console window or exception window if it opens (indicates problems) for further bug-management
+					  			if (isOpen("Exception")) 	{
+										  					selectWindow("Exception");
+										  					saveAs("txt", analysispath + "log_" + savetitle);
+										  					print("You had a problem with " + savetitle + ". The log file is located in the corresponding analysis folder!");
+										  					run("Close");
+										  					var problem1 = true;
+										  					}
+					  			if (isOpen("Console")) 		{
+					  										selectWindow("Console");
+					  										saveAs("txt", analysispath + "console_log_" + savetitle);
+					  										print("You had a problem with " + savetitle + ". The log file is located in the corresponding analysis folder!");
+					  										run("Close");
+					  										var problem2 = true;
+					  										}´
+					
+								if(savingz == true && preview == true)		{	//writes the settings for documentation purposes
+												  	  						print("Experimenttitle:" + "   " + experimenttitle); 												
+												  	  						print("Segmentationcycles:" + "   " + amplicycle); 
+												  	  						print("Blur During Segmentation Cycles:" + "   " + varblurring);
+												  	 						print("Blur After Segmentation" + "   " + blurafterampli);
+												  	 						if (blurafterampli == true)	{
+												  	 													print("with sigma:" + "   " + blurafteramplinumber);
+												  	 													}
+																	  	 	else						{
+																	  	 								print("with sigma:" + "   " + "0"); 
+																	  	 								}
+												  	  						print("Find Maximum Noise Tolerance:" + "   " + FindMaximum);
+												  	  						print("Auto Local Threshold Radius:" + "   " + ALT);
+												  	  						print("Minimum Particle Size:" + "   " + lowersize);
+													 						print("Maximum Particle Size:" + "   " + uppersize);
+													  						print("Minimum Particle Circularity:" + "   " + lowercircularity);
+													  						print("Maximum Particle Circularity:" + "   " + uppercircularity);
+													  						if (volumedet == true) 	{
+													  												print("Classic Watershed Blurring:" + "   " + varwsblurring);
+													  											 	}
+													  						else					{
+													  												print("No volume analysis was performed");
+													  												}
+																			selectWindow("Log");
+																			saveAs("txt", analysispath + "experimental_settings_preview"); 	//saves the settings for documentation purposes	
+																			print("");
+																			print("You used the preview mode for " + title + ". Find the specified settings in the respective analysis folder");
+																			print("");												
+																		   }
+					  			
+					  			setBatchMode(false);	
+					  			run("Collect Garbage");
+								
+			
+								
+showProgress(1);
+			} //end of analysis loop
+		}
+					
+																					
+						
+						stop = getTime(); 	//the speed measurement is not really needed but was a cool feature while developing this
+						seconds = (stop-start)/1000;
+						speed = files.length/seconds;
+						if (files.length == 1) 	{
+												print("Your folder is finished! You analyzed " + files.length-1 + " image in " + seconds + " seconds!");
+												}
+						if (files.length != 1) 	{
+												print("Your folder is finished! You analyzed " + files.length-1 + " images in " + seconds + " seconds!");
+												}
+						if (problem1 == true || problem2 == true) 	{
+																	print("There was a problem. Find the log in the analysis folder");
+																	} 
+						else 										{
+																	print("There was no problem!");
+																	}
+						
+					    if (isOpen("Summary")) 	{
+					    						selectWindow("Summary"); 
+									    		setLocation(b/2,h/10);
+												tupperTitle = "Summary";
+												firstfoldername = File.getName(origpath);
+												secondfolder = File.getParent(origpath);
+												secondfoldername = File.getName(secondfolder);
+												thirdfolder = File.getParent(secondfolder);
+												thirdfoldername = File.getName(thirdfolder);
+												forthfolder = File.getParent(thirdfolder);
+												forthfoldername = File.getName(forthfolder);
+												name = File.nameWithoutExtension;
+												saveAs("results",  origpath + tupperTitle + "_" + experimenttitle + "_" + forthfoldername + "_" + thirdfoldername + "_" + secondfoldername + "_" + firstfoldername + ".xls");
+												}
+						if (isOpen("Log")) 		{
+												selectWindow("Log"); 
+												saveAs("txt", origpath + "experiment_log");
+												}
+						if (isOpen("B&C")) 		{
+												selectWindow("B&C"); 
+												run("Close");
+												}
+						
+}
+
+
+
+
+
+//this is the description for the BIG EPFL classic watershed plugin.
+	
+// Description of the arguments of the blurring command
+//
+// argument 1: (mandatory)
+//		Radius of the Gaussian blurring.
+//		Decimal value authorized
+//		0 or less than 0 means no blurring 
+
+// Description of the arguments of the watershed command
+//
+// argument 1: (mandatory)
+//		0 for dark objects on bright background, 1 otherwise
+//
+// argument 2: (mandatory)
+//		0 a neighborhood of 4 pixels, 1 a neighborhood of 8 pixels
+//
+// argument 3: (mandatory) 
+//		minimum level [0..255]		
+//
+// argument 4: (mandatory) 
+//		maximum level [0..255]		
+//
+// argument 5: (mandatory)
+//		1 to show the progression messages, 0 otherwise
+//
+// argument 6: (mandatory)
+//		1 to create an animation, 0 otherwise. Not allowed for image stack.
+
+// Description of the arguments of the display command
+//
+//
+// argument 0..6: (optional) kind of display outputs 
+//		0 for object/background binary image
+//		1 for watershed lines
+//		2 for red overlaid dams
+//		3 for labelized basins
+//		4 for colorized basins
+//		5 for composite image
+//		6 for showing input image of the watershed operation
+
+
+
+
