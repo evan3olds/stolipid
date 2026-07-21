@@ -1462,3 +1462,30 @@ Served locally (`python -m http.server`) and drove it with headless Playwright/C
 ## Final step (per project convention)
 
 `docs/activity.md` updated with this entry. No `docs/tasks.md` change — this is a UI-copy/layout tweak to already-shipped Phase 11c work, not a new task-list item. No `docs/plan.md` entry — the change was small enough not to warrant a separate plan (single Edit to markup + CSS, no design decisions to record).
+
+## Cells screen: "View all" button overlays every hand count on the cell image
+
+**Request:** "Add a view counts button on the side panel for cells, which shows all the grids of counts overlayed on the cell image."
+
+### `app.js`
+
+- New `state.viewingAllCounts` (counts array), reset on every `navigate('count', ...)` entry alongside the existing `state.viewingAutoPoints`/`state.editingCount` resets.
+- `wireCells`'s `renderDetail`: a "View all" link button (`#counts-viewall-btn`, `.count-edit-btn`) added next to the "Hand counts" label (new `.detail-label-row` wrapper), shown whenever the cell has one or more hand counts. Click navigates to the Count screen with `viewingAllCounts: counts`.
+- `renderCount()`: when `state.viewingAllCounts` is set, builds `countState.compareGroups` -- one entry per count (`label`: "Count 1"/"Count 2"/..., a fixed `colorClass`, its `value`, and its own `points` mapped to markers). `readOnly` is true in this mode (same as auto-count viewing): no click-to-add, "Close" instead of "Cancel", no Done button.
+- `renderCountHTML()`: when `compareGroups` is set, all groups' markers render simultaneously (each wrapped in its group's color class) instead of the single `markers` array; the header shows "comparing N hand counts" instead of "Total: N"; a new `.count-legend` bar (name + total per count) renders below the zoom controls -- mandatory whenever >=2 series share a canvas so color is never the only way to tell them apart.
+- `renderMarkerHTML(m, readOnly, groupColorClass)` gained the optional third parameter to append a group's color class onto a read-only marker.
+- `TEST_CONDITIONS` fixtures: `test-cell-003` (2 hand counts) and `test-cell-011`/Cell 4 (3 hand counts) had their counts' `points` filled in (previously value-only, no points), so "View all" has something to render via the `local:` test account.
+
+### `style.css`
+
+- `.detail-label-row`: flex row (label + "View all" button, space-between).
+- `.count-marker-group-1/2/3`: red (`oklch(0.58 0.22 25)`, same hue as the normal editable hand marker), aqua (`oklch(0.68 0.15 175)`), gold (`oklch(0.75 0.15 85)`) -- fixed order, spaced apart in hue and off blue (`oklch(0.7 0.15 230)`, already `.count-marker-readonly`'s auto-count color).
+- `.count-legend`/`.count-legend-item`/`.count-legend-swatch`: a chip-and-swatch legend bar matching the existing zoom-controls bar's dark styling.
+
+### Verification
+
+Served the site locally (`python -m http.server`) and drove it with headless Playwright/Chromium via the `local:` test account: opened Cell 3's detail panel (screenshot -- "View all" renders next to Hand counts), clicked it and confirmed the Count screen shows both hand-count grids overlaid (5 markers total: 3 red + 2 aqua), legend text "Count 1: 3 · Count 2: 2", header "Cell 3 · comparing 2 hand counts" (screenshot). Repeated for Cell 4 (3 hand counts) -- all 3 colors render with a 3-item legend (screenshot). Zero console/page errors across both runs.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

@@ -79,6 +79,7 @@ const state = {
   cell: null,              // { id, name }
   editingCount: null,      // { id, points } when reopening a saved hand count for edit, else null
   viewingAutoPoints: null, // points[] when read-only viewing a cell's auto-count grid, else null
+  viewingAllCounts: null,  // counts[] when read-only viewing every hand count's grid overlaid, else null
 };
 
 // Per-screen chrome metadata: subheader title, primary action label, back button
@@ -117,6 +118,7 @@ function navigate(screen, params = {}) {
     // into a fresh count.
     state.editingCount = params.editingCount || null;
     state.viewingAutoPoints = params.viewingAutoPoints || null;
+    state.viewingAllCounts = params.viewingAllCounts || null;
     return renderCount();
   }
   renderShell(screen);
@@ -547,8 +549,15 @@ const TEST_CONDITIONS = {
       cells: [
         { id: 'test-cell-001', name: 'Cell 1', counts: [], auto_count: 3, auto_points: [{ x: 22, y: 30 }, { x: 58, y: 45 }, { x: 71, y: 68 }], auto_algorithm: 'otsu_watershed', source_filename: 'Image_43391.tif' },
         { id: 'test-cell-002', name: 'Cell 2', counts: [{ id: 'test-cnt-002-1', value: 4 }] },
-        { id: 'test-cell-003', name: 'Cell 3', counts: [{ id: 'test-cnt-003-1', value: 3 }, { id: 'test-cnt-003-2', value: 2 }], auto_count: 5, auto_points: [{ x: 15, y: 20 }, { x: 33, y: 50 }, { x: 52, y: 28 }, { x: 68, y: 60 }, { x: 82, y: 40 }], auto_algorithm: 'fm_edge_overlay', source_filename: 'Image_43391.tif' },
-        { id: 'test-cell-011', name: 'Cell 4', counts: [{ id: 'test-cnt-011-1', value: 3 }, { id: 'test-cnt-011-2', value: 4 }, { id: 'test-cnt-011-3', value: 3 }] },
+        { id: 'test-cell-003', name: 'Cell 3', counts: [
+          { id: 'test-cnt-003-1', value: 3, points: [{ x: 16, y: 22 }, { x: 34, y: 51 }, { x: 69, y: 61 }] },
+          { id: 'test-cnt-003-2', value: 2, points: [{ x: 20, y: 25 }, { x: 53, y: 29 }] },
+        ], auto_count: 5, auto_points: [{ x: 15, y: 20 }, { x: 33, y: 50 }, { x: 52, y: 28 }, { x: 68, y: 60 }, { x: 82, y: 40 }], auto_algorithm: 'fm_edge_overlay', source_filename: 'Image_43391.tif' },
+        { id: 'test-cell-011', name: 'Cell 4', counts: [
+          { id: 'test-cnt-011-1', value: 3, points: [{ x: 25, y: 30 }, { x: 50, y: 45 }, { x: 70, y: 65 }] },
+          { id: 'test-cnt-011-2', value: 4, points: [{ x: 27, y: 33 }, { x: 48, y: 42 }, { x: 65, y: 60 }, { x: 80, y: 35 }] },
+          { id: 'test-cnt-011-3', value: 3, points: [{ x: 30, y: 28 }, { x: 52, y: 48 }, { x: 72, y: 62 }] },
+        ] },
       ],
     },
     {
@@ -1514,7 +1523,10 @@ function wireCells(cells) {
         </div>
       ` : ''}
       <div class="detail-row">
-        <span class="detail-label">Hand counts</span>
+        <div class="detail-label-row">
+          <span class="detail-label">Hand counts</span>
+          ${counts.length > 0 ? '<button class="count-edit-btn" id="counts-viewall-btn">View all</button>' : ''}
+        </div>
         ${counts.length === 0
           ? '<span class="detail-value">No counts yet.</span>'
           : `<ul class="count-list">${counts.map(c => `
@@ -1565,6 +1577,16 @@ function wireCells(cells) {
         navigate('count', {
           cell: { id: cell.id, name: cell.name, image_url: cell.image_url },
           viewingAutoPoints: cell.auto_points || [],
+        });
+      });
+    }
+
+    const viewAllBtn = document.getElementById('counts-viewall-btn');
+    if (viewAllBtn) {
+      viewAllBtn.addEventListener('click', () => {
+        navigate('count', {
+          cell: { id: cell.id, name: cell.name, image_url: cell.image_url },
+          viewingAllCounts: counts,
         });
       });
     }
@@ -2120,15 +2142,21 @@ function wireAddPhotos() {
 // like Login and Add Photos do (see navigate()). Screen-local state, reset
 // every time the screen mounts.
 
-let countState = null; // { cell, markers: [{ id, x, y }], zoom, editingCountId, readOnly }
+let countState = null; // { cell, markers: [{ id, x, y }], zoom, editingCountId, readOnly, compareGroups }
 
 const COUNT_ZOOM_MIN = 1;
 const COUNT_ZOOM_MAX = 3;
 const COUNT_ZOOM_STEP = 0.5;
 
+// Fixed hue order for overlaying every hand count on one image (up to the
+// 3-count-per-cell limit — see CLAUDE.md). Kept off blue, which already
+// means "auto count" elsewhere on this screen.
+const COUNT_GROUP_COLOR_CLASSES = ['count-marker-group-1', 'count-marker-group-2', 'count-marker-group-3'];
+
 function renderCount() {
   const editing = state.editingCount;
   const viewingAuto = state.viewingAutoPoints;
+  const viewingAll = state.viewingAllCounts;
   countState = {
     cell: state.cell,
     // Reopening a saved count preloads its stored points as markers so
@@ -2139,9 +2167,19 @@ function renderCount() {
       : (editing && editing.points)
         ? editing.points.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y }))
         : [],
+    // Viewing all hand counts overlays every saved count's grid at once,
+    // each in its own color, so raters can compare placement at a glance.
+    compareGroups: viewingAll
+      ? viewingAll.map((c, i) => ({
+          label: `Count ${i + 1}`,
+          colorClass: COUNT_GROUP_COLOR_CLASSES[i % COUNT_GROUP_COLOR_CLASSES.length],
+          value: (c.points && c.points.length) || c.value || 0,
+          markers: (c.points || []).map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y })),
+        }))
+      : null,
     zoom: COUNT_ZOOM_MIN,
     editingCountId: editing ? editing.id : null,
-    readOnly: !!viewingAuto,
+    readOnly: !!viewingAuto || !!viewingAll,
   };
   refreshCount();
 }
@@ -2151,29 +2189,48 @@ function refreshCount() {
   wireCount();
 }
 
-function renderMarkerHTML(m, readOnly) {
-  return readOnly
-    ? `<span class="count-marker count-marker-readonly" style="left:${m.x}%; top:${m.y}%;"></span>`
-    : `<button class="count-marker" data-marker-id="${escHtml(m.id)}" style="left:${m.x}%; top:${m.y}%;" aria-label="Remove marker"></button>`;
+function renderMarkerHTML(m, readOnly, groupColorClass = '') {
+  if (readOnly) {
+    const cls = groupColorClass ? `count-marker count-marker-readonly ${groupColorClass}` : 'count-marker count-marker-readonly';
+    return `<span class="${cls}" style="left:${m.x}%; top:${m.y}%;"></span>`;
+  }
+  return `<button class="count-marker" data-marker-id="${escHtml(m.id)}" style="left:${m.x}%; top:${m.y}%;" aria-label="Remove marker"></button>`;
 }
 
 function renderCountHTML() {
-  const { cell, markers, zoom, readOnly } = countState;
+  const { cell, markers, zoom, readOnly, compareGroups } = countState;
 
   const image = cell.image_url
     ? `<img class="photo-preview-img" src="${escHtml(cell.image_url)}" alt="Processed fluorescence image of ${escHtml(cell.name)}">`
     : renderPhotoPreviewSVG(cell.id);
 
-  const markerEls = markers.map(m => renderMarkerHTML(m, readOnly)).join('');
+  const markerEls = compareGroups
+    ? compareGroups.map(g => g.markers.map(m => renderMarkerHTML(m, true, g.colorClass)).join('')).join('')
+    : markers.map(m => renderMarkerHTML(m, readOnly)).join('');
 
-  const modeLabel = readOnly ? ' · auto count (view only)' : countState.editingCountId ? ' · editing saved count' : '';
+  const modeLabel = compareGroups
+    ? ` · comparing ${compareGroups.length} hand count${compareGroups.length === 1 ? '' : 's'}`
+    : readOnly ? ' · auto count (view only)' : countState.editingCountId ? ' · editing saved count' : '';
+
+  // A legend is mandatory whenever ≥2 series share a canvas so color is
+  // never the only way to tell counts apart.
+  const legend = compareGroups ? `
+    <div class="count-legend">
+      ${compareGroups.map(g => `
+        <span class="count-legend-item">
+          <span class="count-legend-swatch ${g.colorClass}"></span>
+          ${escHtml(g.label)}: ${g.value}
+        </span>
+      `).join('')}
+    </div>
+  ` : '';
 
   return `
     <div class="count-screen">
       <header class="count-topbar">
         <div class="count-topbar-left">
           <div class="count-cell-name">${escHtml(cell.name)}${modeLabel}</div>
-          <div class="count-total">Total: ${markers.length}</div>
+          ${compareGroups ? '' : `<div class="count-total">Total: ${markers.length}</div>`}
         </div>
         <div class="count-topbar-actions">
           <button class="count-cancel-btn" id="count-cancel">${readOnly ? 'Close' : 'Cancel'}</button>
@@ -2185,6 +2242,7 @@ function renderCountHTML() {
         <span class="count-zoom-level" id="count-zoom-level">${Math.round(zoom * 100)}%</span>
         <button class="count-zoom-btn" id="count-zoom-in" aria-label="Zoom in">+</button>
       </div>
+      ${legend}
       <div class="count-error" id="count-error"></div>
       <div class="count-canvas">
         <div class="canvas-frame" id="count-frame" style="width:${zoom * 100}%; max-width:${zoom * 55}rem;">

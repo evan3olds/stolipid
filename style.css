@@ -810,6 +810,13 @@ body {
   color: var(--text-secondary);
 }
 
+.detail-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .detail-value {
   font-size: 0.9375rem;
 }
@@ -1676,6 +1683,50 @@ body {
   background: oklch(0.7 0.15 230);
   cursor: default;
   pointer-events: none;
+}
+
+/* "View all counts" overlays every hand count's grid at once. Fixed hue
+   order, spaced well apart (25°/175°/85°) and off blue (230°, reserved for
+   auto count above) so up to 3 counts stay tellable apart at a glance. */
+.count-marker-group-1 {
+  background: oklch(0.58 0.22 25);
+}
+
+.count-marker-group-2 {
+  background: oklch(0.68 0.15 175);
+}
+
+.count-marker-group-3 {
+  background: oklch(0.75 0.15 85);
+}
+
+.count-legend {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0.5rem 1.25rem;
+  background: oklch(0.2 0.01 145 / 0.92);
+  border-bottom: 1px solid oklch(0.3 0.01 145);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: oklch(0.9 0.005 75);
+}
+
+.count-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.count-legend-swatch {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  border: 1.5px solid oklch(0.98 0.005 75);
+  flex-shrink: 0;
 }
 
 .count-zoom-controls {

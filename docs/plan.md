@@ -2056,3 +2056,30 @@ Headless Playwright pass against the `local:` test account: Cell 1 shows "Model:
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Plan: "View all counts" — overlay every hand count on the cell image
+
+## Context
+
+Request: "Add a view counts button on the side panel for cells, which shows all the grids of counts overlayed on the cell image." Up to 3 hand counts per cell already exist independently (each with its own `points` grid, viewable/editable one at a time via "Edit"); there was no way to see all of them at once to compare where different raters placed markers.
+
+## What changed
+
+`app.js`:
+- `state.viewingAllCounts` (new, alongside the existing `state.viewingAutoPoints`), reset on every `navigate('count', ...)` entry so a stale value can't leak in.
+- Cells detail panel (`wireCells`'s `renderDetail`): a "View all" button (`.count-edit-btn`, reusing its existing link style) next to the "Hand counts" label, shown whenever the cell has at least one hand count. New `.detail-label-row` flex wrapper puts the label and button on one line. Click navigates to `count` with `viewingAllCounts: counts` (the cell's full counts array, points included).
+- Count screen (`renderCount`/`renderCountHTML`): new `countState.compareGroups` -- when `state.viewingAllCounts` is set, each count becomes a group (`label`, fixed-order `colorClass`, `value`, its own `markers` array), rendered as read-only markers layered on the same image, plus a legend bar (`.count-legend`) naming each count and its total so color is never the only way to tell them apart. `readOnly` covers this mode too (no add/remove, "Close" instead of "Cancel", no Done button) -- same mechanism already used for the auto-count view. `renderMarkerHTML` gained an optional group color class parameter.
+- Fixed 3-color order for the groups (`count-marker-group-1/2/3`): red/aqua/gold, chosen off blue (already reserved for the auto-count overlay) and spaced ~90-150 degrees apart in hue for CVD-safe separation at a glance.
+- `TEST_CONDITIONS` fixtures: `test-cell-003`/`test-cell-011`'s hand counts gained sample `points` (previously value-only) so the new button is exercisable via the `local:` test account.
+
+`style.css`: `.detail-label-row`, `.count-marker-group-1/2/3`, `.count-legend`, `.count-legend-item`, `.count-legend-swatch`.
+
+## Verification
+
+Served the site locally (`python -m http.server`) and drove it with headless Playwright/Chromium via the `local:` test account: Cell 3 (2 hand counts, values 3/2) -> "View all" opens the Count screen read-only with both grids overlaid (5 markers total), legend reads "Count 1: 3 / Count 2: 2", header reads "comparing 2 hand counts". Cell 4 (3 hand counts) -> all 3 color groups render with a 3-item legend. Screenshot-confirmed the colors are visually distinct from each other, from the auto-count blue, and from the image background. Zero console/page errors in either run.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
