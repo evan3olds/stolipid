@@ -20,7 +20,7 @@ const app = document.getElementById('app');
 // prototypeBadge are developer-set constants; theme has a user-facing
 // toggle (top bar) and persists to localStorage, overriding this default.
 const CONFIG = {
-  appTitle: 'Cell Archive',
+  appTitle: 'Lipid Counter',
   prototypeBadge: true,
   theme: 'paper',
 };
@@ -1470,8 +1470,13 @@ function wireCells(cells) {
     const counts = cell.counts || [];
     const needsMore = counts.length < 3;
 
+    const preview = cell.image_url
+      ? `<img class="detail-thumb-img" src="${escHtml(cell.image_url)}" alt="Low-res preview of ${escHtml(cell.name)}">`
+      : renderCellThumbnailSVG(cell);
+
     panel.innerHTML = `
       <div class="detail-name">${escHtml(cell.name)}</div>
+      <div class="detail-thumbnail">${preview}</div>
       ${cell.source_filename ? `
         <div class="detail-row">
           <span class="detail-label">Source file</span>

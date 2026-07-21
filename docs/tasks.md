@@ -57,6 +57,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Cells grid: cards with name and count-status tag ("2 counts", "needs count"), scoped to current condition
 - [x] Simulated fluorescence image thumbnail on each card (green droplets on dark background placeholder)
 - [x] Select cell → right panel showing average hand count, list of individual counts with per-count delete (×)
+- [x] Right panel shows a low-res preview thumbnail (real `image_url` photo, or the simulated fluorescence SVG placeholder when absent) directly under the cell name
 - [x] "Count" CTA button visible when cell has fewer than 3 counts
 - [x] "Add photos" button → navigate to Add Photos screen
 

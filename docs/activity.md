@@ -1328,6 +1328,26 @@ Served with `python -m http.server` and drove it with a headless-Chromium Playwr
 
 `docs/tasks.md` Phase 9 amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
 
+## Cells screen: low-res preview thumbnail in the detail panel
+
+**Request:** "Show a low-res preview of the cell on the side panel right under the cell name."
+
+### `app.js`
+
+`wireCells`'s `renderDetail` now builds a `preview` string the same way the Count screen's `renderCountHTML` already does: a real `<img class="detail-thumb-img">` pointed at `cell.image_url` when present, otherwise a fallback via the existing `renderCellThumbnailSVG(cell)` (the same seeded-random green-droplets-on-dark-background SVG already used for the grid cards, keyed off `cell.id` so it's stable across re-renders). Inserted as a `.detail-thumbnail` wrapper immediately after `.detail-name`, before the "Source file"/"Average hand count" rows.
+
+### `style.css`
+
+Added `.detail-thumbnail` (100px tall, rounded corners, `overflow: hidden`, matching the grid's `.cell-thumbnail` sizing convention) and `.detail-thumb-img` (`object-fit: cover`, fills the container) — mirroring `.photo-preview-img`'s pattern from the Count screen.
+
+### Verification
+
+No `chromium-cli` or Playwright/Node available in this environment (no `node`/`npx` on PATH). Served the site with `python -m http.server`, launched Chrome for Testing headless (`--headless=new --remote-debugging-port --remote-allow-origins=*`) via Python's `websocket-client` speaking raw Chrome DevTools Protocol directly (`Page.navigate`, `Runtime.evaluate`, `Page.captureScreenshot`) since neither Playwright nor `chromium-cli` were installed. Logged in via the `local:` test token, drilled Experiments → Conditions → Cells, and clicked a cell card. Confirmed via `Runtime.evaluate` that `.detail-thumbnail` renders in the DOM, and via screenshot that it displays correctly sized directly under the cell name, above "Source file"/"Average hand count" — matching the requested placement, since a DOM check alone can miss real layout/CSS bugs.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 6 amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
 ## Graph screen: metric control changed from dropdown to checkboxes, default to "Average of both"
 
 **Request:** "can it be 3 checkboxes instead, with average of both being the default"

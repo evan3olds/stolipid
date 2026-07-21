@@ -1970,3 +1970,21 @@ Served with `python -m http.server`, drove with a headless-Chromium Playwright s
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 9 amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+**Request:** "Show a low-res preview of the cell on the side panel right under the cell name"
+
+### Plan
+
+`app.js`: in `wireCells`'s `renderDetail`, build a `preview` string mirroring the Count screen's existing `image_url`-or-fallback pattern (`renderCountHTML`) — a real `<img>` against `cell.image_url` when set, else reuse `renderCellThumbnailSVG(cell)` (already used on the grid cards) so an ungenerated cell still shows a stable placeholder. Insert as `.detail-thumbnail` right after `.detail-name`, before the existing detail rows.
+
+`style.css`: add `.detail-thumbnail`/`.detail-thumb-img`, sized like the grid's `.cell-thumbnail`/`.cell-thumb-svg` (100px tall, rounded, `object-fit: cover` for the real-image case).
+
+### Verification
+
+No `chromium-cli`/Playwright/Node available in this environment. Served with `python -m http.server`; drove headless Chrome for Testing directly over the Chrome DevTools Protocol via Python's `websocket-client` (`Page.navigate` / `Runtime.evaluate` / `Page.captureScreenshot`) since neither of the usual drivers were installed. Logged in with the `local:` test token, drilled Experiments → Conditions → Cells, clicked a cell card, confirmed `.detail-thumbnail` in the DOM, and screenshotted the panel to confirm it renders correctly placed and sized under the cell name.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 6 amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
