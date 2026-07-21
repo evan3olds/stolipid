@@ -1327,3 +1327,27 @@ Served with `python -m http.server` and drove it with a headless-Chromium Playwr
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 9 amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Graph screen: metric control changed from dropdown to checkboxes, default to "Average of both"
+
+**Request:** "can it be 3 checkboxes instead, with average of both being the default"
+
+Follow-up to the metric-selector entry above. Asked the user to clarify whether the checkboxes should allow multiple metrics plotted at once (overlay) or stay single-choice like the dropdown did — they confirmed single-choice, just styled as checkboxes rather than a `<select>`.
+
+### `app.js`
+
+- Sidebar `#graph-metric-select` `<select>` replaced with three `<input type="checkbox" class="graph-metric-input">` elements (one per `GRAPH_METRICS` entry), each wrapped in a `<label class="graph-metric-checkbox">`.
+- `wireGraph`: each checkbox gets a `change` listener enforcing single-choice — checking one sets `graphState.metric` and unchecks the rest; unchecking the currently-active one (the only way to get to zero checked) immediately re-checks it instead, so exactly one is always checked.
+- `graphState.metric`'s default changed from `'auto'` to `'combined'` (both in `initGraph` and the checkbox markup's initial `checked` attribute), matching the new default request.
+
+### `style.css`
+
+Added `.graph-metric-checkboxes` (column flex, `0.5rem` gap) and `.graph-metric-checkbox` (row flex, body font at `0.8125rem`, `--text-body-2`) plus `.graph-metric-checkbox input { accent-color: var(--accent) }` so the native checkbox tint matches the app's accent color instead of the browser default blue.
+
+### Verification
+
+Served with `python -m http.server`, drove with a headless-Chromium Playwright script. Confirmed on load only "Average of both" is checked and the axis label reads "(combined avg)"; clicking "Auto count" checks it, unchecks the other two, and updates the axis label to "(auto count)"; clicking the currently-checked "Auto count" box again (attempting to uncheck it) leaves it checked; clicking "Average hand count" switches cleanly to it with the other two unchecked. Screenshot confirms the sidebar checkbox layout reads correctly. Zero console errors.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 9 amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

@@ -1945,3 +1945,28 @@ Served with `python -m http.server`, drove with a headless-Chromium Playwright s
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 9 amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+**Request:** "can it be 3 checkboxes instead, with average of both being the default"
+
+### Clarification
+
+Asked the user whether the checkboxes should allow multiple metrics plotted simultaneously (overlay) or stay mutually exclusive like the dropdown was. Confirmed: single-choice, just a different control.
+
+### Plan
+
+`app.js`:
+- Replace `#graph-metric-select` with three `<input type="checkbox" class="graph-metric-input">`, one per `GRAPH_METRICS` entry.
+- Wire each checkbox's `change` to enforce single-choice: checking one sets `graphState.metric` and unchecks the others; unchecking the active one (the only way to reach zero-checked) re-checks it immediately.
+- Change `graphState.metric`'s default from `'auto'` to `'combined'` in `initGraph` and in the checkbox markup's initial `checked` attribute.
+
+`style.css`: add `.graph-metric-checkboxes`/`.graph-metric-checkbox` layout rules and set `accent-color: var(--accent)` on the inputs so they pick up the app's accent instead of default browser blue.
+
+### Verification
+
+Served with `python -m http.server`, drove with a headless-Chromium Playwright script. Confirmed default state (only "Average of both" checked, axis label "(combined avg)"), that clicking another checkbox switches cleanly (unchecks the rest, updates axis label), and that clicking the active checkbox to uncheck it snaps back to checked rather than leaving nothing selected. Screenshot confirms the sidebar layout. Zero console errors.
+
+## Final step (per project convention)
+
+`docs/tasks.md` Phase 9 amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

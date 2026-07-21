@@ -1724,6 +1724,27 @@ body {
   color: var(--text-label);
 }
 
+.graph-metric-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.graph-metric-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--text-body-2);
+  cursor: pointer;
+}
+
+.graph-metric-checkbox input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .graph-select {
   font-family: var(--font-body);
   font-size: 0.875rem;

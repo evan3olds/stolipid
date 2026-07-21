@@ -2357,7 +2357,7 @@ async function initGraph() {
     }
   }
 
-  graphState = { conditionsCache: {}, selectedExperimentId: null, selected: [], colorAssignments: {}, metric: 'auto' };
+  graphState = { conditionsCache: {}, selectedExperimentId: null, selected: [], colorAssignments: {}, metric: 'combined' };
   content.innerHTML = renderGraphHTML(experiments);
   wireGraph(experiments);
 }
@@ -2386,12 +2386,15 @@ function renderGraphHTML(experiments) {
         <button class="graph-add-btn" id="graph-add-btn" disabled>Add to graph</button>
         <div class="graph-selected-list" id="graph-selected-list">${renderGraphSelectedListHTML()}</div>
         <div class="graph-field">
-          <label for="graph-metric-select">Metric</label>
-          <select class="graph-select" id="graph-metric-select">
-            ${Object.entries(GRAPH_METRICS).map(([value, { label }]) =>
-              `<option value="${value}"${value === graphState.metric ? ' selected' : ''}>${escHtml(label)}</option>`
-            ).join('')}
-          </select>
+          <label>Metric</label>
+          <div class="graph-metric-checkboxes">
+            ${Object.entries(GRAPH_METRICS).map(([value, { label }]) => `
+              <label class="graph-metric-checkbox">
+                <input type="checkbox" class="graph-metric-input" value="${value}"${value === graphState.metric ? ' checked' : ''} />
+                ${escHtml(label)}
+              </label>
+            `).join('')}
+          </div>
         </div>
       </aside>
       <div class="graph-main">
@@ -2584,11 +2587,21 @@ function wireGraph(experiments) {
   const expSelect = document.getElementById('graph-experiment-select');
   const condSelect = document.getElementById('graph-condition-select');
   const addBtn = document.getElementById('graph-add-btn');
-  const metricSelect = document.getElementById('graph-metric-select');
+  const metricInputs = document.querySelectorAll('.graph-metric-input');
 
-  metricSelect.addEventListener('change', () => {
-    graphState.metric = metricSelect.value;
-    refreshGraphChartArea();
+  // Behave like a single-choice group despite being checkboxes: checking one
+  // unchecks the rest, and unchecking the active one snaps it back on so
+  // exactly one metric is always selected.
+  metricInputs.forEach(input => {
+    input.addEventListener('change', () => {
+      if (input.checked) {
+        graphState.metric = input.value;
+        metricInputs.forEach(other => { if (other !== input) other.checked = false; });
+        refreshGraphChartArea();
+      } else {
+        input.checked = true;
+      }
+    });
   });
 
   async function loadConditionsFor(experimentId) {
