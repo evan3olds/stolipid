@@ -1514,3 +1514,26 @@ Served locally (`python -m http.server`) and drove it with headless Playwright/C
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Top bar: profile icon swapped to DefaultProfile.png, logout moved into a popup on click
+
+**Request:** "Use the @assets/DefaultProfile.png instead of the user icon at the top right, and move the logout to a popup that shows when you click on this profile icon."
+
+### `app.js`
+
+- `topbarHTML()`: the letter-initial `.avatar` div replaced with a `.profile-menu` -> `.profile-btn` (`<img src="assets/DefaultProfile.png">`) that opens a `.profile-dropdown` showing `currentUser()` and a "Log out" item (`#profile-logout`).
+- `sidebarHTML()`: `.sidebar-logout` button removed.
+- `wireShell()`: new toggle-open / outside-click-closes wiring for the profile dropdown, mirroring the existing `wireCardMenus` three-dot-menu pattern; new module-level `profileMenuDocHandler` (alongside the existing `escHandler`) so the outside-click listener is detached and re-attached on every re-render instead of stacking. `#profile-logout` carries the same clear-token-and-navigate-to-login logic the old `#sidebar-logout` had.
+
+### `style.css`
+
+- `.avatar` replaced with `.profile-menu`/`.profile-btn`/`.profile-avatar`/`.profile-dropdown`/`.profile-dropdown-user`/`.profile-dropdown-item`, styled to match the existing `.card-menu-dropdown` popup look (card background, border, shadow, hover tint).
+- `.sidebar-logout`/`:hover` removed (unused).
+
+### Verification
+
+Served locally (`python -m http.server`) and drove it with headless Playwright/Chromium via a `local:` test token: screenshot-confirmed the round default-profile icon renders top right; clicking it opens a dropdown with the account email and "Log out" (fixed a `word-break: break-all` bug that wrapped the email mid-word); confirmed via DOM query that `#sidebar-logout` no longer exists and `#profile-logout` does; screenshot-confirmed the opened hamburger sidebar now shows only nav links; clicking "Log out" cleared the stored token and navigated to the login screen. Zero console errors.
+
+## Final step (per project convention)
+
+No `docs/tasks.md` change — shell/layout tweak to already-shipped chrome, not a new task-list item. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

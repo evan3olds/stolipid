@@ -2113,3 +2113,36 @@ Zero console/page errors across all three checks.
 ## Final step (per project convention)
 
 `docs/tasks.md` Phase 11c amended with this entry. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Plan: Profile icon uses DefaultProfile.png; logout moves into a popup menu
+
+## Context
+
+Request: "Use the @assets/DefaultProfile.png instead of the user icon at the top right, and move the logout to a popup that shows when you click on this profile icon." The top bar previously showed a plain circular initial-letter avatar (`.avatar`, first letter of `currentUser()`); logout lived as its own always-visible button at the bottom of the hamburger sidebar (`.sidebar-logout`).
+
+## What changed
+
+`app.js`:
+- `topbarHTML()`: the `.avatar` initial-letter div replaced with a `.profile-menu` containing a `.profile-btn` (`<img src="assets/DefaultProfile.png">`, `aria-haspopup`/`aria-expanded`) and a `.profile-dropdown` holding the current user's identity (`currentUser()`, escaped) and a "Log out" item (`#profile-logout`). Dropdown starts closed.
+- `sidebarHTML()`: `.sidebar-logout` button removed — logout now lives only in the profile popup.
+- `wireShell()`: new open/close wiring for `#profile-btn`/`#profile-dropdown`, following the same toggle-on-click + outside-click-closes pattern already used for the card-menu three-dot dropdowns (`wireCardMenus`) — click on the button toggles `.open` and `aria-expanded`, a document-level click handler closes it, `e.stopPropagation()` on the button click keeps that same document handler from immediately closing what it just opened. The document handler is tracked in a new module-level `profileMenuDocHandler` (mirroring the existing `escHandler` pattern) so each re-render detaches the previous one instead of stacking listeners. `#profile-logout`'s click handler is the same logic the old `#sidebar-logout` had: clear the `token` from `localStorage`, navigate to `login`.
+
+`style.css`:
+- `.avatar` rule replaced with `.profile-menu` (positioning context), `.profile-btn` (2rem circular image button, no border/background), `.profile-avatar` (the image itself), `.profile-dropdown`/`.open`, `.profile-dropdown-user` (muted mono email line, `white-space: nowrap` so a normal-length email doesn't force a mid-word wrap), `.profile-dropdown-item`/`:hover` — styled to match the existing `.card-menu-dropdown`/`.card-menu-item` popup pattern (same card background, border, shadow, hover tint) for visual consistency with the three-dot menus elsewhere in the app.
+- `.sidebar-logout`/`:hover` removed (unused now).
+
+## Verification
+
+Served the site locally (`python -m http.server`) and drove it with headless Playwright/Chromium via a `local:` test token:
+- Logged-in Experiments screen: top-right shows the round `DefaultProfile.png` icon instead of a letter avatar (screenshot).
+- Clicking it opens a dropdown showing the account email and "Log out" (screenshot); after a `white-space: nowrap` fix a longer email (`test@example.com`) no longer wraps mid-word.
+- `document.getElementById('sidebar-logout')` confirmed `null` and `document.getElementById('profile-logout')` confirmed present.
+- Opening the hamburger sidebar confirms it no longer has a logout button — only the nav links (screenshot).
+- Clicking "Log out" in the profile popup clears `localStorage.token` and navigates to the login screen (confirmed both the cleared token and the rendered login form via screenshot).
+Zero console errors across all checks.
+
+## Final step (per project convention)
+
+No `docs/tasks.md` change — this is a shell/layout tweak to already-shipped chrome (top bar avatar, sidebar), not a new task-list item, matching how the earlier "model selector move" UI tweak was logged. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
