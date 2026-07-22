@@ -366,6 +366,7 @@ function renderResetPassword(accessToken) {
 // ---- Authenticated shell (top bar + sidebar + subheader + content) ----
 
 let escHandler = null; // tracked so we can detach it before each re-render
+let profileMenuDocHandler = null; // ditto, for the profile dropdown's outside-click close
 
 function currentUser() {
   const t = localStorage.getItem('token') || '';
@@ -386,7 +387,6 @@ function renderShell(screen) {
 }
 
 function topbarHTML() {
-  const initial = (currentUser()[0] || 'U').toUpperCase();
   const theme = document.documentElement.dataset.theme === 'sage' ? 'sage' : 'paper';
   return `
     <header class="topbar">
@@ -401,7 +401,15 @@ function topbarHTML() {
         <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Switch theme">
           <span class="theme-toggle-dot"></span>${theme === 'sage' ? 'Sage' : 'Paper'}
         </button>
-        <div class="avatar" title="${currentUser()}">${initial}</div>
+        <div class="profile-menu">
+          <button type="button" class="profile-btn" id="profile-btn" aria-label="Account menu" aria-haspopup="true" aria-expanded="false" title="${escHtml(currentUser())}">
+            <img class="profile-avatar" src="assets/DefaultProfile.png" alt="">
+          </button>
+          <div class="profile-dropdown" id="profile-dropdown">
+            <div class="profile-dropdown-user">${escHtml(currentUser())}</div>
+            <button type="button" class="profile-dropdown-item" id="profile-logout">Log out</button>
+          </div>
+        </div>
       </div>
     </header>
   `;
@@ -454,7 +462,6 @@ function sidebarHTML() {
           `<button class="sidebar-link${l.screen === state.screen ? ' active' : ''}" data-screen="${l.screen}">${l.label}</button>`
         ).join('')}
       </nav>
-      <button class="sidebar-logout" id="sidebar-logout">Log out</button>
     </aside>
   `;
 }
@@ -499,7 +506,29 @@ function wireShell(screen) {
     });
   });
 
-  document.getElementById('sidebar-logout').addEventListener('click', () => {
+  const profileBtn = document.getElementById('profile-btn');
+  const profileDropdown = document.getElementById('profile-dropdown');
+  const closeProfileMenu = () => {
+    profileDropdown.classList.remove('open');
+    profileBtn.setAttribute('aria-expanded', 'false');
+  };
+  profileBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const wasOpen = profileDropdown.classList.contains('open');
+    closeProfileMenu();
+    if (!wasOpen) {
+      profileDropdown.classList.add('open');
+      profileBtn.setAttribute('aria-expanded', 'true');
+    }
+  });
+
+  // Outside-click closes the dropdown. The listener lives on document, so
+  // detach the previous render's handler before attaching this one.
+  if (profileMenuDocHandler) document.removeEventListener('click', profileMenuDocHandler);
+  profileMenuDocHandler = closeProfileMenu;
+  document.addEventListener('click', profileMenuDocHandler);
+
+  document.getElementById('profile-logout').addEventListener('click', () => {
     localStorage.removeItem('token');
     navigate('login');
   });
