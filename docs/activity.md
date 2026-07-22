@@ -1553,3 +1553,23 @@ Served locally, drove with headless Playwright via a `local:` test token (`test@
 ## Final step (per project convention)
 
 No `docs/tasks.md` change. This entry appended to `docs/activity.md`. No `docs/plan.md` entry — one-line display tweak to the just-shipped profile popup, no new design decisions.
+
+## Fix: profile dropdown showed the literal word "user" for real (non-test) logins
+
+**Request:** "It still just shows user on my screen even after using Ctrl Shift R."
+
+### Root cause
+
+`currentUser()` only knew how to read a `local:`-prefixed test-account token; for a real Supabase login the stored token is a raw JWT, so it always fell back to the literal string `'user'`. This predates the profile-popup change (the old avatar just showed "U" for anyone not using the `local:` test path) — it only became visible now that the email renders as text instead of a single initial.
+
+### `app.js`
+
+- `currentUser()`: for any token that isn't `local:`-prefixed, it now base64url-decodes the JWT's payload segment (no signature verification — display only) and reads `email` (falling back to `user_metadata.email`) off the Supabase claims. Falls back to the literal `'user'` only if decoding fails or no email claim is present.
+
+### Verification
+
+Served locally, drove with headless Playwright: (1) a synthetic Supabase-style JWT with `email: "realuser@stolaf.edu"` in its payload -- dropdown now reads "realuser" (decoded local part), tooltip reads the full address (screenshot); (2) a garbage/malformed token -- gracefully falls back to "user" instead of throwing; (3) the existing `local:` test-account path -- unchanged, still reads "test". No new console errors from the decode path itself (the two 401s logged in this run come from the fake token being rejected by the real API, unrelated to the fix).
+
+## Final step (per project convention)
+
+No `docs/tasks.md` change. This entry appended to `docs/activity.md`. No `docs/plan.md` entry — bugfix to already-documented profile-popup logic, no new design decisions.
