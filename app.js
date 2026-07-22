@@ -42,7 +42,7 @@ const HELP_CONTENT = [
   },
   {
     title: 'Cells & Add Photos',
-    body: 'Use "Add photos" to upload .tif microscopy images and draw a box around each cell you want to track. One cell record is created per box, along with an automatic droplet count suggestion (shown as "Auto count") — this is not a hand count and does not factor into the average or ICC.',
+    body: 'Use "Add photos" to upload .tif microscopy images and draw a box around each cell you want to track. The model can be changed by the dropdown menu in the top right corner. One cell record is created per box, along with an automatic droplet count suggestion (shown as "Auto count") — this is not a hand count and does not factor into the average or ICC.',
   },
   {
     title: 'Counting',
@@ -65,7 +65,7 @@ const HELP_CONTENT = [
 // Static About screen content (PRD 5.10). `links` starts empty — populate
 // with citation/protocol/lab documentation entries as they become available.
 const ABOUT_CONTENT = {
-  purpose: 'Cell Archive turns manual lipid droplet hand counts from fluorescence microscopy into reproducible, comparable figures. It replaces scattered spreadsheets and folders of unlabeled images with a structured hierarchy: Experiments → Conditions → Cells → Counts.',
+  purpose: 'Lipid Counter turns manual lipid droplet hand counts from fluorescence microscopy into reproducible, comparable figures. It replaces scattered spreadsheets and folders of unlabeled images with a structured hierarchy: Experiments → Conditions → Cells → Counts.',
   origin: 'Built for biology researchers and students at St. Olaf College quantifying cellular lipid accumulation (BODIPY, Nile Red staining) under different experimental treatments, where the previous process had no link between counts and source images and no way to check inter-rater reliability.',
   status: 'Working prototype. Core workflow (experiments, conditions, cells, hand counting, auto-count suggestions, graphing, and raw data export) is functional; see the Prototype badge in the top bar.',
   links: [],
