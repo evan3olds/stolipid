@@ -1537,3 +1537,19 @@ Served locally (`python -m http.server`) and drove it with headless Playwright/C
 ## Final step (per project convention)
 
 No `docs/tasks.md` change — shell/layout tweak to already-shipped chrome, not a new task-list item. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Follow-up: profile dropdown shows just the email's local part, not the full address
+
+**Request:** "Instead of user can it say the users email without the @ and domain."
+
+### `app.js`
+
+- New `currentUserName()` helper: `currentUser().split('@')[0]`. `.profile-dropdown-user` now renders `currentUserName()` instead of `currentUser()`. The `.profile-btn`'s `title` tooltip still uses the full `currentUser()` email, so the full address is still available on hover.
+
+### Verification
+
+Served locally, drove with headless Playwright via a `local:` test token (`test@example.com`): dropdown text confirmed as `"test"`, `title` attribute confirmed as the full `"test@example.com"` (screenshot). Zero console errors.
+
+## Final step (per project convention)
+
+No `docs/tasks.md` change. This entry appended to `docs/activity.md`. No `docs/plan.md` entry — one-line display tweak to the just-shipped profile popup, no new design decisions.
