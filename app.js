@@ -370,7 +370,17 @@ let profileMenuDocHandler = null; // ditto, for the profile dropdown's outside-c
 
 function currentUser() {
   const t = localStorage.getItem('token') || '';
-  return t.startsWith('local:') ? t.slice(6) : 'user';
+  if (t.startsWith('local:')) return t.slice(6);
+
+  // Real logins store a raw Supabase JWT (header.payload.signature). Decode
+  // the payload (no signature check needed — this is display-only) to pull
+  // out the email claim Supabase puts there.
+  try {
+    const payload = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.email || payload.user_metadata?.email || 'user';
+  } catch (_) {
+    return 'user';
+  }
 }
 
 // Just the local part of the email (before "@"), for display where the full
