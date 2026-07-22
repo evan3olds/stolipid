@@ -373,6 +373,12 @@ function currentUser() {
   return t.startsWith('local:') ? t.slice(6) : 'user';
 }
 
+// Just the local part of the email (before "@"), for display where the full
+// address would be more than needed (e.g. the profile dropdown).
+function currentUserName() {
+  return currentUser().split('@')[0];
+}
+
 function renderShell(screen) {
   const meta = SCREENS[screen] || {};
   app.innerHTML = `
@@ -406,7 +412,7 @@ function topbarHTML() {
             <img class="profile-avatar" src="assets/DefaultProfile.png" alt="">
           </button>
           <div class="profile-dropdown" id="profile-dropdown">
-            <div class="profile-dropdown-user">${escHtml(currentUser())}</div>
+            <div class="profile-dropdown-user">${escHtml(currentUserName())}</div>
             <button type="button" class="profile-dropdown-item" id="profile-logout">Log out</button>
           </div>
         </div>
