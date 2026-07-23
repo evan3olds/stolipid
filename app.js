@@ -1469,7 +1469,7 @@ function renderCellThumbnailSVG(cell) {
   }).join('');
 
   return `
-    <svg class="cell-thumb-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Simulated fluorescence thumbnail">
+    <svg class="cell-thumb-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Simulated fluorescence thumbnail">
       <rect class="cell-thumb-bg" width="${width}" height="${height}" />
       ${droplets}
     </svg>
