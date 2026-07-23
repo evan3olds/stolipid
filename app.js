@@ -1508,9 +1508,8 @@ function renderCellsHTML(cells) {
     : cells.map(cell => {
         const tier = (cell.counts || []).length === 0 ? 'needs' : 'counted';
         return `
-          <div class="folder-card" data-id="${escHtml(String(cell.id))}" role="button" tabindex="0">
+          <div class="folder-card folder-card--compact" data-id="${escHtml(String(cell.id))}" role="button" tabindex="0">
             ${cardMenuHTML(cell.id)}
-            <div class="cell-thumbnail">${renderCellThumbnailSVG(cell)}</div>
             <div class="folder-name">${escHtml(cell.name)}</div>
             <div class="folder-meta">
               <span class="status-tag status-tag-${tier}">${cellCountStatus(cell)}</span>
@@ -1521,8 +1520,8 @@ function renderCellsHTML(cells) {
 
   return `
     <div class="folder-layout">
-      <div class="folder-grid" id="folder-grid">${cards}</div>
-      <aside class="detail-panel" id="detail-panel" aria-label="Cell details"></aside>
+      <div class="folder-grid folder-grid--compact" id="folder-grid">${cards}</div>
+      <aside class="detail-panel detail-panel--large" id="detail-panel" aria-label="Cell details"></aside>
     </div>
   `;
 }
@@ -1701,6 +1700,8 @@ function wireCells(cells) {
   });
 
   wireCellsAction();
+
+  if (cells.length > 0) selectCell(cells[0].id);
 }
 
 async function deleteCell(id) {
