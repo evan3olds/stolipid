@@ -2266,3 +2266,32 @@ Frontend verified via the `local:` test-mode path with headless Playwright/Chrom
 ## Final step (per project convention)
 
 Extended the existing Phase 11c checklist in `docs/tasks.md` with a follow-up bullet. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Follow-up: Raw Data Summary table
+
+**Request:** "In raw data, make a summary table above the raw data table that can also be exported as a csv, which shows the Experiment, condition, average count, average auto count, and average hand count"
+
+## Design
+
+One row per condition (not per cell, and not the long per-count rows the table below it uses), matching the three metrics the Graph screen already plots per condition — reused `conditionMeanForMetric(cond, metric)` directly rather than re-deriving the averaging logic:
+- Average count → `conditionMeanForMetric(cond, 'combined')`
+- Average auto count → `conditionMeanForMetric(cond, 'auto')`
+- Average hand count → `conditionMeanForMetric(cond, 'hand')`
+
+Kept as a second, independent table (own heading, own "Export CSV" button) rather than folding it into the existing filter/sort/export state, since it has a different grain (per-condition vs. per-count) and no need for sorting/filtering at this size.
+
+## What changed
+
+**`app.js`**: `RAWDATA_SUMMARY_COLUMNS` constant; `initRawData` builds `summaryRows` (one per `conditionsByExperiment[i]` entry) alongside the existing long-format `rows`, stored on `rawDataState.summaryRows`. `renderRawDataSummaryRowsHTML`/`renderRawDataSummaryHTML` render it above the raw table inside `renderRawDataHTML`, which now also wraps the raw table's toolbar in a `.rawdata-detail` section with a "Raw data" heading so the two tables read as distinct blocks. `rawDataSummaryToCSV`/`downloadRawDataSummaryCSV` mirror the existing CSV pair, writing numeric fields as `.toFixed(1)` (blank, not `—`, when null) to `raw-data-summary-<date>.csv`. `wireRawData` wires the new `#rawdata-summary-export` button.
+
+**`style.css`**: `.rawdata-summary`, `.rawdata-summary-header`, `.rawdata-section-title`, `.rawdata-summary-wrap` (caps the summary table's scroll area at `16rem` rather than the `flex: 1` the raw table's wrap uses), `.rawdata-detail` (now the flex:1 sibling filling remaining height, since `.rawdata-summary` is fixed/shrink-to-fit above it).
+
+## Verification
+
+Served locally (`python -m http.server`), drove it with headless Playwright via a `local:` test token. Screenshot confirmed the Summary table renders correctly above Raw data — e.g. "0 Hr Starved" shows Average count 3.6 / Average auto count 4.3 / Average hand count 3.3, matching its cells' underlying hand/auto counts, with `—` shown for conditions that have no auto counts yet — and matches the Paper theme. Triggered "Export CSV" via Playwright's download API and read the file back: header row `Experiment,Condition,Average count,Average auto count,Average hand count`, values matching the on-screen table, blank (not `—`) for missing auto counts. Zero console errors.
+
+## Final step (per project convention)
+
+Extended the existing Phase 10 checklist in `docs/tasks.md` with a follow-up bullet. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
