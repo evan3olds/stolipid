@@ -42,11 +42,11 @@ const HELP_CONTENT = [
   },
   {
     title: 'Cells & Add Photos',
-    body: 'Use "Add photos" to upload .tif microscopy images and draw a box around each cell you want to track. The model can be changed by the dropdown menu in the top right corner. One cell record is created per box, along with an automatic droplet count suggestion (shown as "Auto count") — this is not a hand count and does not factor into the average or ICC.',
+    body: 'Use "Add photos" to upload .tif microscopy images and draw a box around each cell you want to track. One cell record is created per box. From a cell’s detail panel, run "Standard" or "FM_edge_overlay (ALDQ)" under Auto count to get an automatic droplet count suggestion — this is not a hand count and does not factor into the average or ICC.',
   },
   {
     title: 'Counting',
-    body: 'Open a cell and click "Count" to record a blind hand count. Click anywhere on the image to place a marker on a droplet, or click a marker to remove it. Use the zoom controls to separate small, closely-clustered droplets. Each cell supports up to three hand counts.',
+    body: 'Open a cell and click "Add Hand Count" to record a blind hand count. Click anywhere on the image to place a marker on a droplet, or click a marker to remove it. Use the zoom controls to separate small, closely-clustered droplets. Each cell supports up to three hand counts.',
   },
   {
     title: 'Graph',
@@ -1080,9 +1080,9 @@ function cellAutoCount(cell) {
   return cell.auto_count != null ? cell.auto_count : null;
 }
 
-// Display labels for cells.auto_algorithm, matching the Add Photos screen's
-// #addphotos-algorithm option text so a cell's detail panel reads the same
-// name the researcher picked at upload time.
+// Display labels for cells.auto_algorithm, matching the Cells screen's
+// auto-count model option text so a cell's detail panel reads the same
+// name the researcher picked when they ran auto-count.
 const AUTO_ALGORITHM_LABELS = {
   otsu_watershed: 'Standard',
   fm_edge_overlay: 'FM_edge_overlay (ALDQ)',
@@ -1519,9 +1519,9 @@ function wireCells(cells) {
         <span class="detail-label">Average hand count</span>
         <span class="detail-average">${avg != null ? avg.toFixed(1) : '—'}</span>
       </div>
-      ${cell.auto_count != null ? `
-        <div class="detail-row">
-          <span class="detail-label">Auto count</span>
+      <div class="detail-row">
+        <span class="detail-label">Auto count</span>
+        ${cell.auto_count != null ? `
           <ul class="count-list">
             <li class="count-list-item">
               <span class="count-value">${cell.auto_count}</span>
@@ -1531,8 +1531,13 @@ function wireCells(cells) {
             </li>
           </ul>
           ${cell.auto_algorithm ? `<span class="detail-submeta">Model: ${escHtml(autoAlgorithmLabel(cell.auto_algorithm))}</span>` : ''}
-        </div>
-      ` : ''}
+        ` : `
+          <div class="auto-count-run">
+            <button class="auto-count-run-btn" data-algorithm="otsu_watershed">Standard</button>
+            <button class="auto-count-run-btn" data-algorithm="fm_edge_overlay">FM_edge_overlay (ALDQ)</button>
+          </div>
+        `}
+      </div>
       <div class="detail-row">
         <span class="detail-label">Hand counts</span>
         ${counts.length === 0
@@ -1547,7 +1552,7 @@ function wireCells(cells) {
               </li>
             `).join('')}</ul>`}
       </div>
-      ${needsMore ? '<button class="count-cta-btn" id="count-cta">Count</button>' : ''}
+      ${needsMore ? '<button class="count-cta-btn" id="count-cta">Add Hand Count</button>' : ''}
       ${(counts.length > 0 || cell.auto_count != null) ? '<button class="count-viewall-btn" id="counts-viewall-btn">View all counts</button>' : ''}
     `;
     panel.classList.add('visible');
@@ -1578,6 +1583,10 @@ function wireCells(cells) {
           editingCount: { id: count.id, points: count.points || [] },
         });
       });
+    });
+
+    panel.querySelectorAll('.auto-count-run-btn').forEach(btn => {
+      btn.addEventListener('click', () => runAutoCount(cell, btn.dataset.algorithm));
     });
 
     const autoViewBtn = document.getElementById('auto-count-view-btn');
@@ -1615,6 +1624,47 @@ function wireCells(cells) {
     const tier = (cell.counts || []).length === 0 ? 'needs' : 'counted';
     tag.className = `status-tag status-tag-${tier}`;
     tag.textContent = cellCountStatus(cell);
+  }
+
+  async function runAutoCount(cell, algorithm) {
+    const container = panel.querySelector('.auto-count-run');
+    if (!container) return;
+    const buttons = container.querySelectorAll('.auto-count-run-btn');
+    const clickedBtn = container.querySelector(`[data-algorithm="${algorithm}"]`);
+    const originalLabel = clickedBtn.textContent;
+    buttons.forEach(b => { b.disabled = true; });
+    clickedBtn.textContent = 'Running…';
+
+    try {
+      let updated;
+      if (localStorage.getItem('token')?.startsWith('local:')) {
+        // No local Python pipeline to call — fabricate a plausible result
+        // the same way the placeholder thumbnail fabricates droplets.
+        const rand = seededRandom(hashStringToInt(String(cell.id) + algorithm));
+        const count = 3 + Math.floor(rand() * 6);
+        updated = {
+          auto_count: count,
+          auto_points: Array.from({ length: count }).map(() => ({
+            x: Math.round(rand() * 90 + 5),
+            y: Math.round(rand() * 90 + 5),
+          })),
+          auto_algorithm: algorithm,
+        };
+      } else {
+        updated = await api(`/cells/${cell.id}/auto-count`, {
+          method: 'PUT',
+          body: JSON.stringify({ algorithm }),
+        });
+      }
+      cell.auto_count = updated.auto_count;
+      cell.auto_points = updated.auto_points;
+      cell.auto_algorithm = updated.auto_algorithm;
+      renderDetail(cell);
+    } catch (err) {
+      console.error('auto-count failed:', err);
+      clickedBtn.textContent = originalLabel;
+      buttons.forEach(b => { b.disabled = false; });
+    }
   }
 
   async function deleteCount(cell, countId) {
@@ -1798,7 +1848,7 @@ function renderPhotoPreviewSVG(name) {
 let addPhotosState = null;
 
 function renderAddPhotos() {
-  addPhotosState = { files: [], activeFileId: null, algorithm: 'otsu_watershed' };
+  addPhotosState = { files: [], activeFileId: null };
   refreshAddPhotos();
 }
 
@@ -1819,13 +1869,6 @@ function renderAddPhotosHTML() {
           <div class="addphotos-instructions">Click anywhere on the image to box a cell.</div>
         </div>
         <div class="addphotos-topbar-right">
-          <div class="addphotos-algorithm-field">
-            <label class="addphotos-algorithm-label" for="addphotos-algorithm">Auto-count model: </label>
-            <select class="addphotos-algorithm-select" id="addphotos-algorithm">
-              <option value="otsu_watershed" ${addPhotosState.algorithm === 'otsu_watershed' ? 'selected' : ''}>Standard</option>
-              <option value="fm_edge_overlay" ${addPhotosState.algorithm === 'fm_edge_overlay' ? 'selected' : ''}>FM_edge_overlay (ALDQ)</option>
-            </select>
-          </div>
           <div class="addphotos-topbar-actions">
             <button class="modal-cancel" id="addphotos-cancel">Cancel</button>
             <button class="primary-action" id="addphotos-create" ${totalBoxes === 0 ? 'disabled' : ''}>Create ${totalBoxes} cell${totalBoxes !== 1 ? 's' : ''}</button>
@@ -2071,7 +2114,6 @@ async function confirmAddPhotos() {
       const formData = new FormData();
       formData.append('file', file.rawFile);
       formData.append('boxes', JSON.stringify(file.boxes.map(({ x, y, w, h }) => ({ x, y, width: w, height: h }))));
-      formData.append('algorithm', addPhotosState.algorithm);
       await apiUpload(`/conditions/${state.condition.id}/cells/from-tif`, formData);
     }
     navigate('cells');
@@ -2099,11 +2141,6 @@ function wireAddPhotos() {
 
   document.getElementById('addphotos-cancel').addEventListener('click', () => {
     navigate('cells');
-  });
-
-  const algorithmSelect = document.getElementById('addphotos-algorithm');
-  algorithmSelect.addEventListener('change', () => {
-    addPhotosState.algorithm = algorithmSelect.value;
   });
 
   const createBtn = document.getElementById('addphotos-create');
