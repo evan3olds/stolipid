@@ -116,8 +116,8 @@ Biology researchers at St. Olaf routinely count lipid droplets in fluorescence m
 - "No data" empty state when nothing is selected
 
 ### 5.8 Raw Data
-- Full table of all cells across all experiments and conditions
-- Columns: Experiment, Condition, Cell, Count 1, Count 2, Count 3, Average
+- Long-format table: one row per count across all experiments and conditions, not one row per cell
+- Columns: Experiment, Condition, Cell, Count type, Value, Average, Source file — `Count type` reads "Count 1"/"Count 2"/"Count 3" for hand counts, the algorithm's display name for a machine count, or "No counts yet" when a cell has no hand counts
 - Average rendered in accent color
 
 ### 5.9 Help
@@ -196,11 +196,13 @@ conditions
   id uuid PK, experiment_id uuid FK, name text, starvation text, notes text
 
 cells
-  id uuid PK, condition_id uuid FK, name text, image_url text, auto_counts jsonb, source_filename text
+  id uuid PK, condition_id uuid FK, name text, image_url text, source_filename text
 
 counts
-  id uuid PK, cell_id uuid FK, value integer, points jsonb, counted_by uuid FK, created_at timestamptz
+  id uuid PK, cell_id uuid FK, value integer, points jsonb, counted_by uuid FK, created_at timestamptz, type text
 ```
+
+`counts.type` is `'hand'` for a manual count or a detection-algorithm slug (`otsu_watershed`/`fm_edge_overlay`) for a machine-generated one — see CLAUDE.md for the full breakdown. `cell.average`/`condition.icc` only consider `type = 'hand'` rows.
 
 **Supabase Storage:**
 - Bucket: `cell-images` — stores processed PNG exports of each cell crop

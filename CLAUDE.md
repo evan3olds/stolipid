@@ -30,16 +30,15 @@ Four tables with this hierarchy:
 ```
 experiments (id, name, date, dye, notes, created_by)
   └── conditions (id, experiment_id, name, starvation, notes, icc)
-        └── cells (id, condition_id, name, image_url, auto_counts, source_filename)
-              └── counts (id, cell_id, value, counted_by, created_at)
+        └── cells (id, condition_id, name, image_url, source_filename)
+              └── counts (id, cell_id, value, points, counted_by, created_at, type)
 ```
-- `cell.average` and `condition.mean` are computed in JS at query time, not stored
-- `condition.icc` is written by the Python pipeline and stored as a column
-- `cells.auto_counts` is a `jsonb` map of machine-suggested droplet counts, keyed by detection algorithm — not a hand count, not included in `cell.average`/`condition.icc`. Cell creation (Add Photos) never touches it: uploading just converts the `.tif` box to a saved PNG. Auto-count is opt-in per cell afterward, triggered from the Cells screen detail panel's "Auto count" section, which lets the researcher run either or both of two algorithms (`api/detection.py`'s `detect_droplets(plane, algorithm=...)`, called via `PUT /cells/{id}/auto-count`) against that already-saved image — running the second doesn't erase the first, so a cell can hold up to two results (one per algorithm) at once:
-  - `otsu_watershed` ("Standard" in the UI): rolling-ball background subtraction → dark-background Otsu threshold → binary fill-holes → distance-transform watershed
-  - `fm_edge_overlay` ("FM_edge_overlay (ALDQ)" in the UI): a fixed-parameter port of the lab's `assets/ALDQ.ijm-*.txt` ImageJ macro's "FM_edge_overlay" LD-determination steps — iterative highpass-sharpening → (edge/threshold/watershed particle mask filtered by size+circularity) ∩ (Find-Maxima local peaks on a further-blurred copy); a maximum only counts if it lands on an accepted particle, matching the macro's own stated intent
-  - Each algorithm's entry is `{"count": N, "points": [{x, y}, ...]}` — `points` is the same percent-of-crop `{x, y}` grid convention as before (the watershed seeds / accepted local maxima behind that entry's `count`), written alongside it by the same `PUT /cells/{id}/auto-count` call, which always re-runs that algorithm's own independent preprocessing pipeline from the stored image rather than reusing anything from the other algorithm's entry
-- `counts.points` is the `jsonb` grid of `{x, y}` percent-of-image marker positions placed on the Count screen for that hand count — lets a saved count be reopened and edited (via `PUT /counts/{id}`) instead of only deleted and recounted from scratch
+- `cell.average` and `condition.mean` are computed in JS at query time from `counts` rows where `type = 'hand'`, not stored
+- `condition.icc` is written by the Python pipeline and stored as a column, also computed only over `type = 'hand'` rows
+- `counts.type` is `'hand'` for a manual count, or the detection algorithm slug for a machine-generated one — a cell has at most one machine-generated `counts` row, written by the Python pipeline at cell-creation time (`counted_by` is the uploading researcher). Computed by one of two selectable algorithms (`api/detection.py`'s `detect_droplets(plane, algorithm=...)`), chosen per upload from the Add Photos screen (default `otsu_watershed`):
+  - `otsu_watershed` (default): rolling-ball background subtraction → dark-background Otsu threshold → binary fill-holes → distance-transform watershed
+  - `fm_edge_overlay`: a fixed-parameter port of the lab's `assets/ALDQ.ijm-*.txt` ImageJ macro's "FM_edge_overlay" LD-determination steps — iterative highpass-sharpening → (edge/threshold/watershed particle mask filtered by size+circularity) ∩ (Find-Maxima local peaks on a further-blurred copy); a maximum only counts if it lands on an accepted particle, matching the macro's own stated intent
+- `counts.points` is the `jsonb` grid of `{x, y}` percent-of-image coordinates for that count — for a hand count, the markers placed on the Count screen (lets a saved count be reopened and edited via `PUT /counts/{id}` instead of only deleted and recounted from scratch); for a machine-generated count, the watershed seeds / accepted local maxima behind its `value`
 - `cells.source_filename` is the original uploaded `.tif` filename, written by the Python pipeline at cell-creation time (one source file can produce multiple cells, one per annotated box)
 - Dye is set once at the experiment level, not per-condition — the Conditions screen detail panel displays the parent experiment's dye for reference
 - Row-Level Security: researchers only read/write their own experiment data

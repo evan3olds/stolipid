@@ -143,8 +143,8 @@ def _detect_droplets_otsu_watershed(plane: np.ndarray) -> tuple[int, list[tuple[
     Returns (count, points): count is the number of regions passing the
     area filter, and points is the (row, col) pixel coordinate of each
     surviving region's watershed seed — the same local maxima ImageJ's
-    watershed uses as markers — one per counted droplet, for storing
-    alongside cells.auto_count as an editable/inspectable grid."""
+    watershed uses as markers — one per counted droplet, for storing as an
+    editable/inspectable grid alongside the auto-count's counts row."""
     if plane.size == 0:
         return 0, []
 
@@ -259,7 +259,7 @@ def _detect_droplets_fm_edge_overlay(plane: np.ndarray) -> tuple[int, list[tuple
 
     Returns (count, points): count is the number of maxima that survived,
     and points is their (row, col) pixel coordinates — the "grid" of where
-    each lipid droplet was counted, for cells.auto_points."""
+    each lipid droplet was counted, stored on the auto-count's counts row."""
     if plane.size == 0:
         return 0, []
 

@@ -507,7 +507,15 @@ def cells_from_tif(
             })
             .execute()
         )
-        created_cells.append(response.data[0])
+        cell = response.data[0]
+        supabase.table("counts").insert({
+            "cell_id": cell["id"],
+            "value": auto_count,
+            "points": auto_points,
+            "type": algorithm,
+            "counted_by": user.id,
+        }).execute()
+        created_cells.append(cell)
         next_number += 1
 
     return created_cells
@@ -521,10 +529,13 @@ def cells_from_tif(
 # still-in-progress cell shouldn't count against a condition's reliability.
 
 def compute_icc(cells: list) -> Optional[float]:
-    """Pure function: cells is [{"id", "counts": [{"value", "created_at"}, ...]}, ...]."""
+    """Pure function: cells is [{"id", "counts": [{"value", "created_at", "type"}, ...]}, ...].
+    counts may include a non-hand (auto) row alongside the up-to-3 hand
+    counts, so hand counts are filtered out before the exactly-3 gate."""
     rows = []
     for cell in cells:
-        counts = sorted(cell.get("counts") or [], key=lambda c: c["created_at"])
+        counts = [c for c in (cell.get("counts") or []) if c.get("type") == "hand"]
+        counts = sorted(counts, key=lambda c: c["created_at"])
         if len(counts) != 3:
             continue
         for rater, count in enumerate(counts, start=1):
@@ -547,7 +558,7 @@ def compute_icc(cells: list) -> Optional[float]:
 def recompute_condition_icc(condition_id: str) -> None:
     response = (
         supabase.table("cells")
-        .select("id, counts(value, created_at)")
+        .select("id, counts(value, created_at, type)")
         .eq("condition_id", condition_id)
         .execute()
     )
@@ -584,6 +595,7 @@ def create_count(cell_id: str, body: CountBody, user=Depends(get_current_user)):
             "value": body.value,
             "points": [p.dict() for p in body.points] if body.points is not None else None,
             "counted_by": user.id,
+            "type": "hand",
         })
         .execute()
     )

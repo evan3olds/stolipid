@@ -592,21 +592,19 @@ const TEST_CONDITIONS = {
       notes: 'Baseline, fed condition.',
       icc: 0.88,
       cells: [
-        { id: 'test-cell-001', name: 'Cell 1', counts: [], auto_counts: {
-          otsu_watershed: { count: 3, points: [{ x: 22, y: 30 }, { x: 58, y: 45 }, { x: 71, y: 68 }] },
-          fm_edge_overlay: { count: 4, points: [{ x: 20, y: 28 }, { x: 40, y: 44 }, { x: 60, y: 46 }, { x: 72, y: 66 }] },
-        }, source_filename: 'Image_43391.tif' },
-        { id: 'test-cell-002', name: 'Cell 2', counts: [{ id: 'test-cnt-002-1', value: 4 }] },
+        { id: 'test-cell-001', name: 'Cell 1', counts: [
+          { id: 'test-cnt-001-auto', value: 3, type: 'otsu_watershed', points: [{ x: 22, y: 30 }, { x: 58, y: 45 }, { x: 71, y: 68 }] },
+        ], source_filename: 'Image_43391.tif' },
+        { id: 'test-cell-002', name: 'Cell 2', counts: [{ id: 'test-cnt-002-1', value: 4, type: 'hand' }] },
         { id: 'test-cell-003', name: 'Cell 3', counts: [
-          { id: 'test-cnt-003-1', value: 3, points: [{ x: 16, y: 22 }, { x: 34, y: 51 }, { x: 69, y: 61 }] },
-          { id: 'test-cnt-003-2', value: 2, points: [{ x: 20, y: 25 }, { x: 53, y: 29 }] },
-        ], auto_counts: {
-          fm_edge_overlay: { count: 5, points: [{ x: 15, y: 20 }, { x: 33, y: 50 }, { x: 52, y: 28 }, { x: 68, y: 60 }, { x: 82, y: 40 }] },
-        }, source_filename: 'Image_43391.tif' },
+          { id: 'test-cnt-003-1', value: 3, type: 'hand', points: [{ x: 16, y: 22 }, { x: 34, y: 51 }, { x: 69, y: 61 }] },
+          { id: 'test-cnt-003-2', value: 2, type: 'hand', points: [{ x: 20, y: 25 }, { x: 53, y: 29 }] },
+          { id: 'test-cnt-003-auto', value: 5, type: 'fm_edge_overlay', points: [{ x: 15, y: 20 }, { x: 33, y: 50 }, { x: 52, y: 28 }, { x: 68, y: 60 }, { x: 82, y: 40 }] },
+        ], source_filename: 'Image_43391.tif' },
         { id: 'test-cell-011', name: 'Cell 4', counts: [
-          { id: 'test-cnt-011-1', value: 3, points: [{ x: 25, y: 30 }, { x: 50, y: 45 }, { x: 70, y: 65 }] },
-          { id: 'test-cnt-011-2', value: 4, points: [{ x: 27, y: 33 }, { x: 48, y: 42 }, { x: 65, y: 60 }, { x: 80, y: 35 }] },
-          { id: 'test-cnt-011-3', value: 3, points: [{ x: 30, y: 28 }, { x: 52, y: 48 }, { x: 72, y: 62 }] },
+          { id: 'test-cnt-011-1', value: 3, type: 'hand', points: [{ x: 25, y: 30 }, { x: 50, y: 45 }, { x: 70, y: 65 }] },
+          { id: 'test-cnt-011-2', value: 4, type: 'hand', points: [{ x: 27, y: 33 }, { x: 48, y: 42 }, { x: 65, y: 60 }, { x: 80, y: 35 }] },
+          { id: 'test-cnt-011-3', value: 3, type: 'hand', points: [{ x: 30, y: 28 }, { x: 52, y: 48 }, { x: 72, y: 62 }] },
         ] },
       ],
     },
@@ -617,10 +615,10 @@ const TEST_CONDITIONS = {
       notes: '',
       icc: 0.93,
       cells: [
-        { id: 'test-cell-004', name: 'Cell 1', counts: [{ id: 'test-cnt-004-1', value: 6 }, { id: 'test-cnt-004-2', value: 6 }, { id: 'test-cnt-004-3', value: 7 }] },
-        { id: 'test-cell-005', name: 'Cell 2', counts: [{ id: 'test-cnt-005-1', value: 7 }, { id: 'test-cnt-005-2', value: 8 }, { id: 'test-cnt-005-3', value: 7 }] },
-        { id: 'test-cell-006', name: 'Cell 3', counts: [{ id: 'test-cnt-006-1', value: 6 }, { id: 'test-cnt-006-2', value: 6 }, { id: 'test-cnt-006-3', value: 6 }] },
-        { id: 'test-cell-007', name: 'Cell 4', counts: [{ id: 'test-cnt-007-1', value: 7 }, { id: 'test-cnt-007-2', value: 7 }, { id: 'test-cnt-007-3', value: 7 }] },
+        { id: 'test-cell-004', name: 'Cell 1', counts: [{ id: 'test-cnt-004-1', value: 6, type: 'hand' }, { id: 'test-cnt-004-2', value: 6, type: 'hand' }, { id: 'test-cnt-004-3', value: 7, type: 'hand' }] },
+        { id: 'test-cell-005', name: 'Cell 2', counts: [{ id: 'test-cnt-005-1', value: 7, type: 'hand' }, { id: 'test-cnt-005-2', value: 8, type: 'hand' }, { id: 'test-cnt-005-3', value: 7, type: 'hand' }] },
+        { id: 'test-cell-006', name: 'Cell 3', counts: [{ id: 'test-cnt-006-1', value: 6, type: 'hand' }, { id: 'test-cnt-006-2', value: 6, type: 'hand' }, { id: 'test-cnt-006-3', value: 6, type: 'hand' }] },
+        { id: 'test-cell-007', name: 'Cell 4', counts: [{ id: 'test-cnt-007-1', value: 7, type: 'hand' }, { id: 'test-cnt-007-2', value: 7, type: 'hand' }, { id: 'test-cnt-007-3', value: 7, type: 'hand' }] },
       ],
     },
     {
@@ -630,9 +628,9 @@ const TEST_CONDITIONS = {
       notes: 'High variance between raters on Cell 2.',
       icc: 0.61,
       cells: [
-        { id: 'test-cell-008', name: 'Cell 1', counts: [{ id: 'test-cnt-008-1', value: 9 }, { id: 'test-cnt-008-2', value: 9 }, { id: 'test-cnt-008-3', value: 10 }] },
-        { id: 'test-cell-009', name: 'Cell 2', counts: [{ id: 'test-cnt-009-1', value: 8 }, { id: 'test-cnt-009-2', value: 14 }, { id: 'test-cnt-009-3', value: 15 }] },
-        { id: 'test-cell-010', name: 'Cell 3', counts: [{ id: 'test-cnt-010-1', value: 7 }, { id: 'test-cnt-010-2', value: 8 }] },
+        { id: 'test-cell-008', name: 'Cell 1', counts: [{ id: 'test-cnt-008-1', value: 9, type: 'hand' }, { id: 'test-cnt-008-2', value: 9, type: 'hand' }, { id: 'test-cnt-008-3', value: 10, type: 'hand' }] },
+        { id: 'test-cell-009', name: 'Cell 2', counts: [{ id: 'test-cnt-009-1', value: 8, type: 'hand' }, { id: 'test-cnt-009-2', value: 14, type: 'hand' }, { id: 'test-cnt-009-3', value: 15, type: 'hand' }] },
+        { id: 'test-cell-010', name: 'Cell 3', counts: [{ id: 'test-cnt-010-1', value: 7, type: 'hand' }, { id: 'test-cnt-010-2', value: 8, type: 'hand' }] },
       ],
     },
   ],
@@ -644,8 +642,8 @@ const TEST_CONDITIONS = {
       notes: '',
       icc: 0.79,
       cells: [
-        { id: 'test-cell-012', name: 'Cell 1', counts: [{ id: 'test-cnt-012-1', value: 5 }, { id: 'test-cnt-012-2', value: 4 }] },
-        { id: 'test-cell-013', name: 'Cell 2', counts: [{ id: 'test-cnt-013-1', value: 6 }, { id: 'test-cnt-013-2', value: 5 }, { id: 'test-cnt-013-3', value: 6 }] },
+        { id: 'test-cell-012', name: 'Cell 1', counts: [{ id: 'test-cnt-012-1', value: 5, type: 'hand' }, { id: 'test-cnt-012-2', value: 4, type: 'hand' }] },
+        { id: 'test-cell-013', name: 'Cell 2', counts: [{ id: 'test-cnt-013-1', value: 6, type: 'hand' }, { id: 'test-cnt-013-2', value: 5, type: 'hand' }, { id: 'test-cnt-013-3', value: 6, type: 'hand' }] },
       ],
     },
     {
@@ -655,8 +653,8 @@ const TEST_CONDITIONS = {
       notes: 'Robust droplet accumulation observed across all cells.',
       icc: 0.95,
       cells: [
-        { id: 'test-cell-014', name: 'Cell 1', counts: [{ id: 'test-cnt-014-1', value: 18 }, { id: 'test-cnt-014-2', value: 17 }, { id: 'test-cnt-014-3', value: 19 }] },
-        { id: 'test-cell-015', name: 'Cell 2', counts: [{ id: 'test-cnt-015-1', value: 21 }, { id: 'test-cnt-015-2', value: 20 }] },
+        { id: 'test-cell-014', name: 'Cell 1', counts: [{ id: 'test-cnt-014-1', value: 18, type: 'hand' }, { id: 'test-cnt-014-2', value: 17, type: 'hand' }, { id: 'test-cnt-014-3', value: 19, type: 'hand' }] },
+        { id: 'test-cell-015', name: 'Cell 2', counts: [{ id: 'test-cnt-015-1', value: 21, type: 'hand' }, { id: 'test-cnt-015-2', value: 20, type: 'hand' }] },
       ],
     },
   ],
@@ -1071,28 +1069,35 @@ function iccQualityLabel(icc) {
   return { label: 'Excellent', tier: 'excellent' };
 }
 
+// counts.type is 'hand' for a manual count, or the detection algorithm slug
+// ('otsu_watershed'/'fm_edge_overlay') for a machine-generated one — a cell
+// has at most one auto row, written once at cell-creation time.
+function handCounts(cell) {
+  return (cell.counts || []).filter(c => c.type === 'hand');
+}
+
+function autoCountRow(cell) {
+  return (cell.counts || []).find(c => c.type && c.type !== 'hand') || null;
+}
+
 // cell.average is derived from hand counts, never stored (per data model)
 function cellAverage(cell) {
-  const counts = cell.counts || [];
+  const counts = handCounts(cell);
   if (!counts.length) return null;
   return counts.reduce((sum, c) => sum + c.value, 0) / counts.length;
 }
 
-// A cell can carry up to one auto-count per algorithm (cell.auto_counts is
-// keyed by algorithm id, e.g. { otsu_watershed: { count, points }, ... }).
 // Graph screen defaults to plotting the machine-suggested auto count per
-// cell (averaged across whichever algorithms have been run) but lets the
-// user switch to hand-count or combined via the metric selector — see
-// cellValueForMetric/conditionMeanForMetric below.
+// cell but lets the user switch to hand-count or combined via the metric
+// selector — see cellValueForMetric/conditionMeanForMetric below.
 function cellAutoCount(cell) {
-  const results = Object.values(cell.auto_counts || {});
-  if (!results.length) return null;
-  return results.reduce((sum, r) => sum + r.count, 0) / results.length;
+  const row = autoCountRow(cell);
+  return row ? row.value : null;
 }
 
-// Display labels for cells.auto_counts keys, matching the Cells screen's
-// auto-count run-button text so a cell's detail panel reads the same name
-// the researcher picked when they ran auto-count.
+// Display labels for an auto count's counts.type, matching the Add Photos
+// screen's #addphotos-algorithm option text so a cell's detail panel reads
+// the same name the researcher picked at upload time.
 const AUTO_ALGORITHM_LABELS = {
   otsu_watershed: 'Standard',
   fm_edge_overlay: 'FM_edge_overlay (ALDQ)',
@@ -1511,7 +1516,8 @@ function wireCells(cells) {
 
   function renderDetail(cell) {
     const avg = cellAverage(cell);
-    const counts = cell.counts || [];
+    const counts = handCounts(cell);
+    const autoRow = autoCountRow(cell);
     const needsMore = counts.length < 3;
 
     const preview = cell.image_url
@@ -1531,31 +1537,20 @@ function wireCells(cells) {
         <span class="detail-label">Average hand count</span>
         <span class="detail-average">${avg != null ? avg.toFixed(1) : '—'}</span>
       </div>
-      <div class="detail-row">
-        <span class="detail-label">Auto count</span>
-        ${AUTO_ALGORITHMS.filter(algo => (cell.auto_counts || {})[algo]).map(algo => {
-          const result = cell.auto_counts[algo];
-          return `
-            <ul class="count-list">
-              <li class="count-list-item">
-                <span class="count-value">${result.count}</span>
-                <span class="count-actions">
-                  <button class="count-edit-btn auto-count-view-btn" data-algorithm="${algo}" aria-label="View ${escHtml(autoAlgorithmLabel(algo))} auto count grid">View</button>
-                </span>
-              </li>
-            </ul>
-            <span class="detail-submeta">Model: ${escHtml(autoAlgorithmLabel(algo))}</span>
-          `;
-        }).join('')}
-        ${(() => {
-          const pending = AUTO_ALGORITHMS.filter(algo => !(cell.auto_counts || {})[algo]);
-          return pending.length ? `
-            <div class="auto-count-run">
-              ${pending.map(algo => `<button class="auto-count-run-btn" data-algorithm="${algo}">${escHtml(autoAlgorithmLabel(algo))}</button>`).join('')}
-            </div>
-          ` : '';
-        })()}
-      </div>
+      ${autoRow ? `
+        <div class="detail-row">
+          <span class="detail-label">Auto count</span>
+          <ul class="count-list">
+            <li class="count-list-item">
+              <span class="count-value">${autoRow.value}</span>
+              <span class="count-actions">
+                <button class="count-edit-btn" id="auto-count-view-btn" aria-label="View auto count grid">View</button>
+              </span>
+            </li>
+          </ul>
+          <span class="detail-submeta">Model: ${escHtml(autoAlgorithmLabel(autoRow.type))}</span>
+        </div>
+      ` : ''}
       <div class="detail-row">
         <span class="detail-label">Hand counts</span>
         ${counts.length === 0
@@ -1570,8 +1565,8 @@ function wireCells(cells) {
               </li>
             `).join('')}</ul>`}
       </div>
-      ${needsMore ? '<button class="count-cta-btn" id="count-cta">Add Hand Count</button>' : ''}
-      ${(counts.length > 0 || Object.keys(cell.auto_counts || {}).length > 0) ? '<button class="count-viewall-btn" id="counts-viewall-btn">View all counts</button>' : ''}
+      ${needsMore ? '<button class="count-cta-btn" id="count-cta">Count</button>' : ''}
+      ${(counts.length > 0 || autoRow != null) ? '<button class="count-viewall-btn" id="counts-viewall-btn">View all counts</button>' : ''}
     `;
     panel.classList.add('visible');
 
@@ -1612,7 +1607,7 @@ function wireCells(cells) {
       btn.addEventListener('click', () => {
         navigate('count', {
           cell: { id: cell.id, name: cell.name, image_url: cell.image_url },
-          viewingAutoPoints: (cell.auto_counts?.[algo]?.points) || [],
+          viewingAutoPoints: (autoRow && autoRow.points) || [],
         });
       });
     });
@@ -1622,12 +1617,7 @@ function wireCells(cells) {
       viewAllBtn.addEventListener('click', () => {
         navigate('count', {
           cell: { id: cell.id, name: cell.name, image_url: cell.image_url },
-          viewingAllCounts: {
-            counts,
-            autoResults: AUTO_ALGORITHMS
-              .filter(algo => (cell.auto_counts || {})[algo])
-              .map(algo => ({ algorithm: algo, points: cell.auto_counts[algo].points || [] })),
-          },
+          viewingAllCounts: { counts, autoPoints: (autoRow && autoRow.points) || null },
         });
       });
     }
@@ -2400,7 +2390,7 @@ async function finishCount() {
         cell.counts = (cell.counts || []).map(c =>
           String(c.id) === String(editingId) ? { ...c, value, points } : c);
       } else {
-        cell.counts = [...(cell.counts || []), { id: genLocalId('cnt'), value, points }];
+        cell.counts = [...(cell.counts || []), { id: genLocalId('cnt'), value, points, type: 'hand' }];
       }
     }
     navigate('cells');
@@ -2705,7 +2695,7 @@ function renderGraphScatterSVG(selected, metric) {
       const jitter = (j % 2 === 0 ? 1 : -1) * (Math.floor(j / 2) + 1) * 5;
       const x = cx + jitter;
       const y = yFor(avg);
-      const countsStr = (cell.counts || []).map(c => c.value).join(', ') || '—';
+      const countsStr = handCounts(cell).map(c => c.value).join(', ') || '—';
       const autoStr = cellAutoCount(cell) != null ? cellAutoCount(cell).toFixed(1) : '—';
       return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" class="graph-dot" style="fill:${color}"
         data-experiment="${escHtml(s.experimentName)}" data-condition="${escHtml(s.conditionName)}"
@@ -2853,10 +2843,15 @@ function wireGraph(experiments) {
 }
 
 // ---- Raw Data screen ----
-// Flat, sortable/filterable table of every cell across every experiment and
-// condition. Read-only — reuses the same endpoints Graph (Phase 9) already
-// assumes (GET /experiments, GET /experiments/{id}/conditions), just fans
-// out across *all* experiments instead of user-selected ones.
+// Long-format table: one row per count (not one row per cell), tagged with
+// its type — "Count 1"/"Count 2"/"Count 3" for hand counts, or the auto
+// count's algorithm label if the cell has one. Cells only ever have as many
+// hand counts as have actually been taken (0-3), so pivoting wide into
+// fixed Count-1/2/3 columns left most rows partly blank; a row per recorded
+// count means a row only exists when there's real data.
+// Read-only — reuses the same endpoints Graph (Phase 9) already assumes
+// (GET /experiments, GET /experiments/{id}/conditions), just fans out
+// across *all* experiments instead of user-selected ones.
 
 let rawDataState = null; // { rows, sortKey, sortDir, filterText }
 
@@ -2864,12 +2859,9 @@ const RAWDATA_COLUMNS = [
   { key: 'experimentName', label: 'Experiment' },
   { key: 'conditionName', label: 'Condition' },
   { key: 'cellName', label: 'Cell' },
-  { key: 'count1', label: 'Count 1' },
-  { key: 'count2', label: 'Count 2' },
-  { key: 'count3', label: 'Count 3' },
+  { key: 'countType', label: 'Count type' },
+  { key: 'value', label: 'Value' },
   { key: 'average', label: 'Average' },
-  { key: 'autoStandard', label: 'Auto count (Standard)' },
-  { key: 'autoAldq', label: 'Auto count (ALDQ)' },
   { key: 'sourceFilename', label: 'Source file' },
 ];
 
@@ -2910,16 +2902,25 @@ async function initRawData() {
   experiments.forEach((exp, i) => {
     (conditionsByExperiment[i] || []).forEach(cond => {
       (cond.cells || []).forEach(cell => {
-        rows.push({
+        const base = {
           experimentName: exp.name,
           conditionName: cond.name,
           cellName: cell.name,
-          counts: cell.counts || [],
           average: cellAverage(cell),
-          autoStandard: cell.auto_counts?.otsu_watershed?.count ?? null,
-          autoAldq: cell.auto_counts?.fm_edge_overlay?.count ?? null,
           sourceFilename: cell.source_filename || null,
-        });
+        };
+        const counts = handCounts(cell);
+        if (counts.length === 0) {
+          rows.push({ ...base, countType: 'No counts yet', value: null });
+        } else {
+          counts.forEach((count, idx) => {
+            rows.push({ ...base, countType: `Count ${idx + 1}`, value: count.value });
+          });
+        }
+        const autoRow = autoCountRow(cell);
+        if (autoRow) {
+          rows.push({ ...base, countType: autoAlgorithmLabel(autoRow.type), value: autoRow.value });
+        }
       });
     });
   });
@@ -2929,21 +2930,14 @@ async function initRawData() {
   wireRawData();
 }
 
-function rawDataCountAt(row, idx) {
-  return row.counts[idx] ? row.counts[idx].value : null;
-}
-
 function rawDataSortValue(row, key) {
   switch (key) {
     case 'experimentName': return row.experimentName;
     case 'conditionName': return row.conditionName;
     case 'cellName': return row.cellName;
-    case 'count1': return rawDataCountAt(row, 0);
-    case 'count2': return rawDataCountAt(row, 1);
-    case 'count3': return rawDataCountAt(row, 2);
+    case 'countType': return row.countType;
+    case 'value': return row.value;
     case 'average': return row.average;
-    case 'autoStandard': return row.autoStandard;
-    case 'autoAldq': return row.autoAldq;
     case 'sourceFilename': return row.sourceFilename;
     default: return null;
   }
@@ -3026,12 +3020,9 @@ function renderRawDataRowsHTML() {
       <td>${escHtml(row.experimentName)}</td>
       <td>${escHtml(row.conditionName)}</td>
       <td>${escHtml(row.cellName)}</td>
-      <td>${rawDataCountAt(row, 0) ?? '—'}</td>
-      <td>${rawDataCountAt(row, 1) ?? '—'}</td>
-      <td>${rawDataCountAt(row, 2) ?? '—'}</td>
+      <td>${escHtml(row.countType)}</td>
+      <td>${row.value != null ? row.value : '—'}</td>
       <td>${row.average != null ? `<span class="rawdata-average">${row.average.toFixed(1)}</span>` : '—'}</td>
-      <td>${row.autoStandard != null ? row.autoStandard : '—'}</td>
-      <td>${row.autoAldq != null ? row.autoAldq : '—'}</td>
       <td>${row.sourceFilename ? escHtml(row.sourceFilename) : '—'}</td>
     </tr>
   `).join('');
