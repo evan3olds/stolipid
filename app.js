@@ -592,12 +592,17 @@ const TEST_CONDITIONS = {
       notes: 'Baseline, fed condition.',
       icc: 0.88,
       cells: [
-        { id: 'test-cell-001', name: 'Cell 1', counts: [], auto_count: 3, auto_points: [{ x: 22, y: 30 }, { x: 58, y: 45 }, { x: 71, y: 68 }], auto_algorithm: 'otsu_watershed', source_filename: 'Image_43391.tif' },
+        { id: 'test-cell-001', name: 'Cell 1', counts: [], auto_counts: {
+          otsu_watershed: { count: 3, points: [{ x: 22, y: 30 }, { x: 58, y: 45 }, { x: 71, y: 68 }] },
+          fm_edge_overlay: { count: 4, points: [{ x: 20, y: 28 }, { x: 40, y: 44 }, { x: 60, y: 46 }, { x: 72, y: 66 }] },
+        }, source_filename: 'Image_43391.tif' },
         { id: 'test-cell-002', name: 'Cell 2', counts: [{ id: 'test-cnt-002-1', value: 4 }] },
         { id: 'test-cell-003', name: 'Cell 3', counts: [
           { id: 'test-cnt-003-1', value: 3, points: [{ x: 16, y: 22 }, { x: 34, y: 51 }, { x: 69, y: 61 }] },
           { id: 'test-cnt-003-2', value: 2, points: [{ x: 20, y: 25 }, { x: 53, y: 29 }] },
-        ], auto_count: 5, auto_points: [{ x: 15, y: 20 }, { x: 33, y: 50 }, { x: 52, y: 28 }, { x: 68, y: 60 }, { x: 82, y: 40 }], auto_algorithm: 'fm_edge_overlay', source_filename: 'Image_43391.tif' },
+        ], auto_counts: {
+          fm_edge_overlay: { count: 5, points: [{ x: 15, y: 20 }, { x: 33, y: 50 }, { x: 52, y: 28 }, { x: 68, y: 60 }, { x: 82, y: 40 }] },
+        }, source_filename: 'Image_43391.tif' },
         { id: 'test-cell-011', name: 'Cell 4', counts: [
           { id: 'test-cnt-011-1', value: 3, points: [{ x: 25, y: 30 }, { x: 50, y: 45 }, { x: 70, y: 65 }] },
           { id: 'test-cnt-011-2', value: 4, points: [{ x: 27, y: 33 }, { x: 48, y: 42 }, { x: 65, y: 60 }, { x: 80, y: 35 }] },
@@ -1073,20 +1078,27 @@ function cellAverage(cell) {
   return counts.reduce((sum, c) => sum + c.value, 0) / counts.length;
 }
 
-// Graph screen defaults to plotting the machine-suggested auto_count per
-// cell but lets the user switch to hand-count or combined via the metric
-// selector — see cellValueForMetric/conditionMeanForMetric below.
+// A cell can carry up to one auto-count per algorithm (cell.auto_counts is
+// keyed by algorithm id, e.g. { otsu_watershed: { count, points }, ... }).
+// Graph screen defaults to plotting the machine-suggested auto count per
+// cell (averaged across whichever algorithms have been run) but lets the
+// user switch to hand-count or combined via the metric selector — see
+// cellValueForMetric/conditionMeanForMetric below.
 function cellAutoCount(cell) {
-  return cell.auto_count != null ? cell.auto_count : null;
+  const results = Object.values(cell.auto_counts || {});
+  if (!results.length) return null;
+  return results.reduce((sum, r) => sum + r.count, 0) / results.length;
 }
 
-// Display labels for cells.auto_algorithm, matching the Cells screen's
-// auto-count model option text so a cell's detail panel reads the same
-// name the researcher picked when they ran auto-count.
+// Display labels for cells.auto_counts keys, matching the Cells screen's
+// auto-count run-button text so a cell's detail panel reads the same name
+// the researcher picked when they ran auto-count.
 const AUTO_ALGORITHM_LABELS = {
   otsu_watershed: 'Standard',
   fm_edge_overlay: 'FM_edge_overlay (ALDQ)',
 };
+
+const AUTO_ALGORITHMS = Object.keys(AUTO_ALGORITHM_LABELS);
 
 function autoAlgorithmLabel(algorithm) {
   return AUTO_ALGORITHM_LABELS[algorithm] || algorithm;
@@ -1521,22 +1533,28 @@ function wireCells(cells) {
       </div>
       <div class="detail-row">
         <span class="detail-label">Auto count</span>
-        ${cell.auto_count != null ? `
-          <ul class="count-list">
-            <li class="count-list-item">
-              <span class="count-value">${cell.auto_count}</span>
-              <span class="count-actions">
-                <button class="count-edit-btn" id="auto-count-view-btn" aria-label="View auto count grid">View</button>
-              </span>
-            </li>
-          </ul>
-          ${cell.auto_algorithm ? `<span class="detail-submeta">Model: ${escHtml(autoAlgorithmLabel(cell.auto_algorithm))}</span>` : ''}
-        ` : `
-          <div class="auto-count-run">
-            <button class="auto-count-run-btn" data-algorithm="otsu_watershed">Standard</button>
-            <button class="auto-count-run-btn" data-algorithm="fm_edge_overlay">FM_edge_overlay (ALDQ)</button>
-          </div>
-        `}
+        ${AUTO_ALGORITHMS.filter(algo => (cell.auto_counts || {})[algo]).map(algo => {
+          const result = cell.auto_counts[algo];
+          return `
+            <ul class="count-list">
+              <li class="count-list-item">
+                <span class="count-value">${result.count}</span>
+                <span class="count-actions">
+                  <button class="count-edit-btn auto-count-view-btn" data-algorithm="${algo}" aria-label="View ${escHtml(autoAlgorithmLabel(algo))} auto count grid">View</button>
+                </span>
+              </li>
+            </ul>
+            <span class="detail-submeta">Model: ${escHtml(autoAlgorithmLabel(algo))}</span>
+          `;
+        }).join('')}
+        ${(() => {
+          const pending = AUTO_ALGORITHMS.filter(algo => !(cell.auto_counts || {})[algo]);
+          return pending.length ? `
+            <div class="auto-count-run">
+              ${pending.map(algo => `<button class="auto-count-run-btn" data-algorithm="${algo}">${escHtml(autoAlgorithmLabel(algo))}</button>`).join('')}
+            </div>
+          ` : '';
+        })()}
       </div>
       <div class="detail-row">
         <span class="detail-label">Hand counts</span>
@@ -1553,7 +1571,7 @@ function wireCells(cells) {
             `).join('')}</ul>`}
       </div>
       ${needsMore ? '<button class="count-cta-btn" id="count-cta">Add Hand Count</button>' : ''}
-      ${(counts.length > 0 || cell.auto_count != null) ? '<button class="count-viewall-btn" id="counts-viewall-btn">View all counts</button>' : ''}
+      ${(counts.length > 0 || Object.keys(cell.auto_counts || {}).length > 0) ? '<button class="count-viewall-btn" id="counts-viewall-btn">View all counts</button>' : ''}
     `;
     panel.classList.add('visible');
 
@@ -1589,22 +1607,27 @@ function wireCells(cells) {
       btn.addEventListener('click', () => runAutoCount(cell, btn.dataset.algorithm));
     });
 
-    const autoViewBtn = document.getElementById('auto-count-view-btn');
-    if (autoViewBtn) {
-      autoViewBtn.addEventListener('click', () => {
+    panel.querySelectorAll('.auto-count-view-btn').forEach(btn => {
+      const algo = btn.dataset.algorithm;
+      btn.addEventListener('click', () => {
         navigate('count', {
           cell: { id: cell.id, name: cell.name, image_url: cell.image_url },
-          viewingAutoPoints: cell.auto_points || [],
+          viewingAutoPoints: (cell.auto_counts?.[algo]?.points) || [],
         });
       });
-    }
+    });
 
     const viewAllBtn = document.getElementById('counts-viewall-btn');
     if (viewAllBtn) {
       viewAllBtn.addEventListener('click', () => {
         navigate('count', {
           cell: { id: cell.id, name: cell.name, image_url: cell.image_url },
-          viewingAllCounts: { counts, autoPoints: cell.auto_points || null },
+          viewingAllCounts: {
+            counts,
+            autoResults: AUTO_ALGORITHMS
+              .filter(algo => (cell.auto_counts || {})[algo])
+              .map(algo => ({ algorithm: algo, points: cell.auto_counts[algo].points || [] })),
+          },
         });
       });
     }
@@ -1636,29 +1659,26 @@ function wireCells(cells) {
     clickedBtn.textContent = 'Running…';
 
     try {
-      let updated;
       if (localStorage.getItem('token')?.startsWith('local:')) {
         // No local Python pipeline to call — fabricate a plausible result
         // the same way the placeholder thumbnail fabricates droplets.
         const rand = seededRandom(hashStringToInt(String(cell.id) + algorithm));
         const count = 3 + Math.floor(rand() * 6);
-        updated = {
-          auto_count: count,
-          auto_points: Array.from({ length: count }).map(() => ({
-            x: Math.round(rand() * 90 + 5),
-            y: Math.round(rand() * 90 + 5),
-          })),
-          auto_algorithm: algorithm,
-        };
+        const points = Array.from({ length: count }).map(() => ({
+          x: Math.round(rand() * 90 + 5),
+          y: Math.round(rand() * 90 + 5),
+        }));
+        // Merge into whichever algorithm results the cell already has —
+        // running the other model must not clobber this one, so a cell can
+        // carry up to one result per entry in AUTO_ALGORITHMS at once.
+        cell.auto_counts = { ...(cell.auto_counts || {}), [algorithm]: { count, points } };
       } else {
-        updated = await api(`/cells/${cell.id}/auto-count`, {
+        const updated = await api(`/cells/${cell.id}/auto-count`, {
           method: 'PUT',
           body: JSON.stringify({ algorithm }),
         });
+        cell.auto_counts = updated.auto_counts;
       }
-      cell.auto_count = updated.auto_count;
-      cell.auto_points = updated.auto_points;
-      cell.auto_algorithm = updated.auto_algorithm;
       renderDetail(cell);
     } catch (err) {
       console.error('auto-count failed:', err);
@@ -2200,9 +2220,14 @@ const COUNT_ZOOM_MAX = 3;
 const COUNT_ZOOM_STEP = 0.5;
 
 // Fixed hue order for overlaying every hand count on one image (up to the
-// 3-count-per-cell limit — see CLAUDE.md). Kept off blue, which is reserved
-// for the auto-count group (`count-marker-group-auto`) in the same overlay.
+// 3-count-per-cell limit — see CLAUDE.md). Kept off blue/violet, reserved
+// for the auto-count groups (AUTO_GROUP_COLOR_CLASSES) in the same overlay.
 const COUNT_GROUP_COLOR_CLASSES = ['count-marker-group-1', 'count-marker-group-2', 'count-marker-group-3'];
+
+// One color per possible cells.auto_counts entry (see AUTO_ALGORITHMS), so
+// both a Standard and an FM_edge_overlay (ALDQ) auto-count grid can be told
+// apart when "View all counts" overlays them together.
+const AUTO_GROUP_COLOR_CLASSES = ['count-marker-group-auto', 'count-marker-group-auto-2'];
 
 function renderCount() {
   const editing = state.editingCount;
@@ -2230,12 +2255,12 @@ function renderCount() {
             value: (c.points && c.points.length) || c.value || 0,
             markers: (c.points || []).map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y })),
           })),
-          ...(viewingAll.autoPoints ? [{
-            label: 'Auto count',
-            colorClass: 'count-marker-group-auto',
-            value: viewingAll.autoPoints.length,
-            markers: viewingAll.autoPoints.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y })),
-          }] : []),
+          ...(viewingAll.autoResults || []).map((r, i) => ({
+            label: `Auto count — ${autoAlgorithmLabel(r.algorithm)}`,
+            colorClass: AUTO_GROUP_COLOR_CLASSES[i % AUTO_GROUP_COLOR_CLASSES.length],
+            value: r.points.length,
+            markers: r.points.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y })),
+          })),
         ]
       : null,
     zoom: COUNT_ZOOM_MIN,
@@ -2464,8 +2489,10 @@ function wireCount() {
 
 let graphState = null; // { conditionsCache, selectedExperimentId, selected, colorAssignments, metric }
 
-// Metric shown on the y-axis: 'auto' (machine-suggested auto_count, default),
-// 'hand' (average of hand counts), or 'combined' (average of the two).
+// Metric shown on the y-axis: 'auto' (machine-suggested auto count, default
+// — averaged across whichever of a cell's auto_counts algorithms have been
+// run, see cellAutoCount), 'hand' (average of hand counts), or 'combined'
+// (average of the two).
 const GRAPH_METRICS = {
   auto: { label: 'Auto count', axisLabel: 'Lipid droplets / cell (auto count)' },
   hand: { label: 'Average hand count', axisLabel: 'Lipid droplets / cell (hand count avg)' },
@@ -2841,7 +2868,8 @@ const RAWDATA_COLUMNS = [
   { key: 'count2', label: 'Count 2' },
   { key: 'count3', label: 'Count 3' },
   { key: 'average', label: 'Average' },
-  { key: 'autoCount', label: 'Auto count' },
+  { key: 'autoStandard', label: 'Auto count (Standard)' },
+  { key: 'autoAldq', label: 'Auto count (ALDQ)' },
   { key: 'sourceFilename', label: 'Source file' },
 ];
 
@@ -2888,7 +2916,8 @@ async function initRawData() {
           cellName: cell.name,
           counts: cell.counts || [],
           average: cellAverage(cell),
-          autoCount: cell.auto_count != null ? cell.auto_count : null,
+          autoStandard: cell.auto_counts?.otsu_watershed?.count ?? null,
+          autoAldq: cell.auto_counts?.fm_edge_overlay?.count ?? null,
           sourceFilename: cell.source_filename || null,
         });
       });
@@ -2913,7 +2942,8 @@ function rawDataSortValue(row, key) {
     case 'count2': return rawDataCountAt(row, 1);
     case 'count3': return rawDataCountAt(row, 2);
     case 'average': return row.average;
-    case 'autoCount': return row.autoCount;
+    case 'autoStandard': return row.autoStandard;
+    case 'autoAldq': return row.autoAldq;
     case 'sourceFilename': return row.sourceFilename;
     default: return null;
   }
@@ -3000,7 +3030,8 @@ function renderRawDataRowsHTML() {
       <td>${rawDataCountAt(row, 1) ?? '—'}</td>
       <td>${rawDataCountAt(row, 2) ?? '—'}</td>
       <td>${row.average != null ? `<span class="rawdata-average">${row.average.toFixed(1)}</span>` : '—'}</td>
-      <td>${row.autoCount != null ? row.autoCount : '—'}</td>
+      <td>${row.autoStandard != null ? row.autoStandard : '—'}</td>
+      <td>${row.autoAldq != null ? row.autoAldq : '—'}</td>
       <td>${row.sourceFilename ? escHtml(row.sourceFilename) : '—'}</td>
     </tr>
   `).join('');

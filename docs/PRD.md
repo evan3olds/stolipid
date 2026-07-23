@@ -81,7 +81,7 @@ Biology researchers at St. Olaf routinely count lipid droplets in fluorescence m
 - Grid of cell cards showing name and count status tag (e.g., "2 counts", "needs count")
 - Select a cell to view its details in the right panel:
   - "Average hand count" displayed prominently
-  - "Auto count" section: if the cell has no auto-count yet, shows a "Standard" and an "FM_edge_overlay (ALDQ)" button — picking one runs that detection algorithm against the cell's saved image and stores the result. Once computed, shows the count, a "View" button (opens the marker grid on the Count screen), and which model produced it — unchanged once present.
+  - "Auto count" section: shows a "Standard" and/or "FM_edge_overlay (ALDQ)" button for whichever algorithm(s) haven't been run yet on this cell — picking one runs that detection algorithm against the cell's saved image and stores the result without disturbing the other algorithm's result if it already exists. Each computed result shows its count, a "View" button (opens that algorithm's marker grid on the Count screen), and which model produced it. A cell can carry both a Standard and an ALDQ auto count at once.
   - List of individual hand counts with delete (×) button per entry
   - "Add Hand Count" CTA button if the cell needs more counts
 - "Add photos" button navigates to the Add Photos screen
@@ -196,7 +196,7 @@ conditions
   id uuid PK, experiment_id uuid FK, name text, starvation text, notes text
 
 cells
-  id uuid PK, condition_id uuid FK, name text, image_url text, auto_count integer, auto_points jsonb, source_filename text
+  id uuid PK, condition_id uuid FK, name text, image_url text, auto_counts jsonb, source_filename text
 
 counts
   id uuid PK, cell_id uuid FK, value integer, points jsonb, counted_by uuid FK, created_at timestamptz
