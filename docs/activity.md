@@ -1589,3 +1589,20 @@ No test harness or runnable Supabase credentials in this environment, so verifie
 ## Final step (per project convention)
 
 No `docs/tasks.md` change — the `from-tif` endpoint task item is already checked off. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Follow-up: cell name uses only the numeric part of the source filename (e.g. `Cell43389_1`), not the full filename
+
+**Request:** "It should say Cell43389 (or whatever number is in the tif like Image_43389.tif) and then the _1."
+
+### `api/main.py`
+
+- Added `import re`.
+- `cells_from_tif`: `number_match = re.search(r"\d+", file_basename)` pulls the first run of digits out of the source filename (e.g. `43389` from `Image_43389.tif`); `file_number` falls back to the full basename if the filename has no digits. `"name"` changed from `f"{file_basename}_{next_number}"` to `f"Cell{file_number}_{next_number}"`, e.g. `Cell43389_1`, `Cell43389_2`.
+
+### Verification
+
+Same constraint as above (no test harness/credentials) — verified by code reading: traced the regex against `Image_43389.tif` to confirm it extracts `43389`, and confirmed the f-string produces `Cell43389_1`, `Cell43389_2`, ... per box.
+
+## Final step (per project convention)
+
+No `docs/tasks.md` change. This entry appended to `docs/activity.md`. Plan updated in `docs/plan.md`.

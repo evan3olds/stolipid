@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import uuid
 from typing import Optional
 
@@ -414,6 +415,8 @@ def cells_from_tif(
         raise HTTPException(status_code=400, detail=str(e))
 
     file_basename = os.path.splitext(file.filename)[0]
+    number_match = re.search(r"\d+", file_basename)
+    file_number = number_match.group() if number_match else file_basename
 
     count_response = (
         supabase.table("cells")
@@ -451,7 +454,7 @@ def cells_from_tif(
             supabase.table("cells")
             .insert({
                 "condition_id": condition_id,
-                "name": f"{file_basename}_{next_number}",
+                "name": f"Cell{file_number}_{next_number}",
                 "image_url": url,
                 "auto_count": auto_count,
                 "auto_points": auto_points,
