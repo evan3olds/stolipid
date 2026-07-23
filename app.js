@@ -1431,6 +1431,27 @@ function openEditConditionModal(cond, onSuccess) {
 
 // ---- Cells screen ----
 
+// Extracts every digit run from a cell name (e.g. "Cell12_3" -> [12, 3], the
+// from-tif file number and next_number) and compares them left-to-right, so
+// cells sort by those embedded numbers instead of lexicographically
+// ("Cell10" would otherwise sort before "Cell2").
+function cellNameSortKey(name) {
+  return (String(name || '').match(/\d+/g) || []).map(Number);
+}
+
+function compareCellNames(a, b) {
+  const ak = cellNameSortKey(a);
+  const bk = cellNameSortKey(b);
+  const len = Math.max(ak.length, bk.length);
+  for (let i = 0; i < len; i++) {
+    if (ak[i] === bk[i]) continue;
+    if (ak[i] === undefined) return -1;
+    if (bk[i] === undefined) return 1;
+    return ak[i] - bk[i];
+  }
+  return 0;
+}
+
 function cellCountStatus(cell) {
   const n = (cell.counts || []).length;
   return n === 0 ? 'needs count' : `${n} count${n !== 1 ? 's' : ''}`;
@@ -1497,6 +1518,8 @@ async function initCells() {
       return;
     }
   }
+
+  cells = cells.slice().sort((a, b) => compareCellNames(a.name, b.name));
 
   content.innerHTML = renderCellsHTML(cells);
   wireCells(cells);
@@ -2083,7 +2106,10 @@ async function confirmAddPhotos() {
     const conditions = TEST_CONDITIONS[state.experiment?.id] || [];
     const cond = conditions.find(c => String(c.id) === String(state.condition?.id));
     if (cond) {
-      let nextNumber = cond.cells.length + 1;
+      let nextNumber = cond.cells.reduce((max, c) => {
+        const nums = cellNameSortKey(c.name);
+        return nums.length ? Math.max(max, nums[nums.length - 1]) : max;
+      }, 0) + 1;
       addPhotosState.files.forEach(file => {
         file.boxes.forEach(() => {
           cond.cells.push({ id: genLocalId('cell'), name: `Cell ${nextNumber}`, counts: [] });

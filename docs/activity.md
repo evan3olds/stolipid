@@ -1606,3 +1606,21 @@ Same constraint as above (no test harness/credentials) — verified by code read
 ## Final step (per project convention)
 
 No `docs/tasks.md` change. This entry appended to `docs/activity.md`. Plan updated in `docs/plan.md`.
+
+## Fix: cells on the Cells screen weren't sorted, and could sort wrong once sorted
+
+**Request:** "Are the cells on the cell screen sorted numerically" → "sort by the numbers that are used for the cell name and the next_number"
+
+### `app.js`
+
+- Added `cellNameSortKey(name)` (extracts all digit runs from a cell name, e.g. `"Cell12_3"` → `[12, 3]`) and `compareCellNames(a, b)` (compares two names' digit-run arrays element-by-element for a natural numeric sort).
+- `initCells`: sorts the loaded `cells` array with `compareCellNames(a.name, b.name)` before rendering, so cards display in numeric order by the file number and next_number embedded in the name, instead of raw API/fixture order.
+- `confirmAddPhotos` (local test mode): `nextNumber` now derives from the max trailing digit run across existing cell names instead of `cond.cells.length + 1`, so it doesn't collide with an existing name after a cell has been deleted.
+
+### Verification
+
+No test harness or runnable Supabase credentials in this environment, so verified by code reading: traced the comparator against sample names (`Cell43389_1`, `Cell43389_2`, `Cell5_1`, `Cell 1`, `Cell 2`, `Cell 10`) to confirm numeric rather than lexicographic ordering.
+
+## Final step (per project convention)
+
+No `docs/tasks.md` change — the Cells screen list-rendering task item is already checked off. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
