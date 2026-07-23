@@ -2890,6 +2890,17 @@ const RAWDATA_COLUMNS = [
   { key: 'sourceFilename', label: 'Source file' },
 ];
 
+// One row per condition — the same three metrics the Graph screen plots
+// (see cellValueForMetric/conditionMeanForMetric), summarized here as a
+// quick per-condition overview above the long-format table below.
+const RAWDATA_SUMMARY_COLUMNS = [
+  { key: 'experimentName', label: 'Experiment' },
+  { key: 'conditionName', label: 'Condition' },
+  { key: 'averageCount', label: 'Average count' },
+  { key: 'averageAutoCount', label: 'Average auto count' },
+  { key: 'averageHandCount', label: 'Average hand count' },
+];
+
 async function initRawData() {
   const content = document.querySelector('.content');
   content.innerHTML = '<div class="loading-state">Loading raw data…</div>';
@@ -2949,7 +2960,20 @@ async function initRawData() {
     });
   });
 
-  rawDataState = { rows, sortKey: null, sortDir: 'asc', filterText: '' };
+  const summaryRows = [];
+  experiments.forEach((exp, i) => {
+    (conditionsByExperiment[i] || []).forEach(cond => {
+      summaryRows.push({
+        experimentName: exp.name,
+        conditionName: cond.name,
+        averageCount: conditionMeanForMetric(cond, 'combined'),
+        averageAutoCount: conditionMeanForMetric(cond, 'auto'),
+        averageHandCount: conditionMeanForMetric(cond, 'hand'),
+      });
+    });
+  });
+
+  rawDataState = { rows, summaryRows, sortKey: null, sortDir: 'asc', filterText: '' };
   content.innerHTML = renderRawDataHTML();
   wireRawData();
 }
@@ -2994,22 +3018,62 @@ function visibleRawDataRows() {
   });
 }
 
+function renderRawDataSummaryRowsHTML() {
+  const { summaryRows } = rawDataState;
+  if (summaryRows.length === 0) {
+    return `<tr><td class="rawdata-empty" colspan="${RAWDATA_SUMMARY_COLUMNS.length}">No conditions recorded yet.</td></tr>`;
+  }
+
+  return summaryRows.map(row => `
+    <tr>
+      <td>${escHtml(row.experimentName)}</td>
+      <td>${escHtml(row.conditionName)}</td>
+      <td>${row.averageCount != null ? row.averageCount.toFixed(1) : '—'}</td>
+      <td>${row.averageAutoCount != null ? row.averageAutoCount.toFixed(1) : '—'}</td>
+      <td>${row.averageHandCount != null ? row.averageHandCount.toFixed(1) : '—'}</td>
+    </tr>
+  `).join('');
+}
+
+function renderRawDataSummaryHTML() {
+  return `
+    <div class="rawdata-summary">
+      <div class="rawdata-summary-header">
+        <h3 class="rawdata-section-title">Summary</h3>
+        <button type="button" class="rawdata-export-btn" id="rawdata-summary-export">Export CSV</button>
+      </div>
+      <div class="rawdata-table-wrap rawdata-summary-wrap">
+        <table class="rawdata-table">
+          <thead>
+            <tr>${RAWDATA_SUMMARY_COLUMNS.map(col => `<th>${escHtml(col.label)}</th>`).join('')}</tr>
+          </thead>
+          <tbody>${renderRawDataSummaryRowsHTML()}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 function renderRawDataHTML() {
   return `
     <div class="rawdata-screen">
-      <div class="rawdata-toolbar">
-        <input type="text" class="rawdata-filter" id="rawdata-filter"
-               placeholder="Filter by experiment, condition, or cell…"
-               value="${escHtml(rawDataState.filterText)}">
-        <button type="button" class="rawdata-export-btn" id="rawdata-export">Export CSV</button>
-      </div>
-      <div class="rawdata-table-wrap">
-        <table class="rawdata-table">
-          <thead>
-            <tr>${RAWDATA_COLUMNS.map(renderRawDataHeaderCellHTML).join('')}</tr>
-          </thead>
-          <tbody id="rawdata-tbody">${renderRawDataRowsHTML()}</tbody>
-        </table>
+      ${renderRawDataSummaryHTML()}
+      <div class="rawdata-detail">
+        <h3 class="rawdata-section-title">Raw data</h3>
+        <div class="rawdata-toolbar">
+          <input type="text" class="rawdata-filter" id="rawdata-filter"
+                 placeholder="Filter by experiment, condition, or cell…"
+                 value="${escHtml(rawDataState.filterText)}">
+          <button type="button" class="rawdata-export-btn" id="rawdata-export">Export CSV</button>
+        </div>
+        <div class="rawdata-table-wrap">
+          <table class="rawdata-table">
+            <thead>
+              <tr>${RAWDATA_COLUMNS.map(renderRawDataHeaderCellHTML).join('')}</tr>
+            </thead>
+            <tbody id="rawdata-tbody">${renderRawDataRowsHTML()}</tbody>
+          </table>
+        </div>
       </div>
     </div>
   `;
@@ -3087,6 +3151,30 @@ function downloadRawDataCSV() {
   URL.revokeObjectURL(url);
 }
 
+function rawDataSummaryToCSV(rows) {
+  const lines = [RAWDATA_SUMMARY_COLUMNS.map(col => csvField(col.label)).join(',')];
+  rows.forEach(row => {
+    lines.push(RAWDATA_SUMMARY_COLUMNS.map(col => {
+      const v = row[col.key];
+      return csvField(typeof v === 'number' ? v.toFixed(1) : v);
+    }).join(','));
+  });
+  return lines.join('\r\n');
+}
+
+function downloadRawDataSummaryCSV() {
+  const csv = rawDataSummaryToCSV(rawDataState.summaryRows);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `raw-data-summary-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function wireRawData() {
   document.getElementById('rawdata-filter').addEventListener('input', (e) => {
     rawDataState.filterText = e.target.value;
@@ -3094,6 +3182,7 @@ function wireRawData() {
   });
 
   document.getElementById('rawdata-export').addEventListener('click', downloadRawDataCSV);
+  document.getElementById('rawdata-summary-export').addEventListener('click', downloadRawDataSummaryCSV);
 
   function toggleSort(key) {
     if (rawDataState.sortKey === key) {

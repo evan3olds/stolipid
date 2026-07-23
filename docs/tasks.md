@@ -107,6 +107,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Sortable columns (click header to toggle ascending/descending; missing values always sort last)
 - [x] Filter input (live substring match across Experiment/Condition/Cell name)
 - [x] Follow-up: table re-pivoted from wide (one row per cell, fixed Count 1/2/3 columns) to long (one row per hand count) — per-cell Count 1/2/3 columns were mostly blank for any cell with fewer than 3 hand counts. New `Count type` column labels each row (`Count 1`/`Count 2`/`Count 3`, or `No counts yet` for a cell with none) in place of the removed Count 1/2/3 columns; a single `Value` column replaces them. `Average`/`Auto count`/`Source file` stay cell-level and repeat across a cell's count rows. See `docs/plan.md` for the full plan and verification.
+- [x] Follow-up: added a per-condition Summary table above the long-format raw table — columns Experiment, Condition, Average count (combined hand+auto), Average auto count, Average hand count, each reusing the Graph screen's `conditionMeanForMetric`. Has its own "Export CSV" button, independent of the raw table's filter/sort/export. See `docs/plan.md` for the full plan and verification.
 
 ---
 
