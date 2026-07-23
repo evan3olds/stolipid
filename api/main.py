@@ -376,12 +376,12 @@ class AutoCountBody(BaseModel):
 # The Add Photos screen no longer picks an algorithm or runs detection at
 # upload time (see cells_from_tif) — a cell is created with just its saved
 # image. Auto-count is opt-in per cell, triggered from the Cells screen's
-# detail panel, and runs against that already-stored image rather than the
-# discarded original .tif. A cell can hold one result per algorithm at once
-# (cells.auto_counts is a jsonb map keyed by algorithm, e.g.
-# {"otsu_watershed": {"count": 8, "points": [...]}, "fm_edge_overlay": {...}})
-# so running the second algorithm doesn't overwrite the first — this
-# endpoint always reads-merges-writes rather than replacing the column.
+# Auto count section, and runs against that already-stored image rather
+# than the discarded original .tif. The result is written as a `counts` row
+# with `type` set to the algorithm slug (same table as hand counts, which
+# always have `type = 'hand'` — see create_count below and CLAUDE.md). A
+# cell can hold one such row per algorithm (so up to two auto rows total);
+# running an algorithm again replaces only that algorithm's row.
 @app.put("/cells/{cell_id}/auto-count")
 def compute_auto_count(cell_id: str, body: AutoCountBody, user=Depends(get_current_user)):
     cell = owned_cell(cell_id, user.id)
@@ -411,13 +411,18 @@ def compute_auto_count(cell_id: str, body: AutoCountBody, user=Depends(get_curre
         for row, col in coords
     ]
 
-    auto_counts = dict(cell.get("auto_counts") or {})
-    auto_counts[body.algorithm] = {"count": count, "points": points}
-
+    # Delete-then-insert (rather than upsert) keeps this idempotent per
+    # algorithm without needing a unique constraint on (cell_id, type).
+    supabase.table("counts").delete().eq("cell_id", cell_id).eq("type", body.algorithm).execute()
     response = (
-        supabase.table("cells")
-        .update({"auto_counts": auto_counts})
-        .eq("id", cell_id)
+        supabase.table("counts")
+        .insert({
+            "cell_id": cell_id,
+            "value": count,
+            "points": points,
+            "type": body.algorithm,
+            "counted_by": user.id,
+        })
         .execute()
     )
     return response.data[0]
@@ -484,15 +489,11 @@ def cells_from_tif(
     created_cells = []
     for box in box_list:
         raw_crop = crop_array_percent(plane, box.x, box.y, box.width, box.height)
-        # No auto-count here anymore — the raw .tif isn't kept, so the
-        # auto-count step run later from the Cells screen (PUT
-        # /cells/{id}/auto-count) re-downloads this stored, already
-        # background-subtracted + CLAHE-enhanced PNG and runs detect_droplets
-        # on that. That's a different input than the plain normalized crop
-        # detect_droplets historically ran on, so results may differ
-        # slightly from the old at-upload-time numbers — acceptable given
-        # detection isn't calibrated against real microscopy data yet either
-        # way (see api/detection.py's docstrings).
+        # No auto-count here anymore — Add Photos only converts each box's
+        # crop to a saved PNG and creates the cell row. Auto-count is opt-in
+        # per cell afterward, triggered from the Cells screen's Auto count
+        # section (see PUT /cells/{id}/auto-count below), which writes its
+        # result as a counts row rather than at upload time.
         normalized_crop = normalize_to_uint16(raw_crop)
         hand_count_crop = render_hand_count_image(normalized_crop)
         url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", encode_png_16(hand_count_crop))
@@ -507,15 +508,7 @@ def cells_from_tif(
             })
             .execute()
         )
-        cell = response.data[0]
-        supabase.table("counts").insert({
-            "cell_id": cell["id"],
-            "value": auto_count,
-            "points": auto_points,
-            "type": algorithm,
-            "counted_by": user.id,
-        }).execute()
-        created_cells.append(cell)
+        created_cells.append(response.data[0])
         next_number += 1
 
     return created_cells
