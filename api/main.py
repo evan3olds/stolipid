@@ -377,7 +377,11 @@ class AutoCountBody(BaseModel):
 # upload time (see cells_from_tif) — a cell is created with just its saved
 # image. Auto-count is opt-in per cell, triggered from the Cells screen's
 # detail panel, and runs against that already-stored image rather than the
-# discarded original .tif.
+# discarded original .tif. A cell can hold one result per algorithm at once
+# (cells.auto_counts is a jsonb map keyed by algorithm, e.g.
+# {"otsu_watershed": {"count": 8, "points": [...]}, "fm_edge_overlay": {...}})
+# so running the second algorithm doesn't overwrite the first — this
+# endpoint always reads-merges-writes rather than replacing the column.
 @app.put("/cells/{cell_id}/auto-count")
 def compute_auto_count(cell_id: str, body: AutoCountBody, user=Depends(get_current_user)):
     cell = owned_cell(cell_id, user.id)
@@ -391,21 +395,28 @@ def compute_auto_count(cell_id: str, body: AutoCountBody, user=Depends(get_curre
         png_bytes = resp.read()
     plane = np.array(Image.open(io.BytesIO(png_bytes)))
 
-    auto_count, auto_coords = detect_droplets(plane, algorithm=body.algorithm)
+    # detect_droplets dispatches on `algorithm` to run that model's own,
+    # independent preprocessing pipeline (see api/detection.py):
+    # otsu_watershed's background-subtract -> threshold -> fill-holes ->
+    # watershed vs. fm_edge_overlay's iterative-sharpen -> edge/particle
+    # mask -> find-maxima. Neither shares an intermediate result with the
+    # other, so re-running with the other algorithm always redoes
+    # preprocessing from scratch for that model rather than reusing
+    # anything from a previously-stored result.
+    count, coords = detect_droplets(plane, algorithm=body.algorithm)
     # Same percent-of-crop {x, y} convention as cells_from_tif originally used.
     crop_height, crop_width = plane.shape[:2]
-    auto_points = [
+    points = [
         {"x": round(col / crop_width * 100, 2), "y": round(row / crop_height * 100, 2)}
-        for row, col in auto_coords
+        for row, col in coords
     ]
+
+    auto_counts = dict(cell.get("auto_counts") or {})
+    auto_counts[body.algorithm] = {"count": count, "points": points}
 
     response = (
         supabase.table("cells")
-        .update({
-            "auto_count": auto_count,
-            "auto_points": auto_points,
-            "auto_algorithm": body.algorithm,
-        })
+        .update({"auto_counts": auto_counts})
         .eq("id", cell_id)
         .execute()
     )

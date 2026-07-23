@@ -1784,9 +1784,15 @@ body {
 
 /* Same blue as the standalone auto-count view (.count-marker-readonly's
    default) so the auto grid reads consistently whether viewed alone or
-   folded into "View all counts". */
+   folded into "View all counts". A cell can have both a Standard and an
+   FM_edge_overlay (ALDQ) auto-count at once, so a second violet hue
+   (290°) covers the other slot — see AUTO_GROUP_COLOR_CLASSES in app.js. */
 .count-marker-group-auto {
   background: oklch(0.7 0.15 230);
+}
+
+.count-marker-group-auto-2 {
+  background: oklch(0.68 0.16 290);
 }
 
 .count-legend {
