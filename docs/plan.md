@@ -2170,3 +2170,27 @@ No test harness exists for `api/main.py` (no `tests/` directory, no Supabase cre
 ## Final step (per project convention)
 
 No `docs/tasks.md` change — the `from-tif` endpoint task item is already checked off; this is a naming-convention tweak to already-shipped functionality, not a new task-list item. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+# Plan: Sort cells on the Cells screen by the numbers embedded in the cell name
+
+## Context
+
+Cells were being rendered on the Cells screen (`initCells`/`renderCellsHTML` in `app.js`) in whatever order the API (or local test fixtures) returned them, with no client- or server-side ordering. Cell names embed one or two numbers — `Cell{file_number}_{next_number}` from the real `from-tif` pipeline (`api/main.py`), or `Cell {nextNumber}` in local test mode — so an unordered or naive lexicographic sort would misorder cells (`Cell10` before `Cell2`).
+
+## What changed
+
+`app.js`:
+- Added `cellNameSortKey(name)`, which extracts every run of digits from a cell name via `match(/\d+/g)` and maps to numbers (e.g. `"Cell12_3"` → `[12, 3]`).
+- Added `compareCellNames(a, b)`, which compares two names' digit-run arrays element-by-element (shorter-array/missing element sorts first), giving a natural numeric sort on the embedded numbers rather than a lexicographic string sort.
+- `initCells`: after loading `cells` (from either the local `TEST_CONDITIONS` fixture or `GET /conditions/{id}/cells`), sorts a copy of the array with `compareCellNames(a.name, b.name)` before rendering.
+- Local-mode cell creation (`confirmAddPhotos`): the `nextNumber` seed changed from `cond.cells.length + 1` (which could collide with an existing number after a deletion) to the max of the last digit-run across existing cell names (via `cellNameSortKey`) plus one.
+
+No change to `api/main.py` — its `next_number` is already computed per-source-filename via a count query, not array length, so it doesn't have the same collision risk.
+
+## Verification
+
+No test harness or runnable Supabase credentials in this environment, so verified by code reading: traced `cellNameSortKey`/`compareCellNames` against representative names (`Cell43389_1`, `Cell43389_2`, `Cell5_1`, `Cell 1`, `Cell 10`, `Cell 2`) to confirm numeric rather than lexicographic ordering, and confirmed the local-mode `nextNumber` fix picks the correct next value even when the middle cell in `cond.cells` has been deleted.
+
+## Final step (per project convention)
+
+No `docs/tasks.md` change — the Cells screen list-rendering task item is already checked off; this is a bug fix to already-shipped functionality, not a new task-list item. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
