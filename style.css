@@ -920,7 +920,7 @@ body {
 }
 
 .detail-panel--large .detail-thumbnail {
-  height: 320px;
+  height: 220px;
   background: oklch(0.18 0.01 145);
   display: flex;
   align-items: center;
