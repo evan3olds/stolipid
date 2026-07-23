@@ -42,11 +42,11 @@ const HELP_CONTENT = [
   },
   {
     title: 'Cells & Add Photos',
-    body: 'Use "Add photos" to upload .tif microscopy images and draw a box around each cell you want to track. The model can be changed by the dropdown menu in the top right corner. One cell record is created per box, along with an automatic droplet count suggestion (shown as "Auto count") — this is not a hand count and does not factor into the average or ICC.',
+    body: 'Use "Add photos" to upload .tif microscopy images and draw a box around each cell you want to track. One cell record is created per box. From a cell’s detail panel, run "Standard" or "FM_edge_overlay (ALDQ)" under Auto count to get an automatic droplet count suggestion — this is not a hand count and does not factor into the average or ICC.',
   },
   {
     title: 'Counting',
-    body: 'Open a cell and click "Count" to record a blind hand count. Click anywhere on the image to place a marker on a droplet, or click a marker to remove it. Use the zoom controls to separate small, closely-clustered droplets. Each cell supports up to three hand counts.',
+    body: 'Open a cell and click "Add Hand Count" to record a blind hand count. Click anywhere on the image to place a marker on a droplet, or click a marker to remove it. Use the zoom controls to separate small, closely-clustered droplets. Each cell supports up to three hand counts.',
   },
   {
     title: 'Graph',
@@ -1103,6 +1103,8 @@ const AUTO_ALGORITHM_LABELS = {
   fm_edge_overlay: 'FM_edge_overlay (ALDQ)',
 };
 
+const AUTO_ALGORITHMS = Object.keys(AUTO_ALGORITHM_LABELS);
+
 function autoAlgorithmLabel(algorithm) {
   return AUTO_ALGORITHM_LABELS[algorithm] || algorithm;
 }
@@ -1596,15 +1598,19 @@ function wireCells(cells) {
       });
     });
 
-    const autoViewBtn = document.getElementById('auto-count-view-btn');
-    if (autoViewBtn) {
-      autoViewBtn.addEventListener('click', () => {
+    panel.querySelectorAll('.auto-count-run-btn').forEach(btn => {
+      btn.addEventListener('click', () => runAutoCount(cell, btn.dataset.algorithm));
+    });
+
+    panel.querySelectorAll('.auto-count-view-btn').forEach(btn => {
+      const algo = btn.dataset.algorithm;
+      btn.addEventListener('click', () => {
         navigate('count', {
           cell: { id: cell.id, name: cell.name, image_url: cell.image_url },
           viewingAutoPoints: (autoRow && autoRow.points) || [],
         });
       });
-    }
+    });
 
     const viewAllBtn = document.getElementById('counts-viewall-btn');
     if (viewAllBtn) {
@@ -1631,6 +1637,44 @@ function wireCells(cells) {
     const tier = (cell.counts || []).length === 0 ? 'needs' : 'counted';
     tag.className = `status-tag status-tag-${tier}`;
     tag.textContent = cellCountStatus(cell);
+  }
+
+  async function runAutoCount(cell, algorithm) {
+    const container = panel.querySelector('.auto-count-run');
+    if (!container) return;
+    const buttons = container.querySelectorAll('.auto-count-run-btn');
+    const clickedBtn = container.querySelector(`[data-algorithm="${algorithm}"]`);
+    const originalLabel = clickedBtn.textContent;
+    buttons.forEach(b => { b.disabled = true; });
+    clickedBtn.textContent = 'Running…';
+
+    try {
+      if (localStorage.getItem('token')?.startsWith('local:')) {
+        // No local Python pipeline to call — fabricate a plausible result
+        // the same way the placeholder thumbnail fabricates droplets.
+        const rand = seededRandom(hashStringToInt(String(cell.id) + algorithm));
+        const count = 3 + Math.floor(rand() * 6);
+        const points = Array.from({ length: count }).map(() => ({
+          x: Math.round(rand() * 90 + 5),
+          y: Math.round(rand() * 90 + 5),
+        }));
+        // Merge into whichever algorithm results the cell already has —
+        // running the other model must not clobber this one, so a cell can
+        // carry up to one result per entry in AUTO_ALGORITHMS at once.
+        cell.auto_counts = { ...(cell.auto_counts || {}), [algorithm]: { count, points } };
+      } else {
+        const updated = await api(`/cells/${cell.id}/auto-count`, {
+          method: 'PUT',
+          body: JSON.stringify({ algorithm }),
+        });
+        cell.auto_counts = updated.auto_counts;
+      }
+      renderDetail(cell);
+    } catch (err) {
+      console.error('auto-count failed:', err);
+      clickedBtn.textContent = originalLabel;
+      buttons.forEach(b => { b.disabled = false; });
+    }
   }
 
   async function deleteCount(cell, countId) {
@@ -1814,7 +1858,7 @@ function renderPhotoPreviewSVG(name) {
 let addPhotosState = null;
 
 function renderAddPhotos() {
-  addPhotosState = { files: [], activeFileId: null, algorithm: 'otsu_watershed' };
+  addPhotosState = { files: [], activeFileId: null };
   refreshAddPhotos();
 }
 
@@ -1835,13 +1879,6 @@ function renderAddPhotosHTML() {
           <div class="addphotos-instructions">Click anywhere on the image to box a cell.</div>
         </div>
         <div class="addphotos-topbar-right">
-          <div class="addphotos-algorithm-field">
-            <label class="addphotos-algorithm-label" for="addphotos-algorithm">Auto-count model: </label>
-            <select class="addphotos-algorithm-select" id="addphotos-algorithm">
-              <option value="otsu_watershed" ${addPhotosState.algorithm === 'otsu_watershed' ? 'selected' : ''}>Standard</option>
-              <option value="fm_edge_overlay" ${addPhotosState.algorithm === 'fm_edge_overlay' ? 'selected' : ''}>FM_edge_overlay (ALDQ)</option>
-            </select>
-          </div>
           <div class="addphotos-topbar-actions">
             <button class="modal-cancel" id="addphotos-cancel">Cancel</button>
             <button class="primary-action" id="addphotos-create" ${totalBoxes === 0 ? 'disabled' : ''}>Create ${totalBoxes} cell${totalBoxes !== 1 ? 's' : ''}</button>
@@ -2087,7 +2124,6 @@ async function confirmAddPhotos() {
       const formData = new FormData();
       formData.append('file', file.rawFile);
       formData.append('boxes', JSON.stringify(file.boxes.map(({ x, y, w, h }) => ({ x, y, width: w, height: h }))));
-      formData.append('algorithm', addPhotosState.algorithm);
       await apiUpload(`/conditions/${state.condition.id}/cells/from-tif`, formData);
     }
     navigate('cells');
@@ -2115,11 +2151,6 @@ function wireAddPhotos() {
 
   document.getElementById('addphotos-cancel').addEventListener('click', () => {
     navigate('cells');
-  });
-
-  const algorithmSelect = document.getElementById('addphotos-algorithm');
-  algorithmSelect.addEventListener('change', () => {
-    addPhotosState.algorithm = algorithmSelect.value;
   });
 
   const createBtn = document.getElementById('addphotos-create');
@@ -2179,9 +2210,14 @@ const COUNT_ZOOM_MAX = 3;
 const COUNT_ZOOM_STEP = 0.5;
 
 // Fixed hue order for overlaying every hand count on one image (up to the
-// 3-count-per-cell limit — see CLAUDE.md). Kept off blue, which is reserved
-// for the auto-count group (`count-marker-group-auto`) in the same overlay.
+// 3-count-per-cell limit — see CLAUDE.md). Kept off blue/violet, reserved
+// for the auto-count groups (AUTO_GROUP_COLOR_CLASSES) in the same overlay.
 const COUNT_GROUP_COLOR_CLASSES = ['count-marker-group-1', 'count-marker-group-2', 'count-marker-group-3'];
+
+// One color per possible cells.auto_counts entry (see AUTO_ALGORITHMS), so
+// both a Standard and an FM_edge_overlay (ALDQ) auto-count grid can be told
+// apart when "View all counts" overlays them together.
+const AUTO_GROUP_COLOR_CLASSES = ['count-marker-group-auto', 'count-marker-group-auto-2'];
 
 function renderCount() {
   const editing = state.editingCount;
@@ -2209,12 +2245,12 @@ function renderCount() {
             value: (c.points && c.points.length) || c.value || 0,
             markers: (c.points || []).map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y })),
           })),
-          ...(viewingAll.autoPoints ? [{
-            label: 'Auto count',
-            colorClass: 'count-marker-group-auto',
-            value: viewingAll.autoPoints.length,
-            markers: viewingAll.autoPoints.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y })),
-          }] : []),
+          ...(viewingAll.autoResults || []).map((r, i) => ({
+            label: `Auto count — ${autoAlgorithmLabel(r.algorithm)}`,
+            colorClass: AUTO_GROUP_COLOR_CLASSES[i % AUTO_GROUP_COLOR_CLASSES.length],
+            value: r.points.length,
+            markers: r.points.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y })),
+          })),
         ]
       : null,
     zoom: COUNT_ZOOM_MIN,
@@ -2443,8 +2479,10 @@ function wireCount() {
 
 let graphState = null; // { conditionsCache, selectedExperimentId, selected, colorAssignments, metric }
 
-// Metric shown on the y-axis: 'auto' (machine-suggested auto_count, default),
-// 'hand' (average of hand counts), or 'combined' (average of the two).
+// Metric shown on the y-axis: 'auto' (machine-suggested auto count, default
+// — averaged across whichever of a cell's auto_counts algorithms have been
+// run, see cellAutoCount), 'hand' (average of hand counts), or 'combined'
+// (average of the two).
 const GRAPH_METRICS = {
   auto: { label: 'Auto count', axisLabel: 'Lipid droplets / cell (auto count)' },
   hand: { label: 'Average hand count', axisLabel: 'Lipid droplets / cell (hand count avg)' },

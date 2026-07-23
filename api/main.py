@@ -1,13 +1,17 @@
+import io
 import json
 import os
 import re
+import urllib.request
 import uuid
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 import pingouin as pg
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from PIL import Image
 from pydantic import BaseModel, Field
 from supabase import create_client
 
@@ -365,6 +369,60 @@ def delete_cell(cell_id: str, user=Depends(get_current_user)):
     return {"status": "deleted"}
 
 
+class AutoCountBody(BaseModel):
+    algorithm: str
+
+
+# The Add Photos screen no longer picks an algorithm or runs detection at
+# upload time (see cells_from_tif) — a cell is created with just its saved
+# image. Auto-count is opt-in per cell, triggered from the Cells screen's
+# detail panel, and runs against that already-stored image rather than the
+# discarded original .tif. A cell can hold one result per algorithm at once
+# (cells.auto_counts is a jsonb map keyed by algorithm, e.g.
+# {"otsu_watershed": {"count": 8, "points": [...]}, "fm_edge_overlay": {...}})
+# so running the second algorithm doesn't overwrite the first — this
+# endpoint always reads-merges-writes rather than replacing the column.
+@app.put("/cells/{cell_id}/auto-count")
+def compute_auto_count(cell_id: str, body: AutoCountBody, user=Depends(get_current_user)):
+    cell = owned_cell(cell_id, user.id)
+
+    if body.algorithm not in DETECTION_ALGORITHMS:
+        raise HTTPException(status_code=422, detail=f"Unknown detection algorithm: {body.algorithm!r}")
+    if not cell.get("image_url"):
+        raise HTTPException(status_code=400, detail="Cell has no stored image to analyze")
+
+    with urllib.request.urlopen(cell["image_url"]) as resp:
+        png_bytes = resp.read()
+    plane = np.array(Image.open(io.BytesIO(png_bytes)))
+
+    # detect_droplets dispatches on `algorithm` to run that model's own,
+    # independent preprocessing pipeline (see api/detection.py):
+    # otsu_watershed's background-subtract -> threshold -> fill-holes ->
+    # watershed vs. fm_edge_overlay's iterative-sharpen -> edge/particle
+    # mask -> find-maxima. Neither shares an intermediate result with the
+    # other, so re-running with the other algorithm always redoes
+    # preprocessing from scratch for that model rather than reusing
+    # anything from a previously-stored result.
+    count, coords = detect_droplets(plane, algorithm=body.algorithm)
+    # Same percent-of-crop {x, y} convention as cells_from_tif originally used.
+    crop_height, crop_width = plane.shape[:2]
+    points = [
+        {"x": round(col / crop_width * 100, 2), "y": round(row / crop_height * 100, 2)}
+        for row, col in coords
+    ]
+
+    auto_counts = dict(cell.get("auto_counts") or {})
+    auto_counts[body.algorithm] = {"count": count, "points": points}
+
+    response = (
+        supabase.table("cells")
+        .update({"auto_counts": auto_counts})
+        .eq("id", cell_id)
+        .execute()
+    )
+    return response.data[0]
+
+
 # ---- .tif image pipeline ----
 # Loads a raw microscopy .tif, contrast-normalizes it, and renders it as
 # grayscale (see api/imaging.py). tif-preview is a render-only step for the
@@ -395,7 +453,6 @@ def cells_from_tif(
     condition_id: str,
     file: UploadFile = File(...),
     boxes: str = Form(...),
-    algorithm: str = Form("otsu_watershed"),
     user=Depends(get_current_user),
 ):
     owned_condition(condition_id, user.id)
@@ -404,9 +461,6 @@ def cells_from_tif(
         box_list = [BoxPct(**b) for b in json.loads(boxes)]
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid boxes payload: {e}")
-
-    if algorithm not in DETECTION_ALGORITHMS:
-        raise HTTPException(status_code=422, detail=f"Unknown detection algorithm: {algorithm!r}")
 
     tif_bytes = file.file.read()
     try:
@@ -430,25 +484,18 @@ def cells_from_tif(
     created_cells = []
     for box in box_list:
         raw_crop = crop_array_percent(plane, box.x, box.y, box.width, box.height)
-        # normalize_to_uint16: linear min/max stretch, not render_display_image's
-        # percentile clip — nothing discarded before either consumer runs
-        # (see api/detection.py). render_hand_count_image produces the
-        # stored grayscale crop; detect_droplets independently runs its own
-        # threshold/fill-holes/watershed pass on this same normalized_crop
-        # to get the auto-count — the two share no intermediate result.
+        # No auto-count here anymore — the raw .tif isn't kept, so the
+        # auto-count step run later from the Cells screen (PUT
+        # /cells/{id}/auto-count) re-downloads this stored, already
+        # background-subtracted + CLAHE-enhanced PNG and runs detect_droplets
+        # on that. That's a different input than the plain normalized crop
+        # detect_droplets historically ran on, so results may differ
+        # slightly from the old at-upload-time numbers — acceptable given
+        # detection isn't calibrated against real microscopy data yet either
+        # way (see api/detection.py's docstrings).
         normalized_crop = normalize_to_uint16(raw_crop)
         hand_count_crop = render_hand_count_image(normalized_crop)
         url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", encode_png_16(hand_count_crop))
-
-        auto_count, auto_coords = detect_droplets(normalized_crop, algorithm=algorithm)
-        # Store as percent-of-crop {x, y}, matching the coordinate convention
-        # the Count screen already uses for hand-count markers (app.js
-        # addMarkerAt), so both point grids share one format.
-        crop_height, crop_width = normalized_crop.shape[:2]
-        auto_points = [
-            {"x": round(col / crop_width * 100, 2), "y": round(row / crop_height * 100, 2)}
-            for row, col in auto_coords
-        ]
 
         response = (
             supabase.table("cells")

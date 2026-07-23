@@ -1109,6 +1109,35 @@ body {
   background: var(--surface-tint);
 }
 
+.auto-count-run {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+}
+
+.auto-count-run-btn {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.4375rem 0.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.375rem;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.auto-count-run-btn:hover {
+  background: var(--surface-tint);
+}
+
+.auto-count-run-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* ---- Modal ---- */
 .modal-backdrop {
   position: fixed;
@@ -1377,34 +1406,6 @@ body {
   align-items: flex-end;
   gap: 0.5rem;
   flex-shrink: 0;
-}
-
-.addphotos-algorithm-field {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.addphotos-algorithm-label {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-.addphotos-algorithm-select {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 0.375rem;
-  background: var(--surface-input);
-  color: inherit;
-  appearance: none;
-}
-
-.addphotos-algorithm-select:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 
 .addphotos-topbar-actions {
@@ -1783,9 +1784,15 @@ body {
 
 /* Same blue as the standalone auto-count view (.count-marker-readonly's
    default) so the auto grid reads consistently whether viewed alone or
-   folded into "View all counts". */
+   folded into "View all counts". A cell can have both a Standard and an
+   FM_edge_overlay (ALDQ) auto-count at once, so a second violet hue
+   (290°) covers the other slot — see AUTO_GROUP_COLOR_CLASSES in app.js. */
 .count-marker-group-auto {
   background: oklch(0.7 0.15 230);
+}
+
+.count-marker-group-auto-2 {
+  background: oklch(0.68 0.16 290);
 }
 
 .count-legend {
