@@ -413,10 +413,13 @@ def cells_from_tif(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    file_basename = os.path.splitext(file.filename)[0]
+
     count_response = (
         supabase.table("cells")
         .select("id", count="exact")
         .eq("condition_id", condition_id)
+        .eq("source_filename", file.filename)
         .execute()
     )
     next_number = (count_response.count or 0) + 1
@@ -448,7 +451,7 @@ def cells_from_tif(
             supabase.table("cells")
             .insert({
                 "condition_id": condition_id,
-                "name": f"Cell {next_number}",
+                "name": f"{file_basename}_{next_number}",
                 "image_url": url,
                 "auto_count": auto_count,
                 "auto_points": auto_points,

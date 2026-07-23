@@ -1573,3 +1573,19 @@ Served locally, drove with headless Playwright: (1) a synthetic Supabase-style J
 ## Final step (per project convention)
 
 No `docs/tasks.md` change. This entry appended to `docs/activity.md`. No `docs/plan.md` entry — bugfix to already-documented profile-popup logic, no new design decisions.
+
+## Fix: default cell name comes from the source `.tif` filename, not a condition-wide counter
+
+**Request:** "Make the cell number come from the source file name and _1 or whatever number it is from that source file."
+
+### `api/main.py`
+
+- `cells_from_tif`: added `file_basename = os.path.splitext(file.filename)[0]`; the `next_number`-seeding count query now also filters `.eq("source_filename", file.filename)` (previously only `condition_id`), so numbering is per source file instead of running across the whole condition. Inserted rows now get `"name": f"{file_basename}_{next_number}"` instead of `f"Cell {next_number}"`.
+
+### Verification
+
+No test harness or runnable Supabase credentials in this environment, so verified by code reading: confirmed the seed query and per-box increment produce `<basename>_1`, `<basename>_2`, ... for a new file, and continue numbering (not restart at `_1`) for a repeat upload of the same filename into the same condition.
+
+## Final step (per project convention)
+
+No `docs/tasks.md` change — the `from-tif` endpoint task item is already checked off. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
