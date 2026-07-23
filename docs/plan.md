@@ -2146,3 +2146,26 @@ Zero console errors across all checks.
 ## Final step (per project convention)
 
 No `docs/tasks.md` change — this is a shell/layout tweak to already-shipped chrome (top bar avatar, sidebar), not a new task-list item, matching how the earlier "model selector move" UI tweak was logged. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+# Plan: Cell name defaults to `<source filename>_<n>` instead of a condition-wide `Cell N` counter
+
+## Context
+
+Request: "Make the cell number come from the source file name and _1 or whatever number it is from that source file." In `POST /conditions/{id}/cells/from-tif` (`api/main.py`), each cell created from a box on an uploaded `.tif` was named `f"Cell {next_number}"`, where `next_number` was a single counter that ran across *every* cell already in the condition, regardless of which source `.tif` it came from.
+
+## What changed
+
+`api/main.py` (`cells_from_tif`):
+- Added `file_basename = os.path.splitext(file.filename)[0]` (extension stripped from the uploaded `.tif` filename).
+- The `cells` count query that seeds `next_number` now filters `.eq("source_filename", file.filename)` in addition to the existing `condition_id` filter, so numbering restarts per source file rather than running across the whole condition. Re-uploading boxes from the same source filename into the same condition continues the count from where that file's existing cells left off, rather than colliding on `_1`.
+- The inserted row's `"name"` is now `f"{file_basename}_{next_number}"` instead of `f"Cell {next_number}"`, incrementing per box within the batch exactly as before.
+
+Cell names remain freely editable after creation (existing rename modal in `app.js` is untouched) — this only changes the default name assigned at creation time.
+
+## Verification
+
+No test harness exists for `api/main.py` (no `tests/` directory, no Supabase credentials available in this environment), so this was verified by code reading only, not by running the endpoint: traced `next_number`'s seed query and the per-box increment in the loop to confirm the new filter and f-string produce `<basename>_1`, `<basename>_2`, ... for a fresh source file, and correctly continue past existing counts for a repeat upload of the same filename in the same condition.
+
+## Final step (per project convention)
+
+No `docs/tasks.md` change — the `from-tif` endpoint task item is already checked off; this is a naming-convention tweak to already-shipped functionality, not a new task-list item. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
