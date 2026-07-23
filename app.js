@@ -1073,15 +1073,8 @@ function cellAverage(cell) {
   return counts.reduce((sum, c) => sum + c.value, 0) / counts.length;
 }
 
-function conditionMean(cond) {
-  const averages = (cond.cells || []).map(cellAverage).filter(a => a != null);
-  if (!averages.length) return null;
-  return averages.reduce((sum, a) => sum + a, 0) / averages.length;
-}
-
 // Graph screen defaults to plotting the machine-suggested auto_count per
-// cell (not the hand-count average, which the mini condition-overview chart
-// uses) but lets the user switch to hand-count or combined via the metric
+// cell but lets the user switch to hand-count or combined via the metric
 // selector — see cellValueForMetric/conditionMeanForMetric below.
 function cellAutoCount(cell) {
   return cell.auto_count != null ? cell.auto_count : null;
@@ -1101,51 +1094,6 @@ function autoAlgorithmLabel(algorithm) {
 
 function truncateLabel(str, max = 10) {
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
-}
-
-// Static preview chart: one column per condition in the current experiment,
-// dots = per-cell averages, tick = condition mean. Interactive version is Phase 9.
-function renderMiniScatterSVG(conditions) {
-  const width = 240;
-  const height = 120;
-  const padTop = 10;
-  const padBottom = 20;
-  const plotHeight = height - padTop - padBottom;
-
-  const allAverages = conditions.flatMap(c => (c.cells || []).map(cellAverage)).filter(a => a != null);
-  const maxAvg = Math.max(1, ...allAverages);
-  const yFor = val => padTop + plotHeight - (val / maxAvg) * plotHeight;
-
-  const n = Math.max(conditions.length, 1);
-  const colWidth = width / n;
-
-  const columns = conditions.map((cond, i) => {
-    const cx = colWidth * (i + 0.5);
-    const cellAverages = (cond.cells || []).map(cellAverage).filter(a => a != null);
-
-    const dots = cellAverages.map((avg, j) => {
-      const jitter = (j % 2 === 0 ? 1 : -1) * (Math.floor(j / 2) + 1) * 6;
-      const x = cx + jitter;
-      const y = yFor(avg);
-      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" class="mini-chart-dot" />`;
-    }).join('');
-
-    const mean = conditionMean(cond);
-    const barHalf = colWidth * 0.32;
-    const bar = mean != null
-      ? `<line x1="${(cx - barHalf).toFixed(1)}" y1="${yFor(mean).toFixed(1)}" x2="${(cx + barHalf).toFixed(1)}" y2="${yFor(mean).toFixed(1)}" class="mini-chart-mean" />`
-      : '';
-
-    const label = `<text x="${cx.toFixed(1)}" y="${height - 4}" class="mini-chart-label" text-anchor="middle">${escHtml(truncateLabel(cond.name))}</text>`;
-
-    return dots + bar + label;
-  }).join('');
-
-  return `
-    <svg class="mini-chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Per-condition lipid droplet averages">
-      ${columns}
-    </svg>
-  `;
 }
 
 async function initConditions() {
@@ -1236,10 +1184,6 @@ function wireConditions(conditions) {
           <span class="detail-notes">${escHtml(cond.notes)}</span>
         </div>
       ` : ''}
-      <div class="detail-row">
-        <span class="detail-label">All conditions</span>
-        <div class="mini-chart">${renderMiniScatterSVG(conditions)}</div>
-      </div>
       <button class="detail-open-btn" id="detail-open">Open condition</button>
     `;
     panel.classList.add('visible');
