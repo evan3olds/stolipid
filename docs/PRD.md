@@ -79,11 +79,11 @@ Biology researchers at St. Olaf routinely count lipid droplets in fluorescence m
 ### 5.4 Cells (Screen 5)
 - Breadcrumb: Experiments / [Experiment] / [Condition]
 - Grid of cell cards showing name and count status tag (e.g., "2 counts", "needs count")
-- Cards show a simulated fluorescence image thumbnail (green droplets on dark background)
-- Select a cell to view its hand counts in the right panel:
+- Select a cell to view its details in the right panel:
   - "Average hand count" displayed prominently
-  - List of individual counts with delete (×) button per entry
-  - "Count" CTA button if the cell needs more counts
+  - "Auto count" section: if the cell has no auto-count yet, shows a "Standard" and an "FM_edge_overlay (ALDQ)" button — picking one runs that detection algorithm against the cell's saved image and stores the result. Once computed, shows the count, a "View" button (opens the marker grid on the Count screen), and which model produced it — unchanged once present.
+  - List of individual hand counts with delete (×) button per entry
+  - "Add Hand Count" CTA button if the cell needs more counts
 - "Add photos" button navigates to the Add Photos screen
 
 ### 5.5 Add Photos (Screen 6)
@@ -93,7 +93,7 @@ Biology researchers at St. Olaf routinely count lipid droplets in fluorescence m
 - Each box is draggable (drag body to move) and resizable (drag corner handle)
 - Each box has a numbered label and a × remove button
 - Top bar shows: condition name, instruction text, "Cancel" and "Create N cells" buttons
-- Confirming creates one Cell record per box drawn
+- Confirming just converts each box's crop from the source .tif to a saved PNG and creates one Cell record per box drawn — no auto-count model to choose here; that happens later per-cell on the Cells screen
 
 ### 5.6 Count (Screen 7)
 - Dark-mode full-screen counting interface
