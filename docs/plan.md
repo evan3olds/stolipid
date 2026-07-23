@@ -2194,3 +2194,75 @@ No test harness or runnable Supabase credentials in this environment, so verifie
 ## Final step (per project convention)
 
 No `docs/tasks.md` change — the Cells screen list-rendering task item is already checked off; this is a bug fix to already-shipped functionality, not a new task-list item. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+# Plan: Re-pivot the Raw Data table from wide to long, keyed by count type
+
+## Context
+
+The Raw Data screen (`initRawData`/`RAWDATA_COLUMNS` in `app.js`) pivoted **wide**: one row per cell, with `Count 1`/`Count 2`/`Count 3` columns filled positionally from `cell.counts[0..2]`. Cells legitimately have 0–3 hand counts at any point in the workflow (up to 3 per the project's hand-count limit), so most rows had one or more blank (`—`) count columns — the wide format forces variable-length per-cell data into fixed-width columns. Discussed with the user first: agreed a **long** pivot (one row per actual count, tagged with which count it was) avoids the structural blanks, at the cost of losing the "3 counts side-by-side per cell" at-a-glance view, and matches the row-per-rating shape `pingouin`'s ICC calc already uses server-side.
+
+## What changed
+
+`app.js`:
+- `RAWDATA_COLUMNS`: removed `count1`/`count2`/`count3`; added `countType` ("Count type") and `value` ("Value").
+- `initRawData`: row-building changed from one push per cell to a flat-map over `cell.counts` — one row per count, each carrying `countType: "Count ${idx + 1}"` and `value: count.value`. A cell with zero counts still emits exactly one row (`countType: "No counts yet"`, `value: null`) rather than vanishing from the table. The cell-level fields (`average` via `cellAverage(cell)`, `autoCount`, `sourceFilename`) are computed once per cell and copied onto every row for that cell (denormalized, standard for a long-format export).
+- `rawDataCountAt(row, idx)` helper deleted — no longer meaningful once rows are per-count rather than per-cell.
+- `rawDataSortValue`: `count1`/`count2`/`count3` cases replaced by a single `countType` case returning the label string directly (not a derived index), so the same function drives both on-screen sort and CSV cell values without divergence — sorting groups `Count 1` rows together, then `Count 2`, `Count 3`, with `No counts yet` sorting after them (plain string comparison, "N" > "C").
+- `renderRawDataRowsHTML`: the three `Count 1/2/3` `<td>`s collapsed into a single `Count type` / `Value` pair reading straight off the row.
+- No changes needed to `rawDataToCSV`, `downloadRawDataCSV`, `visibleRawDataRows`, or the filter/sort wiring — they already treated each `rawDataState.rows` entry as one table row, so the long-format row shape flows through unchanged.
+
+## Verification
+
+Served locally (`python -m http.server` on port 8934), drove it with headless Playwright (`sync_playwright`, Chromium) via a `local:` test-mode token:
+- Screenshotted the rendered table: confirmed a cell with 2 stored counts produces exactly 2 rows (`Count 1`, `Count 2`), a cell with 3 produces 3, a cell with 1 produces 1, and a cell with 0 produces exactly 1 `No counts yet` row with `Value` as `—` — no more fixed 3-column blank padding.
+- Clicked the `Count type` header to sort: confirmed all `Count 1` rows group first, then `Count 2`, then `Count 3`, with `No counts yet` rows last.
+- Called `rawDataToCSV(visibleRawDataRows())` directly in-page: confirmed the exported header row is `Experiment,Condition,Cell,Count type,Value,Average,Auto count,Source file` and data rows carry the correct per-count values.
+- `console --errors` equivalent (Playwright console listener) showed zero errors throughout.
+
+## Final step (per project convention)
+
+No new `docs/tasks.md` item — extended the existing Phase 10 checklist with a follow-up bullet describing the re-pivot instead. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+# Plan: Store auto counts in the `counts` table, tagged by type
+
+## Context
+
+Auto-detected droplet counts lived on the `cells` row itself (`cells.auto_count`, `cells.auto_points`, `cells.auto_algorithm`), separate from hand counts, which live one-per-row in `counts`. The user wanted auto counts moved into `counts` too, with a column identifying what kind of count each row is — unifying the two storage paths (one row = one count, whatever produced it) and, as a direct consequence, letting the Raw Data screen's long-format pivot (shipped the turn before this one) show auto counts as their own typed rows instead of a bolted-on separate column.
+
+Confirmed with the user before implementing:
+- Old `cells.auto_count`/`auto_points`/`auto_algorithm` columns get **dropped** (clean cutover — `cell.average` is already derived at query time, not stored, so this follows the existing pattern).
+- `counts.type` is a **single column** that is `'hand'` for manual counts or the algorithm slug (`'otsu_watershed'` / `'fm_edge_overlay'`) for machine counts — the value itself names which algorithm produced it, no separate algorithm column.
+
+This repo has no migrations folder; every past schema change was applied by the user running `ALTER TABLE` by hand against Supabase after the docs/code were updated to expect it. Same pattern here.
+
+## Database (documented in CLAUDE.md / docs/PRD.md, run manually by the user)
+
+```sql
+alter table counts add column type text not null default 'hand';
+alter table cells drop column auto_count;
+alter table cells drop column auto_points;
+alter table cells drop column auto_algorithm;
+```
+
+## What changed
+
+**`api/main.py`**: `cells_from_tif` inserts the cell row without `auto_*` fields, then inserts a `counts` row (`type: algorithm`, `counted_by: user.id`) referencing the new cell id. `compute_icc` filters to `type == "hand"` before its exactly-3 gate; `recompute_condition_icc`'s select gained `type`. `create_count` sets `"type": "hand"` explicitly.
+
+**`api/detection.py`**: two docstrings reworded off `cells.auto_count`/`cells.auto_points` to reference a `counts` row instead.
+
+**`app.js`**: new `handCounts(cell)`/`autoCountRow(cell)` helpers (filter/find `cell.counts` by `type`) replace every direct read of `cell.counts` (previously assumed pure-hand) and the removed `cell.auto_*` fields — `cellAverage`, `cellAutoCount`, the Cells screen detail panel (`wireCells`'s `renderDetail`: hand-count list/limit, Auto count block, "View all counts" visibility, `viewingAutoPoints`/`viewingAllCounts`), the Graph tooltip's hand-counts string, and the Raw Data screen (auto count now emitted as its own `Count type` row via `autoAlgorithmLabel(autoRow.type)`, instead of a separate `Auto count` column — that column/field removed from `RAWDATA_COLUMNS`). Local test-mode fixtures (`TEST_CONDITIONS`) updated to the new shape (`type: 'hand'` on every hand-count object; the two auto-bearing cells' `auto_*` fields converted into an extra `counts` entry); `finishCount`'s local-mode create branch sets `type: 'hand'` on the count it pushes.
+
+## Verification
+
+No live Supabase credentials in this environment, so `api/main.py` was verified by code reading only (same constraint as every prior schema-touching change here).
+
+Frontend verified via the `local:` test-mode path with headless Playwright/Chromium, covering both an auto-only cell (`test-cell-001`) and a hand+auto cell (`test-cell-003`):
+- Cells screen detail panel renders the correct hand-count list, average, and Auto count row (value + model label) for both.
+- Count screen's auto "View" shows the correct 3-point read-only grid; "View all counts" shows a 3-entry legend (`Count 1: 3`, `Count 2: 2`, `Auto count: 5`) with all 10 markers.
+- Graph tooltip's hand-counts string correctly omits the auto value.
+- Raw Data table: `test-cell-001` shows "No counts yet" + a "Standard" row; `test-cell-003` shows `Count 1`/`Count 2` + an "FM_edge_overlay (ALDQ)" row; the old "Auto count" column is gone (table is 7 columns).
+- Zero console errors across every screen exercised.
+
+## Final step (per project convention)
+
+Extended the existing Phase 11c checklist in `docs/tasks.md` with a follow-up bullet. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.

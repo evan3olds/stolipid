@@ -30,17 +30,15 @@ Four tables with this hierarchy:
 ```
 experiments (id, name, date, dye, notes, created_by)
   └── conditions (id, experiment_id, name, starvation, notes, icc)
-        └── cells (id, condition_id, name, image_url, auto_count, source_filename)
-              └── counts (id, cell_id, value, counted_by, created_at)
+        └── cells (id, condition_id, name, image_url, source_filename)
+              └── counts (id, cell_id, value, points, counted_by, created_at, type)
 ```
-- `cell.average` and `condition.mean` are computed in JS at query time, not stored
-- `condition.icc` is written by the Python pipeline and stored as a column
-- `cells.auto_count` is a machine-suggested droplet count, written by the Python pipeline at cell-creation time — not a hand count, not included in `cell.average`/`condition.icc`. Computed by one of two selectable algorithms (`api/detection.py`'s `detect_droplets(plane, algorithm=...)`), chosen per upload from the Add Photos screen (default `otsu_watershed`):
+- `cell.average` and `condition.mean` are computed in JS at query time from `counts` rows where `type = 'hand'`, not stored
+- `condition.icc` is written by the Python pipeline and stored as a column, also computed only over `type = 'hand'` rows
+- `counts.type` is `'hand'` for a manual count, or the detection algorithm slug for a machine-generated one — a cell has at most one machine-generated `counts` row, written by the Python pipeline at cell-creation time (`counted_by` is the uploading researcher). Computed by one of two selectable algorithms (`api/detection.py`'s `detect_droplets(plane, algorithm=...)`), chosen per upload from the Add Photos screen (default `otsu_watershed`):
   - `otsu_watershed` (default): rolling-ball background subtraction → dark-background Otsu threshold → binary fill-holes → distance-transform watershed
   - `fm_edge_overlay`: a fixed-parameter port of the lab's `assets/ALDQ.ijm-*.txt` ImageJ macro's "FM_edge_overlay" LD-determination steps — iterative highpass-sharpening → (edge/threshold/watershed particle mask filtered by size+circularity) ∩ (Find-Maxima local peaks on a further-blurred copy); a maximum only counts if it lands on an accepted particle, matching the macro's own stated intent
-- `cells.auto_points` is the `jsonb` grid of `{x, y}` percent-of-crop coordinates (the watershed seeds / accepted local maxima behind `auto_count`, depending on which algorithm produced it), written alongside it by the Python pipeline
-- `cells.auto_algorithm` records which of the two algorithms above produced `auto_count`/`auto_points` for that cell
-- `counts.points` is the `jsonb` grid of `{x, y}` percent-of-image marker positions placed on the Count screen for that hand count — lets a saved count be reopened and edited (via `PUT /counts/{id}`) instead of only deleted and recounted from scratch
+- `counts.points` is the `jsonb` grid of `{x, y}` percent-of-image coordinates for that count — for a hand count, the markers placed on the Count screen (lets a saved count be reopened and edited via `PUT /counts/{id}` instead of only deleted and recounted from scratch); for a machine-generated count, the watershed seeds / accepted local maxima behind its `value`
 - `cells.source_filename` is the original uploaded `.tif` filename, written by the Python pipeline at cell-creation time (one source file can produce multiple cells, one per annotated box)
 - Dye is set once at the experiment level, not per-condition — the Conditions screen detail panel displays the parent experiment's dye for reference
 - Row-Level Security: researchers only read/write their own experiment data
