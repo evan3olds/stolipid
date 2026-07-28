@@ -2455,3 +2455,23 @@ The frontend (`app.js`) already calls a fixed set of routes and reads specific f
 
 Checked the real-backend bullet in `docs/tasks.md` Phase 14. This entry appended to `docs/plan.md`; matching entry appended to `docs/activity.md`.
 
+
+# Bug fix — duplicate stacked modals on "New slide" / "New experiment" / "Create-Join project" / "Add photos" action button
+
+**Request:** Cancel button on the "New slide" modal (Conditions screen) didn't respond to the first click — needed an extra click elsewhere on screen first.
+
+## Diagnosis
+
+The subheader's `#primary-action` button is rendered once per `navigate()` (in `subheaderHTML()`), while each screen's `init*()` function only replaces `.content` — so the button DOM node persists across `init*()` re-runs (e.g. after a modal's `onSuccess` callback re-loads the list). `wireHomeAction`/`wireExperimentsAction`/`wireConditionsAction`/`wireCellsAction` (`app.js`) all re-fetch that same node and call `addEventListener('click', ...)` on it every time they run, with no removal of any prior handler — unlike `wireCardMenus`'s `cardMenuDocHandler`, which explicitly detaches its own previous document-level listener before reattaching. Each re-wire adds one more stacked listener, so after any re-render cycle a single click opens two identical `.modal-backdrop` instances; Cancel only removes the top one, making the modal look stuck until an incidental click on the remaining backdrop closes it.
+
+## Fix
+
+Switch all four `wireXAction` functions to assign `actionBtn.onclick = fn` instead of `addEventListener`, so re-wiring always replaces rather than accumulates.
+
+## Verification
+
+Traced the render lifecycle (subheader per-`navigate()` vs. content per-`init*()`) to confirm the button node is shared across re-wires; grepped for any other `addEventListener` use on `#primary-action` to confirm all call sites were caught. No live browser available in this pass to click through the reproduction and fix directly.
+
+## Final step (per project convention)
+
+Added a bug-fix bullet to `docs/tasks.md` Phase 14; matching entry appended to `docs/activity.md`.

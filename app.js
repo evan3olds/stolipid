@@ -971,7 +971,7 @@ function wireHome(projects) {
 function wireHomeAction() {
   const actionBtn = document.getElementById('primary-action');
   if (actionBtn) {
-    actionBtn.addEventListener('click', () => openCreateJoinProjectModal(() => initHome()));
+    actionBtn.onclick = () => openCreateJoinProjectModal(() => initHome());
   }
 }
 
@@ -1205,7 +1205,7 @@ async function deleteExperiment(id) {
 function wireExperimentsAction() {
   const actionBtn = document.getElementById('primary-action');
   if (actionBtn) {
-    actionBtn.addEventListener('click', () => openAddExperimentModal(() => initExperiments()));
+    actionBtn.onclick = () => openAddExperimentModal(() => initExperiments());
   }
 }
 
@@ -1553,7 +1553,7 @@ async function deleteCondition(id) {
 function wireConditionsAction() {
   const actionBtn = document.getElementById('primary-action');
   if (actionBtn) {
-    actionBtn.addEventListener('click', () => openAddConditionModal(() => initConditions()));
+    actionBtn.onclick = () => openAddConditionModal(() => initConditions());
   }
 }
 
@@ -2115,7 +2115,7 @@ function openEditCellModal(cell, onSuccess) {
 function wireCellsAction() {
   const actionBtn = document.getElementById('primary-action');
   if (actionBtn) {
-    actionBtn.addEventListener('click', () => navigate('addphotos'));
+    actionBtn.onclick = () => navigate('addphotos');
   }
 }
 
