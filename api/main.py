@@ -1,7 +1,9 @@
 import io
 import json
 import os
+import random
 import re
+import string
 import urllib.request
 import uuid
 from typing import Optional
@@ -139,21 +141,38 @@ def update_password(body: UpdatePasswordBody, user=Depends(get_current_user)):
 
 # ---- Ownership helpers ----
 # Render authenticates to Supabase with the service-role key, which bypasses
-# RLS, so the API itself must enforce that a researcher only sees their own
-# experiment tree. Each helper walks up to the owning experiment and 404s
-# (not 403) if the row doesn't exist or belongs to someone else.
+# RLS, so the API itself must enforce access. Projects are shared with
+# collaborators (see Phase 14, docs/tasks.md), so access below the project
+# level is membership-based rather than creator-based: owned_project 404s
+# unless the requesting user is a row in project_members, and every other
+# helper walks up to owned_project rather than checking created_by directly
+# — this is what lets a collaborator who didn't create an experiment still
+# read/write it. Each helper 404s (not 403) if the row doesn't exist or the
+# user isn't a member of its project.
 
-def owned_experiment(experiment_id: str, user_id: str) -> dict:
-    response = (
-        supabase.table("experiments")
-        .select("*")
-        .eq("id", experiment_id)
-        .eq("created_by", user_id)
+def owned_project(project_id: str, user_id: str) -> dict:
+    membership = (
+        supabase.table("project_members")
+        .select("project_id")
+        .eq("project_id", project_id)
+        .eq("user_id", user_id)
         .execute()
     )
+    if not membership.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+    response = supabase.table("projects").select("*").eq("id", project_id).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return response.data[0]
+
+
+def owned_experiment(experiment_id: str, user_id: str) -> dict:
+    response = supabase.table("experiments").select("*").eq("id", experiment_id).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Experiment not found")
-    return response.data[0]
+    experiment = response.data[0]
+    owned_project(experiment["project_id"], user_id)
+    return experiment
 
 
 def owned_condition(condition_id: str, user_id: str) -> dict:
@@ -209,6 +228,96 @@ def cell_display_image(cell_id: str):
     return Response(content=encode_png_16(rendered), media_type="image/png")
 
 
+# ---- Projects ----
+# Top-level container above experiments, shared with collaborators via an
+# invite code (Phase 14, docs/tasks.md). A project's members list is what
+# owned_project (above) checks on every request below it in the hierarchy.
+
+def generate_invite_code() -> str:
+    """Human-shareable, e.g. LDROP-4821 — five letters, a dash, four digits.
+    Retries on collision rather than trusting randomness alone, since the
+    `projects.invite_code` column is unique."""
+    for _ in range(10):
+        code = "".join(random.choices(string.ascii_uppercase, k=5)) + "-" + "".join(random.choices(string.digits, k=4))
+        existing = supabase.table("projects").select("id").eq("invite_code", code).execute()
+        if not existing.data:
+            return code
+    raise HTTPException(status_code=500, detail="Could not generate a unique invite code, try again")
+
+
+class ProjectBody(BaseModel):
+    name: str
+
+
+class JoinProjectBody(BaseModel):
+    invite_code: str
+
+
+@app.get("/projects")
+def list_projects(user=Depends(get_current_user)):
+    response = (
+        supabase.table("project_members")
+        .select("projects(*, experiments(count))")
+        .eq("user_id", user.id)
+        .execute()
+    )
+    projects = []
+    for row in response.data:
+        project = row.get("projects")
+        if not project:
+            continue
+        experiments = project.pop("experiments", None) or []
+        project["experiment_count"] = experiments[0]["count"] if experiments else 0
+        projects.append(project)
+    return projects
+
+
+@app.post("/projects")
+def create_project(body: ProjectBody, user=Depends(get_current_user)):
+    response = (
+        supabase.table("projects")
+        .insert({
+            "name": body.name,
+            "invite_code": generate_invite_code(),
+            "created_by": user.id,
+        })
+        .execute()
+    )
+    project = response.data[0]
+    supabase.table("project_members").insert({
+        "project_id": project["id"],
+        "user_id": user.id,
+    }).execute()
+    project["experiment_count"] = 0
+    return project
+
+
+@app.post("/projects/join")
+def join_project(body: JoinProjectBody, user=Depends(get_current_user)):
+    code = body.invite_code.strip().upper()
+    response = supabase.table("projects").select("*, experiments(count)").eq("invite_code", code).execute()
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Invalid invite code")
+    project = response.data[0]
+
+    already_member = (
+        supabase.table("project_members")
+        .select("project_id")
+        .eq("project_id", project["id"])
+        .eq("user_id", user.id)
+        .execute()
+    )
+    if not already_member.data:
+        supabase.table("project_members").insert({
+            "project_id": project["id"],
+            "user_id": user.id,
+        }).execute()
+
+    experiments = project.pop("experiments", None) or []
+    project["experiment_count"] = experiments[0]["count"] if experiments else 0
+    return project
+
+
 # ---- Experiments ----
 
 class ExperimentBody(BaseModel):
@@ -218,12 +327,13 @@ class ExperimentBody(BaseModel):
     notes: Optional[str] = None
 
 
-@app.get("/experiments")
-def list_experiments(user=Depends(get_current_user)):
+@app.get("/projects/{project_id}/experiments")
+def list_experiments(project_id: str, user=Depends(get_current_user)):
+    owned_project(project_id, user.id)
     response = (
         supabase.table("experiments")
         .select("*, conditions(count)")
-        .eq("created_by", user.id)
+        .eq("project_id", project_id)
         .execute()
     )
     experiments = []
@@ -234,11 +344,13 @@ def list_experiments(user=Depends(get_current_user)):
     return experiments
 
 
-@app.post("/experiments")
-def create_experiment(body: ExperimentBody, user=Depends(get_current_user)):
+@app.post("/projects/{project_id}/experiments")
+def create_experiment(project_id: str, body: ExperimentBody, user=Depends(get_current_user)):
+    owned_project(project_id, user.id)
     response = (
         supabase.table("experiments")
         .insert({
+            "project_id": project_id,
             "name": body.name,
             "date": body.date,
             "dye": body.dye,
