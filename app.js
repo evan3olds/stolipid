@@ -92,18 +92,19 @@ const SCREENS = {
   rawdata:     { title: 'Raw data' },
   about:       { title: 'About' },
   help:        { title: 'Help' },
+  settings:    { title: 'Settings' },
   count:       { title: 'Count' },
   addphotos:   { title: 'Add Photos' },
 };
 
-// Sidebar drawer destinations
+// Sidebar drawer destinations. Experiments/Graph/Raw data live under a
+// project instead — reached via the project itself or the bottom bar
+// (see bottomBarHTML), not the main menu.
 const NAV_LINKS = [
-  { screen: 'home',        label: 'Home' },
-  { screen: 'experiments', label: 'Experiments' },
-  { screen: 'graph',       label: 'Graph' },
-  { screen: 'rawdata',     label: 'Raw data' },
-  { screen: 'about',       label: 'About' },
-  { screen: 'help',        label: 'Help' },
+  { screen: 'home',     label: 'Home' },
+  { screen: 'help',     label: 'Help' },
+  { screen: 'about',    label: 'About' },
+  { screen: 'settings', label: 'Settings' },
 ];
 
 // Screens that only make sense once a project is selected — visiting one
@@ -409,6 +410,7 @@ function renderShell(screen) {
       ${topbarHTML()}
       ${subheaderHTML(screen, meta)}
       <main class="content">${screenStub(screen, meta)}</main>
+      ${bottomBarHTML(screen)}
       ${sidebarHTML()}
     </div>
   `;
@@ -485,6 +487,19 @@ function breadcrumbHTML(screen) {
         : `<button class="crumb" data-target="${c.target}">${c.label}</button>`;
     })
     .join('<span class="crumb-sep">/</span>');
+}
+
+// Bottom bar — Graph and Raw data are scoped to a project, so they live here
+// instead of the main menu, and only show once a project is loaded
+// (PROJECT_SCREENS: experiments/conditions/cells/graph/rawdata).
+function bottomBarHTML(screen) {
+  if (!PROJECT_SCREENS.includes(screen)) return '';
+  return `
+    <nav class="bottom-bar" aria-label="Data views">
+      <button class="bottom-bar-btn${screen === 'graph' ? ' active' : ''}" data-screen="graph">Graph</button>
+      <button class="bottom-bar-btn${screen === 'rawdata' ? ' active' : ''}" data-screen="rawdata">Raw data</button>
+    </nav>
+  `;
 }
 
 function sidebarHTML() {
@@ -579,6 +594,10 @@ function wireShell(screen) {
 
   document.querySelectorAll('.breadcrumb .crumb[data-target]').forEach(btn => {
     btn.addEventListener('click', () => navigate(btn.dataset.target));
+  });
+
+  document.querySelectorAll('.bottom-bar-btn').forEach(btn => {
+    btn.addEventListener('click', () => navigate(btn.dataset.screen));
   });
 
   const backBtn = document.getElementById('back-btn');
