@@ -28,13 +28,32 @@ There is no source tree yet. When building out the actual app, the target struct
 ### Database (Supabase)
 Four tables with this hierarchy:
 ```
-experiments (id, name, date, dye, notes, created_by)
-  └── conditions (id, experiment_id, name, starvation, notes, icc)
-        └── cells (id, condition_id, name, image_url, source_filename)
-              └── counts (id, cell_id, value, points, counted_by, created_at, type)
+projects (id, name, invite_code, created_by)
+  └── project_members (project_id, user_id)
+  └── experiments (id, project_id, name, date, dye, notes, created_by)
+        └── conditions (id, experiment_id, name, starvation, notes, icc)
+              └── cells (id, condition_id, name, image_url, source_filename)
+                    └── counts (id, cell_id, value, points, counted_by, created_at, type)
 ```
 
-**Projects (in progress — UI structure only, see `docs/tasks.md` Phase 14):** a `projects` table (shared with collaborators via an invite code) is intended to sit above `experiments` as a new top-level parent, with a `project_members` join table and `experiments.project_id` replacing today's single-owner `created_by` scoping. None of that schema exists yet — the frontend (`app.js`) already has a Home screen and project-scoped navigation built against local test fixtures and assumed Render endpoints, but `api/main.py` still only implements the single-owner `/experiments` endpoints above. Do not assume `projects`/`project_members` tables or a `project_id` column exist server-side until this note is removed.
+**Projects (see `docs/tasks.md` Phase 14):** `projects` sits above `experiments` as the top-level parent, shared with collaborators via an invite code; `project_members` is the join table granting access. `api/main.py` enforces access at the project level — `owned_project` checks `project_members` for the requesting user, and `owned_experiment`/`owned_condition`/`owned_cell` all walk up to it, so any project member (not just the original creator) can read/write everything under a shared project. `experiments.created_by` is kept only as provenance (who created that specific experiment), not as an access check. **Schema migration not yet applied to the live Supabase project** (no real credentials in this environment — same situation as the other pending-migration notes in `docs/tasks.md` Phase 11c): run
+```sql
+create table projects (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  invite_code text not null unique,
+  created_by uuid not null references auth.users(id),
+  created_at timestamptz not null default now()
+);
+create table project_members (
+  project_id uuid not null references projects(id) on delete cascade,
+  user_id uuid not null references auth.users(id),
+  created_at timestamptz not null default now(),
+  primary key (project_id, user_id)
+);
+alter table experiments add column project_id uuid references projects(id);
+```
+against Supabase before this deploys. Project edit/delete and member-management (leave project, member list) are still out of scope — not implemented client or server side.
 - `cell.average` and `condition.mean` are computed in JS at query time from `counts` rows where `type = 'hand'`, not stored
 - `condition.icc` is written by the Python pipeline and stored as a column, also computed only over `type = 'hand'` rows
 - `counts.type` is `'hand'` for a manual count, or a detection algorithm slug for a machine-generated one. Add Photos never writes a machine-generated row — it only saves the converted image. Auto-count is opt-in per cell afterward, triggered from the Cells screen's Auto count section, which lets the researcher run either or both of two algorithms (`api/detection.py`'s `detect_droplets(plane, algorithm=...)`, called via `PUT /cells/{id}/auto-count`) against that already-saved image; running the second doesn't erase the first, so a cell can hold one machine-generated `counts` row per algorithm (up to two total) at once (`counted_by` is the researcher who triggered that run, not necessarily the original uploader):

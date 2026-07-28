@@ -1836,3 +1836,32 @@ Headless-browser (Playwright) pass: confirmed `#hamburger` has zero matches on H
 ## Final step (per project convention)
 
 Added a follow-up bullet to the `docs/tasks.md` Phase 14 section. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Follow-up — Phase 14 real backend (projects/project_members, membership-based access)
+
+**Request:** implement the backend for Phase 14 — the last unchecked item was the real Supabase schema and `api/main.py` endpoints behind the Home screen's assumed routes.
+
+### What changed
+
+**`api/main.py`**:
+- `owned_project(project_id, user_id)` — new bottom-of-chain ownership helper, 404s unless `project_members` has a row for that `(project_id, user_id)` pair.
+- `owned_experiment` rewritten from `.eq("created_by", user_id)` to fetch the experiment unconditionally, then delegate to `owned_project(experiment["project_id"], user_id)`. `owned_condition`/`owned_cell` needed no change — they already chain through `owned_experiment`/`owned_condition` respectively, so both became membership-based for free. This is the piece that actually lets a collaborator who didn't create an experiment read/write it, per the project's stated purpose.
+- `generate_invite_code()` — 5 uppercase letters + `-` + 4 digits (matches the `LDROP-4821`/`STARV-1090` shape the frontend fixtures and modal placeholder already used), retried up to 10x against `projects.invite_code`'s uniqueness before giving up with a 500.
+- `GET /projects` — `project_members` → embedded `projects(*, experiments(count))` for the current user, flattened to `experiment_count`.
+- `POST /projects` — inserts the project (`invite_code` from `generate_invite_code()`, `created_by`), then inserts the creator as the first `project_members` row.
+- `POST /projects/join` — looks up by invite code (uppercased/trimmed so a pasted code isn't case-sensitive), 404s if not found, inserts a `project_members` row only if the user isn't already one (idempotent re-join).
+- `GET`/`POST /projects/{project_id}/experiments` — replace the old unscoped `GET`/`POST /experiments` (which only ever filtered by `created_by`, with no project concept). Nothing in `app.js` called the unscoped routes once the Phase 14 UI landed, so they were removed rather than kept alongside. `PUT`/`DELETE /experiments/{id}` and everything below (conditions/cells/counts) untouched besides the `owned_experiment` membership check now sitting underneath them.
+
+**`CLAUDE.md`**: schema diagram updated to show `projects`/`project_members` above `experiments`; the "in progress" note replaced with the real column list and the still-pending migration SQL (this environment has no live Supabase credentials, so it can't be run from here — same situation as the `source_filename`/`auto_points`/`counts.type` migrations noted earlier in `docs/tasks.md` Phase 11c).
+
+### Not done
+
+Project edit/delete and member-management (leave project, see member list) — still out of scope, matching the last unchecked `docs/tasks.md` Phase 14 bullet, not touched in this pass.
+
+### Verification
+
+`python -m py_compile api/main.py` passes. No live Supabase project in this environment to run the endpoints against end-to-end (consistent with every other pending-migration entry in `docs/tasks.md` Phase 11c) — reviewed the new routes and the `owned_project`/`owned_experiment` chain by hand against `app.js`'s existing calls (`GET /projects`, `POST /projects` `{name}`, `POST /projects/join` `{invite_code}`, `GET`/`POST /projects/{id}/experiments`) to confirm request/response shapes line up (`invite_code`, `experiment_count`, `condition_count` field names match what `renderHomeHTML`/`renderExperimentsHTML` already read).
+
+## Final step (per project convention)
+
+Checked the real-backend bullet in `docs/tasks.md` Phase 14. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

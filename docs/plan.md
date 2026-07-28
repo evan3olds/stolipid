@@ -2426,3 +2426,32 @@ Playwright pass: `#hamburger` absent on Home (0 matches), present on Experiments
 
 Added a follow-up bullet to the `docs/tasks.md` Phase 14 section. This entry appended to `docs/plan.md`; matching entry appended to `docs/activity.md`.
 
+---
+
+# Follow-up — Phase 14 real backend
+
+**Request:** implement the backend behind Phase 14's assumed Render endpoints — the last unchecked item in that section.
+
+## Approach
+
+The frontend (`app.js`) already calls a fixed set of routes and reads specific field names (`invite_code`, `experiment_count`, `condition_count`), so the backend just has to match that contract rather than being designed from scratch. The bigger design decision is access control: Phase 14's whole point is that a project is *shared*, so `owned_experiment`/`owned_condition`/`owned_cell` (which every existing endpoint below Experiments already calls) can no longer gate on `created_by == user.id` — that would leave collaborators unable to touch anything they didn't personally create. Instead, add one new helper, `owned_project`, that checks `project_members`, and have `owned_experiment` walk up to it via the experiment's `project_id`. Because `owned_condition`/`owned_cell` already chain through `owned_experiment`, this single change propagates membership-based access down the whole hierarchy with no other call sites touched.
+
+## What to build
+
+**`api/main.py`**:
+- `owned_project(project_id, user_id)` next to the existing ownership helpers — 404s unless `project_members` has a matching row.
+- `owned_experiment` rewritten to fetch by id unconditionally, then delegate to `owned_project(experiment["project_id"], user_id)`.
+- `generate_invite_code()` — 5 letters + `-` + 4 digits, retried against `projects.invite_code`'s uniqueness, matching the shape already hardcoded into the frontend fixtures/placeholder.
+- `GET /projects`, `POST /projects`, `POST /projects/join` — new Projects section, using the `project_members` → embedded `projects(*, experiments(count))` select for the list route.
+- `GET`/`POST /projects/{project_id}/experiments` replacing the old unscoped `GET`/`POST /experiments` (dead code once the Phase 14 UI landed — nothing in `app.js` calls them anymore). `PUT`/`DELETE /experiments/{id}` and everything below stay as-is other than inheriting the new membership check through `owned_experiment`.
+
+**`CLAUDE.md`**: replace the Phase 14 "in progress" schema note with the real table list and the pending migration SQL (`projects`, `project_members`, `experiments.project_id`) — can't be applied here, no live Supabase credentials in this environment.
+
+## Verification
+
+`python -m py_compile api/main.py`. No live Supabase project available to exercise the endpoints end-to-end in this environment (same limitation noted throughout `docs/tasks.md` Phase 11c's other pending migrations) — checked the new routes' request/response shapes by hand against every existing `app.js` call site instead.
+
+## Final step (per project convention)
+
+Checked the real-backend bullet in `docs/tasks.md` Phase 14. This entry appended to `docs/plan.md`; matching entry appended to `docs/activity.md`.
+
