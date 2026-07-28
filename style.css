@@ -1978,10 +1978,29 @@ body {
   cursor: pointer;
 }
 
+.graph-select-wrap {
+  position: relative;
+}
+
+.graph-select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--text-secondary);
+  transform: translateY(-25%);
+  pointer-events: none;
+}
+
 .graph-select {
+  width: 100%;
   font-family: var(--font-body);
   font-size: 0.875rem;
-  padding: 0.5rem 0.625rem;
+  padding: 0.5rem 1.75rem 0.5rem 0.625rem;
   border: 1px solid var(--border-strong);
   border-radius: 0.375rem;
   background: var(--surface-input);
@@ -1997,6 +2016,10 @@ body {
 .graph-select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.graph-select-wrap:has(.graph-select:disabled)::after {
+  opacity: 0.6;
 }
 
 .graph-add-btn {
@@ -2107,6 +2130,12 @@ body {
 
 .graph-mean-tick {
   stroke-width: 3;
+  pointer-events: none;
+}
+
+.graph-mean-hit {
+  fill: transparent;
+  cursor: pointer;
 }
 
 .graph-gridline {
