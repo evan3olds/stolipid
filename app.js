@@ -2860,16 +2860,20 @@ function renderGraphHTML(experiments) {
       <aside class="graph-sidebar">
         <div class="graph-field">
           <label for="graph-experiment-select">Experiment</label>
-          <select class="graph-select" id="graph-experiment-select">
-            <option value="" selected disabled>Select an experiment…</option>
-            ${expOptions}
-          </select>
+          <div class="graph-select-wrap">
+            <select class="graph-select" id="graph-experiment-select">
+              <option value="" selected disabled>Select an experiment…</option>
+              ${expOptions}
+            </select>
+          </div>
         </div>
         <div class="graph-field">
           <label for="graph-condition-select">Condition</label>
-          <select class="graph-select" id="graph-condition-select" disabled>
-            <option value="">Select an experiment first…</option>
-          </select>
+          <div class="graph-select-wrap">
+            <select class="graph-select" id="graph-condition-select" disabled>
+              <option value="">Select an experiment first…</option>
+            </select>
+          </div>
         </div>
         <button class="graph-add-btn" id="graph-add-btn" disabled>Add to graph</button>
         <div class="graph-selected-list" id="graph-selected-list">${renderGraphSelectedListHTML()}</div>
@@ -2985,17 +2989,18 @@ function renderGraphScatterSVG(selected, metric) {
   const plotWidth = width - padLeft - padRight;
   const plotHeight = height - padTop - padBottom;
 
+  const TICK_STEP = 50;
   const allAverages = selected.flatMap(s => (s.cells || []).map(cell => cellValueForMetric(cell, metric))).filter(a => a != null);
   const rawMax = Math.max(1, ...allAverages);
-  const niceMax = Math.ceil(rawMax / 5) * 5 || 5;
-  const tickCount = 5;
+  const niceMax = Math.ceil(rawMax / TICK_STEP) * TICK_STEP || TICK_STEP;
+  const tickCount = niceMax / TICK_STEP;
   const yFor = val => padTop + plotHeight - (val / niceMax) * plotHeight;
 
   const n = selected.length;
   const colWidth = plotWidth / n;
 
   const gridlines = Array.from({ length: tickCount + 1 }).map((_, i) => {
-    const val = (niceMax / tickCount) * i;
+    const val = TICK_STEP * i;
     const y = yFor(val);
     return `
       <line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${(padLeft + plotWidth).toFixed(1)}" y2="${y.toFixed(1)}" class="graph-gridline" />
@@ -3024,6 +3029,14 @@ function renderGraphScatterSVG(selected, metric) {
 
     const mean = conditionMeanForMetric(s, metric);
     const barHalf = colWidth * 0.3;
+    // The hit rect sits *below* the dots in document order so a dot sitting
+    // on top of the mean line still wins hover — only the tick's own class
+    // (rendered last, pointer-events: none) needs to stay visually on top.
+    const meanHit = mean != null
+      ? `<rect x="${(cx - barHalf).toFixed(1)}" y="${(yFor(mean) - 6).toFixed(1)}" width="${(barHalf * 2).toFixed(1)}" height="12" class="graph-mean-hit"
+          data-experiment="${escHtml(s.experimentName)}" data-condition="${escHtml(s.conditionName)}"
+          data-mean="${mean.toFixed(1)}" data-metric="${escHtml(GRAPH_METRICS[metric].label)}" />`
+      : '';
     const meanTick = mean != null
       ? `<line x1="${(cx - barHalf).toFixed(1)}" y1="${yFor(mean).toFixed(1)}" x2="${(cx + barHalf).toFixed(1)}" y2="${yFor(mean).toFixed(1)}" class="graph-mean-tick" style="stroke:${color}" />`
       : '';
@@ -3033,7 +3046,7 @@ function renderGraphScatterSVG(selected, metric) {
       <text x="${cx.toFixed(1)}" y="${height - 18}" class="graph-col-sublabel" text-anchor="middle">${escHtml(truncateLabel(s.experimentName, 16))}</text>
     `;
 
-    return dots + meanTick + label;
+    return meanHit + dots + meanTick + label;
   }).join('');
 
   return `
@@ -3066,6 +3079,24 @@ function wireGraphTooltip() {
       tooltip.style.top = `${e.clientY + 12}px`;
     });
     dot.addEventListener('mouseleave', () => {
+      tooltip.hidden = true;
+    });
+  });
+
+  document.querySelectorAll('.graph-mean-hit').forEach(hit => {
+    hit.addEventListener('mouseenter', () => {
+      tooltip.innerHTML = `
+        <div class="graph-tooltip-row"><strong>${escHtml(hit.dataset.experiment)}</strong></div>
+        <div class="graph-tooltip-row">${escHtml(hit.dataset.condition)}</div>
+        <div class="graph-tooltip-row">Condition mean (${escHtml(hit.dataset.metric)}): ${escHtml(hit.dataset.mean)}</div>
+      `;
+      tooltip.hidden = false;
+    });
+    hit.addEventListener('mousemove', e => {
+      tooltip.style.left = `${e.clientX + 12}px`;
+      tooltip.style.top = `${e.clientY + 12}px`;
+    });
+    hit.addEventListener('mouseleave', () => {
       tooltip.hidden = true;
     });
   });
