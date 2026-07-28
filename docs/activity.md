@@ -1865,3 +1865,25 @@ Project edit/delete and member-management (leave project, see member list) — s
 ## Final step (per project convention)
 
 Checked the real-backend bullet in `docs/tasks.md` Phase 14. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Bug fix — "New slide"/"New experiment"/"Create-Join project"/"Add photos" action button opens duplicate stacked modals
+
+**Request:** user reported that after clicking to create a slide (Conditions screen), the modal's Cancel button didn't respond until they clicked elsewhere on the screen first.
+
+### Root cause
+
+`wireHomeAction`, `wireExperimentsAction`, `wireConditionsAction`, and `wireCellsAction` (`app.js`) each look up the subheader's `#primary-action` button and attach a click handler with `addEventListener`. That button is rendered once by `subheaderHTML()`/`renderShell()` per `navigate()` call and is never recreated by the screen's `init*()` functions, which only replace `.content`. But every one of those `wireXAction` functions is called again each time its `init*()` re-runs — notably from the `onSuccess` callback passed into the "New X" modal itself, and (for Conditions) from the API-error fallback path too. Because `addEventListener` doesn't replace a prior handler, each re-wire stacked another listener onto the same persistent button.
+
+With two listeners attached, one click on the button ran both handlers, opening two visually-identical `.modal-backdrop` elements stacked in the DOM. Clicking Cancel removed only the top (most-recently-appended) one via its own closure — the other, indistinguishable modal underneath stayed open, so nothing appeared to happen. The user's workaround (clicking elsewhere on screen) worked because that click landed on the remaining backdrop's own click-outside-to-close listener, finally removing it.
+
+### Fix
+
+Changed all four `wireXAction` functions (`app.js`) from `actionBtn.addEventListener('click', fn)` to `actionBtn.onclick = fn` — assignment replaces any previous handler instead of stacking, so however many times the function re-wires the persistent button, only the latest handler survives.
+
+### Verification
+
+Reasoned through the DOM lifecycle by hand (subheader is per-`navigate()`, `.content` is per-`init*()`) and confirmed via `Grep` that no other `wireXAction`-style function attaches to `#primary-action` with `addEventListener`. Did not have a live browser session to reproduce the double-modal stacking directly, but the fix is a mechanical replacement of the accumulating-listener anti-pattern already avoided elsewhere in the file (see `cardMenuDocHandler`'s explicit remove-before-add, `app.js` line ~729).
+
+## Final step (per project convention)
+
+Added a bug-fix bullet to `docs/tasks.md` Phase 14. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
