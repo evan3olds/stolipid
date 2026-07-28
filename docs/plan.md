@@ -2402,3 +2402,27 @@ Log in with a local test account → lands on Home; both `TEST_PROJECTS` entries
 
 Checked the UI-structure items in a new Phase 14 section in `docs/tasks.md`; left the real-backend items unchecked. This entry appended to `docs/plan.md`; matching entry appended to `docs/activity.md`.
 
+---
+
+# Follow-up — Home moved fully outside the authenticated shell
+
+**Request:** "Projects should be a whole main menu screen before you see any of the other stuff like the top left menu button or experiments, graphs, etc."
+
+The first pass rendered Home inside the existing shell (`renderShell`), so the hamburger and sidebar were technically present (just gated/non-functional) before a project was open. The user wants Home to look and behave like a genuinely separate pre-app screen — same tier as Login — with no hamburger and no sidebar until a project is actually opened.
+
+## Approach
+
+Treat `home` as a fourth shell-bypassing screen alongside `login`/`addphotos`/`count` in `navigate()`, rendered by a new standalone `renderHome()` rather than `renderShell()`. Reuse `.shell`/`.topbar`/`.subheader` CSS purely for visual consistency, but hand-build the markup instead of calling `subheaderHTML`/`sidebarHTML`. Since `.sidebar`/`.sidebar-backdrop` are `position: fixed` (confirmed in `style.css`), omitting them from Home's DOM entirely has no layout impact on the flex-column `.shell`.
+
+## What changed
+
+`topbarHTML()` gained a `showHamburger` param (default `true`) so `renderHome()` can render the same topbar minus the hamburger button. Theme-toggle/profile-menu wiring pulled out of `wireShell` into a shared `wireTopbarChrome()`, reused by both the full shell and standalone Home. `renderHome()` builds a minimal shell (topbar without hamburger + a static "Home" subheader with the Create/Join button) and delegates to the existing `initHome()` to populate `.content`. Removed the now-unreachable `SCREENS.home` entry and two defensive checks from the prior pass that no longer apply now that Home never shares the shell's sidebar/breadcrumb code paths (`sidebarHTML`'s `PROJECT_SCREENS` filter, `breadcrumbHTML`'s `screen !== 'home'` guard).
+
+## Verification
+
+Playwright pass: `#hamburger` absent on Home (0 matches), present on Experiments immediately after opening a project (1 match); full sidebar link set only ever renders once inside a project; "Home" sidebar link returns to the hamburger-less Home screen correctly. No console errors. Screenshots confirm both states visually.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to the `docs/tasks.md` Phase 14 section. This entry appended to `docs/plan.md`; matching entry appended to `docs/activity.md`.
+

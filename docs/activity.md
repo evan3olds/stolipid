@@ -1812,3 +1812,27 @@ Screenshots caught a real bug the DOM/attribute check alone missed: toggling the
 ## Final step (per project convention)
 
 Checked the UI-structure items in the new `docs/tasks.md` Phase 14 section; left the backend items unchecked. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Follow-up — Home moved fully outside the authenticated shell
+
+**Request:** "Projects should be a whole main menu screen before you see any of the other stuff like the top left menu button or experiments, graphs, etc." (Clarifying an earlier note that the hamburger/sidebar shouldn't expose Experiments/Graph/Raw data before a project is open.)
+
+The first pass rendered Home *inside* the existing shell (`renderShell`), so the hamburger button and full sidebar (including Experiments/Graph/Raw data, gated to bounce back to Home if clicked) were technically present on Home, just non-functional until a project was opened. The user wants Home to not show that chrome at all — it should look and behave like a distinct pre-app screen, the same tier as Login, not a screen wrapped in the app's normal navigation shell.
+
+### What changed
+
+**`app.js`**:
+- `navigate()`: `home` now bypasses `renderShell` entirely and calls a new standalone `renderHome()`, alongside the existing `login`/`addphotos`/`count` bypasses.
+- New `renderHome()` builds its own minimal `.shell` markup: `topbarHTML(false)` (title, theme toggle, profile menu — no hamburger) plus a static subheader (non-clickable "Home" label + the "Create/Join project" button), then delegates to the unchanged `initHome()` to load and fill `.content` with the project grid.
+- `topbarHTML()` gained a `showHamburger = true` parameter; passing `false` omits the hamburger button entirely (used only by `renderHome`).
+- Extracted the theme-toggle and profile-menu/logout wiring out of `wireShell` into a new shared `wireTopbarChrome()`, called by both `wireShell` (full shell) and `renderHome` (standalone) — avoids duplicating that logic across the two chrome variants.
+- Removed the now-dead `SCREENS.home` entry (Home no longer goes through `subheaderHTML`/`screenStub`) and reverted the two defensive checks added for "Home rendered inside the shell" that are no longer reachable: `sidebarHTML()`'s `PROJECT_SCREENS` filter (sidebar now only ever renders once inside a project, where `state.project` is always set) and `breadcrumbHTML()`'s `screen !== 'home'` guard (breadcrumb is never built for `home` anymore).
+- `NAV_LINKS`' "Home" entry is kept — it's now the way to get back to the project list from inside a project's sidebar (in addition to clicking the project-name breadcrumb crumb).
+
+### Verification
+
+Headless-browser (Playwright) pass: confirmed `#hamburger` has zero matches on Home immediately after login, and exactly one match on Experiments immediately after opening a project; confirmed the sidebar's full link set (Home/Experiments/Graph/Raw data/About/Help) only ever appears once inside a project's shell; confirmed clicking "Home" from that sidebar returns to the hamburger-less standalone Home screen. No console errors. Screenshot-verified Home (no hamburger, Create/Join button in place) and Experiments (hamburger + back button + breadcrumb restored) side by side.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to the `docs/tasks.md` Phase 14 section. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
