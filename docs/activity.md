@@ -1932,3 +1932,19 @@ Ran the same ad hoc Playwright setup as the prior Graph follow-up (`python -m ht
 ## Final step (per project convention)
 
 Added a Phase 3 bullet to `docs/tasks.md` (sidebar drawer contents updated, new bottom bar item). This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Follow-up — Bottom bar buttons restyled to match "Add experiment", with spacing
+
+**Request:** "Make them the same colors as the Add experiment button (according to the theme), and separate them from the bottom and from each other."
+
+### What changed
+
+**`style.css`**: `.bottom-bar-btn` dropped its flat text-button look (`background: none`, `color: var(--text-secondary)`) for `.primary-action`'s exact styling — `background: var(--accent)`, `color: oklch(0.98 0.005 75)`, `border-radius: 0.375rem`, same padding/font-size — so it tracks whichever theme (Paper/Sage) is active via the same `--accent` token, instead of hardcoding a color. `.bottom-bar` gained `gap: 0.75rem` (space between the two buttons) and `padding: 0.75rem 1.25rem` (space off the bottom/side edges, replacing the old edge-to-edge flush bar). `.bottom-bar-btn:hover` now uses `filter: brightness(1.05)` (matching `.primary-action:hover`) instead of a background swap. Since both buttons are now solid accent-colored, the `.active` state needed a different signal than "colored vs. not" — used `box-shadow: inset 0 0 0 2px oklch(0.98 0.005 75 / 0.6)` (a light ring) so the current screen's button is still distinguishable at a glance.
+
+### Verification
+
+Same ad hoc Playwright + `python -m http.server` setup as prior follow-ups. Screenshotted the Experiments screen's bottom bar in Paper theme (buttons match "Add experiment"'s brownish-orange, rounded, with a visible gap and edge padding) and in Sage theme after toggling `#theme-toggle` (buttons re-color to Sage's green, confirming the `var(--accent)` token switch works instead of a hardcoded color) — and the Graph screen with "Graph" active, confirming the inset-ring active indicator is visible against the accent background in both themes. No console errors.
+
+## Final step (per project convention)
+
+Added a Phase 3 bullet to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

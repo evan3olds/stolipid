@@ -31,6 +31,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Build subheader with breadcrumb and context-sensitive primary action button
 - [x] Add back-button logic for Conditions and Cells screens
 - [x] Build bottom bar (Graph, Raw Data buttons) shown whenever a project is open (Experiments/Conditions/Cells/Graph/Raw data screens); moved out of the sidebar since both are project-scoped
+- [x] Style bottom bar buttons to match the primary-action ("Add experiment") accent color, with a gap between the two buttons and padding off the screen edge
 
 ---
 
