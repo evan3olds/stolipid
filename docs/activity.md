@@ -1948,3 +1948,42 @@ Same ad hoc Playwright + `python -m http.server` setup as prior follow-ups. Scre
 ## Final step (per project convention)
 
 Added a Phase 3 bullet to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Follow-up — Back button on Graph/Raw data returns to where you opened them from
+
+**Request:** "when you click graph or raw data we want to be able to go back to where you just were."
+
+### Root cause
+
+`SCREENS.graph`/`SCREENS.rawdata` had no `back: true`, so the subheader never rendered a back arrow on those screens at all — there was no way back except the hamburger menu (Home) or browser back.
+
+### What changed
+
+**`app.js`**:
+- `SCREENS.graph`/`SCREENS.rawdata` gained `back: true`, so `subheaderHTML()` now renders the back arrow there like it already does for Experiments/Conditions/Cells.
+- New `state.returnScreen`. `navigate()`: right before overwriting `state.screen`, if the *target* is `'graph'` or `'rawdata'` and the *current* screen isn't already one of those two, stash the current screen into `state.returnScreen`. Hopping between Graph and Raw data (both already in that set) leaves it untouched, so a Cells → Graph → Raw data detour still remembers Cells, not Graph.
+- `wireShell()`'s `back-btn` handler: for `screen === 'graph' || screen === 'rawdata'`, navigate to `state.returnScreen || 'experiments'` instead of falling through to the existing Cells→Conditions→Experiments→Home hierarchy chain (which doesn't apply to Graph/Raw data since they aren't part of that folder hierarchy).
+
+### Verification
+
+Same ad hoc Playwright + `python -m http.server` setup as prior follow-ups. Drilled into Cells (Experiments → experiment → condition → Cells), clicked the bottom bar's Raw data button, confirmed a back arrow now renders and clicking it returns the breadcrumb to the exact Cells screen (not Experiments). Then repeated starting from Cells → Graph → Raw data (hopping between the two) and confirmed Back still landed back on the original Cells screen, not Graph. No console errors during the pass.
+
+## Final step (per project convention)
+
+Added a Phase 3 bullet to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Follow-up — Graph/Raw data breadcrumb shows the full origin path
+
+**Request:** "Does it show the filepath of where you were? Such as Test/experiments/graph or test/experiments/condition/graph" — followed by "Yes" to the offer to add it.
+
+### What changed
+
+**`app.js`** (`breadcrumbHTML`): Graph/Raw data previously always fell into the generic `else` branch, rendering just `ProjectName / Graph`. Gave them their own branch that mirrors the folder-hierarchy logic already used for Experiments/Conditions/Cells, keyed off `state.returnScreen` (the field the previous Back-button follow-up added) instead of `screen` itself: always includes an `Experiments` crumb, adds the experiment-name crumb if `returnScreen` is `'conditions'` or `'cells'`, adds the condition-name crumb if `returnScreen` is `'cells'`, then appends `Graph`/`Raw data` as the current (non-clickable) crumb. Since `state.experiment`/`state.condition` aren't cleared by navigating to Graph/Raw data, the same values the folder screens already use were available to reuse directly — no new state needed. Every non-final crumb stays clickable via the existing `data-target` + `.crumb` wiring, so e.g. clicking "0 Hr Starved" from a Graph screen jumps straight to that Cells screen.
+
+### Verification
+
+Same ad hoc Playwright + `python -m http.server` setup. Checked all three origin depths: Graph from Experiments → `Lipid Droplet Study / Experiments / Graph`; Raw data from Conditions → `.../ Experiments / Serum Starvation Timecourse / Raw data`; Graph from Cells → `.../ Experiments / Serum Starvation Timecourse / 0 Hr Starved / Graph`, screenshotted to confirm it fits in the subheader without wrapping. Confirmed the mid-breadcrumb crumbs (`Experiments`, `Serum Starvation Timecourse`, `0 Hr Starved`) are all clickable `data-target` buttons. No console errors.
+
+## Final step (per project convention)
+
+Added a Phase 3 bullet to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

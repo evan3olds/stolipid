@@ -32,6 +32,8 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Add back-button logic for Conditions and Cells screens
 - [x] Build bottom bar (Graph, Raw Data buttons) shown whenever a project is open (Experiments/Conditions/Cells/Graph/Raw data screens); moved out of the sidebar since both are project-scoped
 - [x] Style bottom bar buttons to match the primary-action ("Add experiment") accent color, with a gap between the two buttons and padding off the screen edge
+- [x] Give Graph/Raw data a back button that returns to the Experiments/Conditions/Cells screen they were opened from, instead of the fixed hierarchy back-chain
+- [x] Graph/Raw data breadcrumb shows the full Experiments/Experiment/Condition path they were opened from (mirroring the back button target), not just a flat "Graph"/"Raw data" label
 
 ---
 

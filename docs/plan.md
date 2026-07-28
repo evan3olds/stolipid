@@ -2557,3 +2557,51 @@ Same ad hoc Playwright + `python -m http.server` setup as prior follow-ups. Scre
 ## Final step (per project convention)
 
 Added a Phase 3 bullet to `docs/tasks.md`; matching entry appended to `docs/activity.md`.
+
+---
+
+# Follow-up — Back button on Graph/Raw data returns to where you opened them from
+
+**Request:** "when you click graph or raw data we want to be able to go back to where you just were."
+
+## Approach
+
+Graph/Raw data aren't part of the Experiments→Conditions→Cells folder hierarchy the existing back-button chain (`screen === 'cells' ? 'conditions' : ...`) was built for, and they can be opened from any of those three screens via the bottom bar — so the back-chain approach doesn't generalize. Instead of hardcoding "Graph always goes back to Experiments," track the actual screen the user was on right before the detour, in `state.returnScreen`, and set it inside `navigate()` itself so every entry point (not just the bottom bar) benefits automatically. The one wrinkle: hopping between Graph and Raw data must not clobber the original return screen, so the assignment only fires when the *current* screen isn't already Graph or Raw data.
+
+## What to build
+
+**`app.js`**:
+- `SCREENS.graph`/`SCREENS.rawdata`: add `back: true`.
+- `state.returnScreen = null` (new field).
+- `navigate()`: before `state.screen = screen`, if `screen` is `'graph'`/`'rawdata'` and `state.screen` (the outgoing screen) isn't already one of those two, set `state.returnScreen = state.screen`.
+- `wireShell()` back-btn handler: branch first on `screen === 'graph' || screen === 'rawdata'` → `navigate(state.returnScreen || 'experiments')`; otherwise fall through to the existing hierarchy chain unchanged.
+
+## Verification
+
+Same ad hoc Playwright + `python -m http.server` setup as prior follow-ups. Drilled Experiments → experiment → condition → Cells, clicked the bottom bar's Raw data button, confirmed the back arrow renders and returns to the exact Cells screen. Repeated Cells → Graph → Raw data (hopping between the two) and confirmed Back still lands on the original Cells screen rather than Graph. No console errors.
+
+## Final step (per project convention)
+
+Added a Phase 3 bullet to `docs/tasks.md`; matching entry appended to `docs/activity.md`.
+
+---
+
+# Follow-up — Graph/Raw data breadcrumb shows the full origin path
+
+**Request:** user asked whether the screen showed a "filepath" like `Test/experiments/graph` or `test/experiments/condition/graph`; answered no (it was a flat `ProjectName / Graph`) and offered to add it — user said yes.
+
+## Approach
+
+`breadcrumbHTML()` already builds the Experiments→Conditions→Cells trail by checking `screen` directly. Graph/Raw data can't key off `screen` the same way, since the same `screen` value (`'graph'`) can mean three different origins — so key off `state.returnScreen` instead (the field the prior Back-button follow-up already introduced to track exactly this). This keeps the breadcrumb and the Back button provably in sync: they read the same field, so the breadcrumb can never show a path that Back wouldn't actually lead to. `state.experiment`/`state.condition` are already the right values to reuse (nothing clears them on the Graph/Raw data detour), so no new state was needed beyond `returnScreen`.
+
+## What to build
+
+**`app.js`** (`breadcrumbHTML`): add a `screen === 'graph' || screen === 'rawdata'` branch, parallel to the existing folder-screen branch: always push an `Experiments` crumb; push the experiment-name crumb when `state.returnScreen` is `'conditions'` or `'cells'`; push the condition-name crumb when it's `'cells'`; push `Graph`/`Raw data` last as the current (non-clickable) crumb. Reuses the same crumb-rendering/wiring code (`data-target` + `.crumb` click handler) already in place — no changes needed there.
+
+## Verification
+
+Same ad hoc Playwright + `python -m http.server` setup. Verified breadcrumb text at all three origin depths (Graph from Experiments, Raw data from Conditions, Graph from Cells) matches the expected path exactly, screenshotted to confirm the deepest case (5 crumbs) still fits the subheader without wrapping, and confirmed the mid-path crumbs are clickable and navigate correctly. No console errors.
+
+## Final step (per project convention)
+
+Added a Phase 3 bullet to `docs/tasks.md`; matching entry appended to `docs/activity.md`.
