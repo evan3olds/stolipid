@@ -2295,3 +2295,72 @@ Served locally (`python -m http.server`), drove it with headless Playwright via 
 ## Final step (per project convention)
 
 Extended the existing Phase 10 checklist in `docs/tasks.md` with a follow-up bullet. Activity entry appended to `docs/activity.md`. This plan entry appended to `docs/plan.md`.
+
+---
+
+# Bug fix — ALDQ auto-counts coming back 0 or inconsistent
+
+**Report:** "The aldq count is giving 0's and really low numbers now, did something change." Follow-up detail: not uniformly low — sometimes `fm_edge_overlay` lands close to `otsu_watershed`'s count, sometimes it's 0.
+
+## Diagnosis
+
+Traced `api/detection.py`/`api/main.py` git history. The auto-count architecture changed across the "Grayscale revert" (`b6a7cdc`) → "ALDQ actual implementation" (`b9150aa`) → "trial 1/2: fix auto counts" (`8a22283`, `bc44d5f`) → "please work" (`0cc58fb`) commits: Add Photos stopped keeping the raw `.tif` and stopped auto-counting at upload time; `PUT /cells/{id}/auto-count` was introduced to run detection later, opt-in, per cell — but it re-downloads `cells.image_url` and runs `detect_droplets` directly on whatever that PNG is.
+
+The bug: `cells.image_url` was never the plain analysis crop. `cells_from_tif` stored `render_hand_count_image(normalized_crop)` — rolling-ball background subtraction followed by CLAHE (`equalize_adapthist`) — a render built for the human-facing Count screen, not for analysis. Both `_detect_droplets_otsu_watershed` and `_detect_droplets_fm_edge_overlay` already run their own internal `subtract_background` and were calibrated against `normalize_to_uint16`'s plain linear-stretched crop (see `_iterative_sharpen`'s docstring, which states this outright). Feeding them the CLAHE'd render instead double-subtracts background and, more importantly, adaptively flattens local contrast per-tile.
+
+That flattening explains the inconsistency specifically: `fm_edge_overlay`'s `FM_FIND_MAXIMA_NOISE = 4000` is a *fixed* noise tolerance sized for the raw crop's full 0–65535 dynamic range. Whether any local peak in a CLAHE-flattened crop still clears 4000 depends on how much real contrast that particular crop had before equalization — high-contrast source crops sometimes still have enough of a spike to survive (count ≈ `otsu_watershed`'s), low-contrast ones get flattened below the tolerance entirely (count = 0). There's no single corrected constant that fixes this across all crops, since CLAHE's per-tile equalization erases the very information the constant was calibrated against — ruling out "just retune the constant" as a real fix.
+
+## Options presented to the user
+
+1. Store a second, separate analysis-only PNG (plain `normalize_to_uint16`, no CLAHE) alongside the existing hand-count display image.
+2. Re-derive the raw crop from `source_filename` — not viable, the original `.tif` is never persisted.
+3. Keep one image but retune `FM_FIND_MAXIMA_NOISE` for CLAHE'd input — rejected per the diagnosis above (no fixed constant works across differently-contrasted crops).
+
+User asked instead: store only the plain normalized crop (no CLAHE) as the single `cells.image_url`, used for both display and analysis — explicitly ruling out storing two images. Flagged the real tradeoff (losing CLAHE's contrast lift for the human hand-count view, especially on dim/uneven-illumination crops) and confirmed to proceed.
+
+## What changed
+
+**`api/main.py`**: `cells_from_tif` now stores `encode_png_16(normalized_crop)` directly (removed the `render_hand_count_image(normalized_crop)` call and its `hand_count_crop` intermediate); `render_hand_count_image` dropped from the `detection` import. `PUT /cells/{id}/auto-count` itself is unchanged — it already downloads `image_url` and runs `detect_droplets` on it, which is now correct since `image_url` is the plain calibrated crop again.
+
+**`api/detection.py`**: removed `render_hand_count_image` (dead code — no other caller), `CLAHE_CLIP_LIMIT`, and the now-unused `equalize_adapthist` import. Updated `subtract_background`'s and `_detect_droplets_otsu_watershed`'s docstrings to drop references to the removed function.
+
+## Verification
+
+`ast.parse` on both changed files (no live Render/Supabase deploy to exercise end-to-end in this environment, same constraint as other backend-only changes here). Confirmed by grep that no other code (`app.js`, docs) referenced `render_hand_count_image` or assumed `cells.image_url` was CLAHE-enhanced in a way that would now be stale.
+
+## Final step (per project convention)
+
+Added a bug-fix bullet to the end of the Phase 11c section in `docs/tasks.md`. This entry appended to `docs/plan.md`; matching entry appended to `docs/activity.md`.
+
+---
+
+# Follow-up — bring back the CLAHE-enhanced view for Count screen, still storing only one image
+
+**Request:** "Can you do that bit of processing for the hand count and view screens everytime they're clicked so that we can still use the same image for those but only store the base image."
+
+Read as: keep `cells.image_url` as the single stored asset (the plain `normalize_to_uint16` crop, per the fix above — required so `detect_droplets` keeps getting its calibrated input), but restore the CLAHE-enhanced look for the Count screen (used both for hand-counting itself and every read-only "view" mode — auto-count view, view-all-counts compare, editing a saved count) by computing that enhancement on demand each time the screen loads, rather than persisting it.
+
+## Approach
+
+Since browsers can't attach an `Authorization` header to `<img src>` (already the stated reason `cell-images` is a public bucket — see `api/main.py`'s comment above `upload_png`), the natural shape is an unauthenticated GET endpoint that returns image bytes directly, matching that existing trust model rather than introducing a new one just for this render.
+
+## What changed
+
+**`api/detection.py`**: reinstated `render_hand_count_image` (rolling-ball background subtraction + CLAHE) and `CLAHE_CLIP_LIMIT`, plus the `equalize_adapthist` import — all three were removed as dead code in the previous fix, now have a real caller again. Docstring reframed: no longer "the render stored at upload time," now explicitly "computed on demand ... not stored," generated fresh from the stored plain crop on every request. `subtract_background`'s docstring updated back to reflect two callers (`detect_droplets`'s pipeline and this render).
+
+**`api/main.py`**: new `GET /cells/{cell_id}/display-image` — looks up the cell's stored `image_url` directly (no `owned_cell`/auth check, deliberately matching `image_url`'s own public/no-auth model), downloads it, runs `render_hand_count_image`, and returns `encode_png_16(rendered)` as a raw `image/png` `Response`. Re-added `render_hand_count_image` to the `detection` import and `Response` to the `fastapi` import.
+
+**`app.js`**: `renderCountHTML`'s `<img>` now points at `` `${RENDER_API_URL}/cells/${cell.id}/display-image` `` instead of `cell.image_url` directly. Left the Cells screen detail-panel thumbnail preview (a separate small low-res preview, not one of the two screens named in the request) on plain `cell.image_url` — narrower scope than the Count screen, and local dev-mode test fixtures never set `image_url` in the first place (they always fall through to the SVG placeholder branch), so this doesn't touch local/no-backend testing either way.
+
+## Tradeoff flagged, not resolved here
+
+`rolling_ball` is the expensive step in this pipeline (~1.3s/crop per earlier measurements in this doc) and now runs on every Count screen open instead of once at cell creation — plus a live Render call each time instead of a static Supabase Storage URL, which also means eating Render's cold-start latency (PRD-noted, 30–60s after idle) on whichever open triggers it. Not caching this response was implied by "everytime they're clicked" in the request; noting it here in case that latency turns out to be worse in practice than it sounds on paper.
+
+## Verification
+
+`ast.parse` on both changed Python files. No live Render/Supabase deploy available in this environment to hit the new endpoint end-to-end or measure real latency — worth a manual check once deployed (open the Count screen on a real cell, confirm the image looks CLAHE-enhanced and `detect_droplets` counts are unaffected).
+
+## Final step (per project convention)
+
+Added a follow-up bullet to the same Phase 11c section in `docs/tasks.md`. This entry appended to `docs/plan.md`; matching entry appended to `docs/activity.md`.
+
