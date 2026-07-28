@@ -74,6 +74,7 @@ const ABOUT_CONTENT = {
 // Navigation state — persists across the authenticated shell
 const state = {
   screen: 'login',
+  project: null,           // { id, name, inviteCode }
   experiment: null,        // { id, name }
   condition: null,         // { id, name }
   cell: null,              // { id, name }
@@ -84,7 +85,8 @@ const state = {
 
 // Per-screen chrome metadata: subheader title, primary action label, back button
 const SCREENS = {
-  experiments: { title: 'Experiments', action: 'Add experiment' },
+  home:        { title: 'Home',        action: 'Create/Join project' },
+  experiments: { title: 'Experiments', action: 'Add experiment', back: true },
   conditions:  { title: 'Conditions',  action: 'New slide',    back: true },
   cells:       { title: 'Cells',       action: 'Add photos',   back: true },
   graph:       { title: 'Graph' },
@@ -97,6 +99,7 @@ const SCREENS = {
 
 // Sidebar drawer destinations
 const NAV_LINKS = [
+  { screen: 'home',        label: 'Home' },
   { screen: 'experiments', label: 'Experiments' },
   { screen: 'graph',       label: 'Graph' },
   { screen: 'rawdata',     label: 'Raw data' },
@@ -104,12 +107,19 @@ const NAV_LINKS = [
   { screen: 'help',        label: 'Help' },
 ];
 
+// Screens that only make sense once a project is selected — visiting one
+// directly (e.g. via the sidebar, before ever opening a project) bounces
+// back to Home rather than rendering against an undefined state.project.
+const PROJECT_SCREENS = ['experiments', 'conditions', 'cells', 'graph', 'rawdata'];
+
 // Screen router
 function navigate(screen, params = {}) {
-  state.screen = screen;
+  if ('project' in params) state.project = params.project;
   if ('experiment' in params) state.experiment = params.experiment;
   if ('condition' in params) state.condition = params.condition;
   if ('cell' in params) state.cell = params.cell;
+  if (PROJECT_SCREENS.includes(screen) && !state.project) screen = 'home';
+  state.screen = screen;
   if (screen === 'login') return renderLogin();
   if (screen === 'addphotos') return renderAddPhotos();
   if (screen === 'count') {
@@ -122,6 +132,7 @@ function navigate(screen, params = {}) {
     return renderCount();
   }
   renderShell(screen);
+  if (screen === 'home') initHome();
   if (screen === 'experiments') initExperiments();
   if (screen === 'conditions') initConditions();
   if (screen === 'cells') initCells();
@@ -245,7 +256,7 @@ function renderLogin(mode = 'login') {
         const match = testAccounts.find(a => a.email === email && a.password === password);
         if (match) {
           localStorage.setItem('token', `local:${email}`);
-          navigate('experiments');
+          navigate('home');
           return;
         }
       } catch (_) {
@@ -261,7 +272,7 @@ function renderLogin(mode = 'login') {
           body: JSON.stringify({ email, password }),
         });
         localStorage.setItem('token', token);
-        navigate('experiments');
+        navigate('home');
       } catch (err) {
         errorEl.textContent = copy.error;
         messageEl.textContent = '';
@@ -279,7 +290,7 @@ function renderLogin(mode = 'login') {
         });
         if (result.token) {
           localStorage.setItem('token', result.token);
-          navigate('experiments');
+          navigate('home');
         } else {
           messageEl.textContent = 'Check your email to confirm your account, then log in.';
         }
@@ -356,7 +367,7 @@ function renderResetPassword(accessToken) {
       });
       if (!res.ok) throw new Error(await res.text());
       localStorage.setItem('token', accessToken);
-      navigate('experiments');
+      navigate('home');
     } catch (err) {
       errorEl.textContent = 'Could not set new password. The reset link may have expired — request a new one.';
     }
@@ -447,6 +458,9 @@ function subheaderHTML(screen, meta) {
 // and is a single label for the flat screens (Graph, Raw data, About, Help).
 function breadcrumbHTML(screen) {
   const crumbs = [];
+  if (screen !== 'home' && state.project) {
+    crumbs.push({ label: state.project.name, target: 'home' });
+  }
   if (['experiments', 'conditions', 'cells'].includes(screen)) {
     crumbs.push({ label: 'Experiments', target: 'experiments' });
     if (screen === 'conditions' || screen === 'cells') {
@@ -546,6 +560,7 @@ function wireShell(screen) {
 
   document.getElementById('profile-logout').addEventListener('click', () => {
     localStorage.removeItem('token');
+    state.project = null;
     navigate('login');
   });
 
@@ -556,7 +571,7 @@ function wireShell(screen) {
   const backBtn = document.getElementById('back-btn');
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      navigate(screen === 'cells' ? 'conditions' : 'experiments');
+      navigate(screen === 'cells' ? 'conditions' : screen === 'conditions' ? 'experiments' : 'home');
     });
   }
 
@@ -582,6 +597,21 @@ const TEST_EXPERIMENTS = [
     condition_count: 2,
   },
 ];
+
+// Projects are the new top-level container above experiments (shared with
+// collaborators via an invite code — see docs/tasks.md Phase 14). The real
+// backend/schema isn't implemented yet, so local test accounts wrap the
+// existing TEST_EXPERIMENTS fixture as one project's experiment list; a
+// second, empty project exercises the empty state.
+const TEST_PROJECTS = [
+  { id: 'test-project-001', name: 'Lipid Droplet Study', inviteCode: 'LDROP-4821', experiments: TEST_EXPERIMENTS },
+  { id: 'test-project-002', name: 'Starvation Timecourse', inviteCode: 'STARV-1090', experiments: [] },
+];
+
+function currentProjectExperiments() {
+  const project = TEST_PROJECTS.find(p => String(p.id) === String(state.project?.id));
+  return project ? project.experiments : [];
+}
 
 const TEST_CONDITIONS = {
   'test-exp-001': [
@@ -779,6 +809,228 @@ function formatDate(dateStr) {
   }
 }
 
+// ---- Home screen (Projects) ----
+// Mirrors initExperiments/renderExperimentsHTML/wireExperiments below —
+// same .folder-layout two-column grid + detail panel, one level up the
+// hierarchy. See docs/tasks.md Phase 14: the real GET /projects,
+// POST /projects, and POST /projects/join endpoints are assumed, not yet
+// implemented server-side.
+
+async function initHome() {
+  const content = document.querySelector('.content');
+  content.innerHTML = '<div class="loading-state">Loading projects…</div>';
+
+  let projects;
+
+  if (localStorage.getItem('token')?.startsWith('local:')) {
+    projects = TEST_PROJECTS.map(p => ({
+      id: p.id,
+      name: p.name,
+      invite_code: p.inviteCode,
+      experiment_count: p.experiments.length,
+    }));
+  }
+
+  if (!projects) {
+    try {
+      projects = await api('/projects');
+    } catch {
+      content.innerHTML = '<div class="error-state">Could not load projects. The API may not be reachable yet.</div>';
+      wireHomeAction();
+      return;
+    }
+  }
+
+  content.innerHTML = renderHomeHTML(projects);
+  wireHome(projects);
+}
+
+function renderHomeHTML(projects) {
+  const cards = projects.length === 0
+    ? '<p class="empty-state">No projects yet. Click "Create/Join project" to get started.</p>'
+    : projects.map(p => {
+        const expCount = p.experiment_count ?? 0;
+        const expLabel = `${expCount} experiment${expCount !== 1 ? 's' : ''}`;
+        return `
+          <div class="folder-card" data-id="${escHtml(String(p.id))}" role="button" tabindex="0">
+            <div class="folder-name">${escHtml(p.name)}</div>
+            <div class="folder-meta">
+              <span class="folder-meta-item">${expLabel}</span>
+              ${p.invite_code ? `<span class="folder-meta-item folder-meta-code">${escHtml(p.invite_code)}</span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+  return `
+    <div class="folder-layout">
+      <div class="folder-grid" id="folder-grid">${cards}</div>
+      <aside class="detail-panel" id="detail-panel" aria-label="Project details"></aside>
+    </div>
+  `;
+}
+
+function wireHome(projects) {
+  const grid = document.getElementById('folder-grid');
+  const panel = document.getElementById('detail-panel');
+
+  function openProject(p) {
+    navigate('experiments', { project: { id: p.id, name: p.name, inviteCode: p.invite_code } });
+  }
+
+  function selectProject(id) {
+    const p = projects.find(pr => String(pr.id) === String(id));
+    if (!p) return;
+
+    grid.querySelectorAll('.folder-card').forEach(c => c.classList.remove('selected'));
+    const card = grid.querySelector(`.folder-card[data-id="${CSS.escape(String(id))}"]`);
+    if (card) card.classList.add('selected');
+
+    const expCount = p.experiment_count ?? 0;
+    panel.innerHTML = `
+      <div class="detail-name">${escHtml(p.name)}</div>
+      <div class="detail-row">
+        <span class="detail-label">Invite code</span>
+        <span class="detail-value detail-code">${escHtml(p.invite_code || '—')}${p.invite_code ? '<button class="detail-copy-btn" id="detail-copy" type="button">Copy</button>' : ''}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Experiments</span>
+        <span class="detail-value">${expCount}</span>
+      </div>
+      <button class="detail-open-btn" id="detail-open">Open project</button>
+    `;
+    panel.classList.add('visible');
+
+    const copyBtn = document.getElementById('detail-copy');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(p.invite_code);
+          copyBtn.textContent = 'Copied';
+          setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+        } catch {
+          // Clipboard API unavailable (e.g. insecure context) — the invite
+          // code is still visible in the panel to select and copy by hand.
+        }
+      });
+    }
+
+    document.getElementById('detail-open').addEventListener('click', () => openProject(p));
+  }
+
+  grid.querySelectorAll('.folder-card').forEach(card => {
+    card.addEventListener('click', () => selectProject(card.dataset.id));
+    card.addEventListener('dblclick', () => {
+      const p = projects.find(pr => String(pr.id) === card.dataset.id);
+      if (p) openProject(p);
+    });
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter') selectProject(card.dataset.id);
+    });
+  });
+
+  wireHomeAction();
+}
+
+function wireHomeAction() {
+  const actionBtn = document.getElementById('primary-action');
+  if (actionBtn) {
+    actionBtn.addEventListener('click', () => openCreateJoinProjectModal(() => initHome()));
+  }
+}
+
+function openCreateJoinProjectModal(onSuccess) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header">Create/Join project</div>
+      <div class="modal-tabs" role="tablist">
+        <button type="button" class="modal-tab active" id="tab-create" data-tab="create" role="tab" aria-selected="true">Create new</button>
+        <button type="button" class="modal-tab" id="tab-join" data-tab="join" role="tab" aria-selected="false">Join existing</button>
+      </div>
+      <form class="modal-form" id="modal-form">
+        <div class="modal-field" id="field-create">
+          <label for="modal-project-name">Project name</label>
+          <input id="modal-project-name" type="text" required autocomplete="off">
+        </div>
+        <div class="modal-field" id="field-join" hidden>
+          <label for="modal-invite-code">Invite code</label>
+          <input id="modal-invite-code" type="text" autocomplete="off" placeholder="e.g. LDROP-4821">
+        </div>
+        <div class="modal-error" id="modal-error"></div>
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" id="modal-cancel">Cancel</button>
+          <button type="submit" class="modal-save" id="modal-save">Create project</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const removeModal = () => backdrop.remove();
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) removeModal(); });
+  document.getElementById('modal-cancel').addEventListener('click', removeModal);
+
+  let activeTab = 'create';
+  const tabCreate = document.getElementById('tab-create');
+  const tabJoin = document.getElementById('tab-join');
+  const fieldCreate = document.getElementById('field-create');
+  const fieldJoin = document.getElementById('field-join');
+  const nameInput = document.getElementById('modal-project-name');
+  const codeInput = document.getElementById('modal-invite-code');
+  const saveBtn = document.getElementById('modal-save');
+  const errEl = document.getElementById('modal-error');
+
+  function setTab(tab) {
+    activeTab = tab;
+    tabCreate.classList.toggle('active', tab === 'create');
+    tabJoin.classList.toggle('active', tab === 'join');
+    tabCreate.setAttribute('aria-selected', String(tab === 'create'));
+    tabJoin.setAttribute('aria-selected', String(tab === 'join'));
+    fieldCreate.hidden = tab !== 'create';
+    fieldJoin.hidden = tab !== 'join';
+    nameInput.required = tab === 'create';
+    codeInput.required = tab === 'join';
+    saveBtn.textContent = tab === 'create' ? 'Create project' : 'Join project';
+    errEl.textContent = '';
+  }
+
+  tabCreate.addEventListener('click', () => setTab('create'));
+  tabJoin.addEventListener('click', () => setTab('join'));
+
+  document.getElementById('modal-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    saveBtn.disabled = true;
+    saveBtn.textContent = activeTab === 'create' ? 'Creating…' : 'Joining…';
+    errEl.textContent = '';
+
+    try {
+      if (activeTab === 'create') {
+        await api('/projects', {
+          method: 'POST',
+          body: JSON.stringify({ name: nameInput.value }),
+        });
+      } else {
+        await api('/projects/join', {
+          method: 'POST',
+          body: JSON.stringify({ invite_code: codeInput.value }),
+        });
+      }
+      removeModal();
+      onSuccess();
+    } catch {
+      saveBtn.disabled = false;
+      saveBtn.textContent = activeTab === 'create' ? 'Create project' : 'Join project';
+      errEl.textContent = activeTab === 'create'
+        ? 'Could not create project. Check the API connection.'
+        : 'Could not join project. Check the invite code and API connection.';
+    }
+  });
+
+  nameInput.focus();
+}
+
 async function initExperiments() {
   const content = document.querySelector('.content');
   content.innerHTML = '<div class="loading-state">Loading experiments…</div>';
@@ -786,12 +1038,12 @@ async function initExperiments() {
   let experiments;
 
   if (localStorage.getItem('token')?.startsWith('local:')) {
-    experiments = TEST_EXPERIMENTS;
+    experiments = currentProjectExperiments();
   }
 
   if (!experiments) {
     try {
-      experiments = await api('/experiments');
+      experiments = await api(`/projects/${state.project.id}/experiments`);
     } catch {
       content.innerHTML = '<div class="error-state">Could not load experiments. The API may not be reachable yet.</div>';
       wireExperimentsAction();
@@ -904,8 +1156,9 @@ function wireExperiments(experiments) {
 
 async function deleteExperiment(id) {
   if (localStorage.getItem('token')?.startsWith('local:')) {
-    const idx = TEST_EXPERIMENTS.findIndex(e => String(e.id) === String(id));
-    if (idx !== -1) TEST_EXPERIMENTS.splice(idx, 1);
+    const experiments = currentProjectExperiments();
+    const idx = experiments.findIndex(e => String(e.id) === String(id));
+    if (idx !== -1) experiments.splice(idx, 1);
     delete TEST_CONDITIONS[id];
   } else {
     await api(`/experiments/${id}`, { method: 'DELETE' });
@@ -967,7 +1220,7 @@ function openAddExperimentModal(onSuccess) {
     errEl.textContent = '';
 
     try {
-      await api('/experiments', {
+      await api(`/projects/${state.project.id}/experiments`, {
         method: 'POST',
         body: JSON.stringify({
           name:  document.getElementById('modal-name').value,
@@ -2544,12 +2797,12 @@ async function initGraph() {
   let experiments;
 
   if (localStorage.getItem('token')?.startsWith('local:')) {
-    experiments = TEST_EXPERIMENTS;
+    experiments = currentProjectExperiments();
   }
 
   if (!experiments) {
     try {
-      experiments = await api('/experiments');
+      experiments = await api(`/projects/${state.project.id}/experiments`);
     } catch {
       content.innerHTML = '<div class="error-state">Could not load experiments. The API may not be reachable yet.</div>';
       return;
@@ -2914,12 +3167,12 @@ async function initRawData() {
   let experiments;
 
   if (localStorage.getItem('token')?.startsWith('local:')) {
-    experiments = TEST_EXPERIMENTS;
+    experiments = currentProjectExperiments();
   }
 
   if (!experiments) {
     try {
-      experiments = await api('/experiments');
+      experiments = await api(`/projects/${state.project.id}/experiments`);
     } catch {
       content.innerHTML = '<div class="error-state">Could not load raw data. The API may not be reachable yet.</div>';
       return;
@@ -3226,9 +3479,9 @@ function wireRawData() {
       renderResetPassword(hashParams.access_token);
     } else {
       localStorage.setItem('token', hashParams.access_token);
-      navigate('experiments');
+      navigate('home');
     }
     return;
   }
-  navigate(localStorage.getItem('token') ? 'experiments' : 'login');
+  navigate(localStorage.getItem('token') ? 'home' : 'login');
 })();

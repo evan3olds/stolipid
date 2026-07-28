@@ -1780,3 +1780,35 @@ Added a bug-fix bullet to the end of the Phase 11c section in `docs/tasks.md`. T
 ## Final step (per project convention)
 
 Added a follow-up bullet to the same Phase 11c section in `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Phase 14 — Projects (shared, invite-code) — UI structure
+
+**Request:** add Projects that can be shared to others via an invite code so they can all edit the same experiments. Plan the UI structure first: a Home screen showing all current projects with a "Create/Join project" button; opening a project goes to the app as it stands today, with Experiments, Raw data, and Graph all scoped to that project.
+
+Confirmed with the user up front to follow this codebase's established build order (per `docs/plan.md`'s Phase 4–11 history): UI/navigation built against local test-account fixtures and documented "assumed" Render endpoints first, real backend as a separate follow-up. No `api/main.py` or Supabase schema changes in this pass.
+
+### What changed
+
+**`app.js`**:
+- New Home screen — `initHome`/`renderHomeHTML`/`wireHome`, reusing the existing `.folder-layout` two-column grid + detail panel pattern from `renderExperimentsHTML`/`wireExperiments` verbatim (no new grid/card CSS needed). Cards show project name, experiment count, and an invite-code chip; the detail panel adds the invite code with a `navigator.clipboard.writeText` "Copy" button and an "Open project" button. Home is now the post-login landing screen (was Experiments).
+- New `openCreateJoinProjectModal` — one modal, two tabs ("Create new" / "Join existing") toggling which field is visible/`required`; submits to assumed `POST /projects` (`{ name }`) or `POST /projects/join` (`{ invite_code }`) depending on the active tab. Same backdrop/cancel/error pattern as `openAddExperimentModal`.
+- `state.project` (`{ id, name, inviteCode }`) added alongside the existing `state.experiment`/`state.condition`. `navigate()` now takes a `project` param, and a `PROJECT_SCREENS` guard (`experiments`/`conditions`/`cells`/`graph`/`rawdata`) redirects to `home` if `state.project` is unset — no URL routing exists to deep-link into a project, matching the app's existing design (PRD §8.1), so a reload always lands on Home first now instead of Experiments.
+- `breadcrumbHTML` prepends the project name (linking to `home`) on every authenticated screen except Home; the back-button handler's ternary extended to `cells → conditions → experiments → home`; `SCREENS.experiments` gained `back: true` since Home is now one level up. `NAV_LINKS` gained a "Home" entry.
+- All `navigate('experiments')` call sites (login success ×3, boot-time session restore, password-recovery landing) → `navigate('home')`. Logout clears `state.project`.
+- `initExperiments`/`initGraph`/`initRawData` and `deleteExperiment` switched from the flat `TEST_EXPERIMENTS` fixture / unscoped `api('/experiments')` to a new `currentProjectExperiments()` helper (reads `TEST_PROJECTS.find(...).experiments`) and assumed `` `/projects/${state.project.id}/experiments` `` endpoints. `openAddExperimentModal`'s POST target updated the same way. `TEST_EXPERIMENTS`'s own contents are untouched — it's now wrapped as one project's experiment list inside a new `TEST_PROJECTS` fixture (plus a second, empty project to exercise Home's empty state); `TEST_CONDITIONS` (keyed by experiment id) needed no change since experiment ids stay globally unique in the fixture.
+
+**`style.css`**: `.modal-tabs`/`.modal-tab`/`.modal-tab.active` (segmented tab toggle for the Create/Join modal); `.folder-meta-code` (mono invite-code chip variant of `.folder-meta-item`); `.detail-code`/`.detail-copy-btn` (invite code row + Copy button in the Home detail panel, styled like the existing `.login-link` small underlined accent button).
+
+### Not done — flagged for a follow-up phase
+
+No real backend. `api/main.py` still only has the unscoped `/experiments` endpoints; the four assumed routes (`GET /projects`, `POST /projects`, `POST /projects/join`, `GET`/`POST /projects/{id}/experiments`) don't exist yet, so a real (non-`local:`) account will see a clean error state on Home and can't actually create/join a project. Real accounts also can't reach Experiments at all yet, since the guard requires `state.project` to be set first and there's no way to set it without a working `GET /projects`/join flow. Needs: new Supabase `projects`/`project_members` tables, `experiments.project_id`, invite-code generation, and rewiring `owned_experiment`/`owned_condition`/`owned_cell` in `api/main.py` from `created_by == user.id` to project-membership checks. See `docs/tasks.md` Phase 14 for the full unchecked list.
+
+### Verification
+
+Local test-account pass in headless Chrome (Playwright): login lands on Home; both `TEST_PROJECTS` entries render (one with experiments/invite code, one empty showing the empty state); selecting a card shows the detail panel and Copy button works; opening a project loads Experiments scoped to it with the correct `[Project] / Experiments` breadcrumb; Graph and Raw data also scope correctly and show the project breadcrumb; navigating to Graph directly from Home's sidebar before opening a project redirects back to Home; back button chain and logout (clears `state.project`) verified; both Paper and Sage themes checked; no console errors.
+
+Screenshots caught a real bug the DOM/attribute check alone missed: toggling the Create/Join modal's tabs set the inactive field's `hidden` attribute correctly, but both fields still rendered visibly — `.modal-field { display: flex }` (an author rule) overrides the browser's default `[hidden] { display: none }` (a user-agent rule) regardless of selector order, since author styles always beat UA styles at equal specificity. Fixed with an explicit `.modal-field[hidden] { display: none; }` override in `style.css`; re-verified with a fresh screenshot that only the active tab's field renders.
+
+## Final step (per project convention)
+
+Checked the UI-structure items in the new `docs/tasks.md` Phase 14 section; left the backend items unchecked. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

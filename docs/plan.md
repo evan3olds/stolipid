@@ -2364,3 +2364,41 @@ Since browsers can't attach an `Authorization` header to `<img src>` (already th
 
 Added a follow-up bullet to the same Phase 11c section in `docs/tasks.md`. This entry appended to `docs/plan.md`; matching entry appended to `docs/activity.md`.
 
+---
+
+# Plan: Phase 14 — Projects (shared, invite-code) — UI structure
+
+## Context
+
+Cell Archive is currently single-researcher: every experiment is scoped only by `created_by`, and the app lands directly on the Experiments screen after login. The user wants a **Projects** layer above Experiments so multiple researchers can share and co-edit the same experiment tree via an invite code. This pass builds the **UI/navigation structure only** — a Home screen listing the user's projects, a "Create/Join project" flow, and project-scoped routing for Experiments/Conditions/Cells/Graph/Raw data — following this codebase's established convention (confirmed with the user) of building each screen against local test-account fixtures and documented "assumed" Render endpoints first, with the real backend (new `projects`/`project_members` Supabase tables, invite-code generation, membership-based ownership checks in `api/main.py`) as a separate follow-up phase. This matches how every prior screen (Phases 4–11) was originally built.
+
+No backend code or Supabase schema changes are part of this pass. `api/main.py`'s existing `/experiments` endpoints stay as-is; the frontend calls new project-scoped URLs that don't exist on the server yet (same "assumed endpoint, real accounts see a clean error state" pattern already used throughout `app.js`).
+
+## Key design decisions
+
+- **Home becomes the post-login landing screen**, replacing Experiments. It uses the same shell (topbar/sidebar/subheader) and the same two-column folder-grid + detail-panel layout already built for Experiments (`renderExperimentsHTML`/`wireExperiments`) — reusing `.folder-layout`, `.folder-card`, `.detail-panel` etc. wholesale, no new grid/card CSS needed.
+- **`state.project`** (`{ id, name, inviteCode }`) is added to the persistent nav state and threaded through exactly like `state.experiment`/`state.condition` already are.
+- **Guard, not deep-link:** screens that need a project (`experiments`, `conditions`, `cells`, `graph`, `rawdata`) redirect to `home` in `navigate()` if `state.project` is unset — mirrors this app's existing "no URL routing" design (PRD §8.1), so a reload always lands on Home first, same as it currently always lands on Experiments.
+- **Breadcrumb** gets the project name prepended as the first crumb (linking back to `home`) on every authenticated screen except Home itself.
+- **No project Edit/Remove/member-management UI** this pass — out of scope per the user's ask, which was just Home + Create/Join + scoped navigation. Card menus (`cardMenuHTML`/`wireCardMenus`) are not used on project cards.
+
+## What to build
+
+**`app.js`** — state & routing: `state.project`; `SCREENS.home`; `back: true` added to `experiments`; `NAV_LINKS` gains a Home entry; `navigate()` gains a `PROJECT_SCREENS` guard and `project` param handling; `breadcrumbHTML` prepends the project crumb; back-button ternary extended; all `navigate('experiments')` call sites (login ×3, boot, password recovery) → `navigate('home')`; logout clears `state.project`.
+
+New Home screen: `initHome`/`renderHomeHTML`/`wireHome`, mirroring `initExperiments`/`renderExperimentsHTML`/`wireExperiments`. New `openCreateJoinProjectModal`: one modal, two tabs toggling a Name field vs. an Invite Code field, submitting to assumed `POST /projects` or `POST /projects/join` depending on the active tab.
+
+Project-scoping existing screens: new `currentProjectExperiments()` helper; `initExperiments`/`initGraph`/`initRawData`/`deleteExperiment`/`openAddExperimentModal` switched from the flat `TEST_EXPERIMENTS` fixture and unscoped `/experiments` endpoint to `currentProjectExperiments()` and `` `/projects/${state.project.id}/experiments` ``.
+
+New fixture: `TEST_PROJECTS` wraps the existing (untouched) `TEST_EXPERIMENTS` array as one project's `.experiments`, plus a second empty project for the empty state.
+
+**`style.css`**: `.modal-tabs`/`.modal-tab`/`.modal-tab.active` (Create/Join tab toggle); `.folder-meta-code` (invite-code chip on project cards); `.detail-code`/`.detail-copy-btn` (invite code + Copy button in the Home detail panel).
+
+## Verification
+
+Log in with a local test account → lands on Home; both `TEST_PROJECTS` entries render (one populated, one empty state); select → detail panel shows invite code + working Copy + "Open project"; opening a project scopes Experiments/Graph/Raw data to it with the correct breadcrumb; visiting a project-scoped screen from the sidebar before opening a project redirects to Home; Create/Join modal's tab toggle swaps fields correctly and fails gracefully (no backend yet, same as the existing Add Experiment gap for local accounts); logout clears `state.project`. Screenshot-verified in both Paper and Sage themes, no console errors.
+
+## Final step (per project convention)
+
+Checked the UI-structure items in a new Phase 14 section in `docs/tasks.md`; left the real-backend items unchecked. This entry appended to `docs/plan.md`; matching entry appended to `docs/activity.md`.
+
