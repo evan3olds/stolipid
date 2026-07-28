@@ -85,7 +85,6 @@ const state = {
 
 // Per-screen chrome metadata: subheader title, primary action label, back button
 const SCREENS = {
-  home:        { title: 'Home',        action: 'Create/Join project' },
   experiments: { title: 'Experiments', action: 'Add experiment', back: true },
   conditions:  { title: 'Conditions',  action: 'New slide',    back: true },
   cells:       { title: 'Cells',       action: 'Add photos',   back: true },
@@ -131,8 +130,11 @@ function navigate(screen, params = {}) {
     state.viewingAllCounts = params.viewingAllCounts || null;
     return renderCount();
   }
+  // Home is a standalone screen (like Login/Add Photos), not part of the
+  // authenticated shell — there's no project yet, so no hamburger/sidebar
+  // and nothing for Experiments/Graph/etc. to be scoped to.
+  if (screen === 'home') return renderHome();
   renderShell(screen);
-  if (screen === 'home') initHome();
   if (screen === 'experiments') initExperiments();
   if (screen === 'conditions') initConditions();
   if (screen === 'cells') initCells();
@@ -413,14 +415,17 @@ function renderShell(screen) {
   wireShell(screen);
 }
 
-function topbarHTML() {
+// showHamburger is false for the standalone Home screen (see renderHome) —
+// there's no sidebar to open before a project is selected.
+function topbarHTML(showHamburger = true) {
   const theme = document.documentElement.dataset.theme === 'sage' ? 'sage' : 'paper';
   return `
     <header class="topbar">
       <div class="topbar-left">
+        ${showHamburger ? `
         <button class="hamburger" id="hamburger" aria-label="Open menu">
           <span></span><span></span><span></span>
-        </button>
+        </button>` : ''}
         <span class="topbar-title">${CONFIG.appTitle}</span>
         ${CONFIG.prototypeBadge ? '<span class="badge">Prototype</span>' : ''}
       </div>
@@ -458,7 +463,7 @@ function subheaderHTML(screen, meta) {
 // and is a single label for the flat screens (Graph, Raw data, About, Help).
 function breadcrumbHTML(screen) {
   const crumbs = [];
-  if (screen !== 'home' && state.project) {
+  if (state.project) {
     crumbs.push({ label: state.project.name, target: 'home' });
   }
   if (['experiments', 'conditions', 'cells'].includes(screen)) {
@@ -507,33 +512,16 @@ function screenStub(screen, meta) {
   `;
 }
 
-function wireShell(screen) {
-  const sidebar = document.getElementById('sidebar');
-  const backdrop = document.getElementById('sidebar-backdrop');
-  const openSidebar = () => { sidebar.classList.add('open'); backdrop.classList.add('open'); };
-  const closeSidebar = () => { sidebar.classList.remove('open'); backdrop.classList.remove('open'); };
-
-  document.getElementById('hamburger').addEventListener('click', openSidebar);
-  backdrop.addEventListener('click', closeSidebar);
-
+// Theme toggle + account menu wiring, shared by the full shell (wireShell)
+// and the standalone Home screen (renderHome) — both render the same
+// #theme-toggle/#profile-btn/#profile-dropdown/#profile-logout markup via
+// topbarHTML(), but only the full shell also has a hamburger/sidebar.
+function wireTopbarChrome() {
   const themeToggle = document.getElementById('theme-toggle');
   themeToggle.addEventListener('click', () => {
     const next = document.documentElement.dataset.theme === 'sage' ? 'paper' : 'sage';
     applyTheme(next);
     themeToggle.innerHTML = `<span class="theme-toggle-dot"></span>${next === 'sage' ? 'Sage' : 'Paper'}`;
-  });
-
-  // Esc closes the drawer. The listener lives on document, so detach the
-  // previous render's handler before attaching this one.
-  if (escHandler) document.removeEventListener('keydown', escHandler);
-  escHandler = (e) => { if (e.key === 'Escape') closeSidebar(); };
-  document.addEventListener('keydown', escHandler);
-
-  sidebar.querySelectorAll('.sidebar-link').forEach(btn => {
-    btn.addEventListener('click', () => {
-      closeSidebar();
-      navigate(btn.dataset.screen);
-    });
   });
 
   const profileBtn = document.getElementById('profile-btn');
@@ -562,6 +550,31 @@ function wireShell(screen) {
     localStorage.removeItem('token');
     state.project = null;
     navigate('login');
+  });
+}
+
+function wireShell(screen) {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const openSidebar = () => { sidebar.classList.add('open'); backdrop.classList.add('open'); };
+  const closeSidebar = () => { sidebar.classList.remove('open'); backdrop.classList.remove('open'); };
+
+  document.getElementById('hamburger').addEventListener('click', openSidebar);
+  backdrop.addEventListener('click', closeSidebar);
+
+  wireTopbarChrome();
+
+  // Esc closes the drawer. The listener lives on document, so detach the
+  // previous render's handler before attaching this one.
+  if (escHandler) document.removeEventListener('keydown', escHandler);
+  escHandler = (e) => { if (e.key === 'Escape') closeSidebar(); };
+  document.addEventListener('keydown', escHandler);
+
+  sidebar.querySelectorAll('.sidebar-link').forEach(btn => {
+    btn.addEventListener('click', () => {
+      closeSidebar();
+      navigate(btn.dataset.screen);
+    });
   });
 
   document.querySelectorAll('.breadcrumb .crumb[data-target]').forEach(btn => {
@@ -815,6 +828,29 @@ function formatDate(dateStr) {
 // hierarchy. See docs/tasks.md Phase 14: the real GET /projects,
 // POST /projects, and POST /projects/join endpoints are assumed, not yet
 // implemented server-side.
+//
+// Unlike every other authenticated screen, Home does NOT go through
+// renderShell/wireShell — it's a standalone top-level screen (like Login or
+// Add Photos), reusing .shell/.topbar/.subheader purely for visual
+// consistency but with no hamburger and no sidebar, since there's no
+// project yet for Experiments/Graph/Raw data to be scoped to. Opening a
+// project is what reveals the full shell with its menu.
+function renderHome() {
+  app.innerHTML = `
+    <div class="shell">
+      ${topbarHTML(false)}
+      <div class="subheader">
+        <div class="subheader-left">
+          <nav class="breadcrumb"><span class="crumb crumb-current">Home</span></nav>
+        </div>
+        <button class="primary-action" id="primary-action">Create/Join project</button>
+      </div>
+      <main class="content"></main>
+    </div>
+  `;
+  wireTopbarChrome();
+  initHome();
+}
 
 async function initHome() {
   const content = document.querySelector('.content');
