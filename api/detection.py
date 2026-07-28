@@ -17,11 +17,11 @@ BACKGROUND_BALL_RADIUS_PX = 12
 # cores of clumped/touching droplets pass, shrinking the foreground mask
 # and pulling touching droplets apart before fill-holes/watershed even run.
 THRESHOLD_FACTOR = 1.5
-# CLAHE clip limit for the stored hand-count image (render_hand_count_image
-# only — neither detect_droplets algorithm uses this). Previously tuned
-# 0.01 -> 0.005 because skimage's 0.01 default visibly widened each
-# droplet's footprint (a smeared/blurred look); 0.003 trims that smearing
-# further while still lifting droplets out of low local contrast.
+# CLAHE clip limit for render_hand_count_image (display only — neither
+# detect_droplets algorithm uses this). Previously tuned 0.01 -> 0.005
+# because skimage's 0.01 default visibly widened each droplet's footprint
+# (a smeared/blurred look); 0.003 trims that smearing further while still
+# lifting droplets out of low local contrast.
 CLAHE_CLIP_LIMIT = 0.003
 
 # Fixed parameters for _detect_droplets_fm_edge_overlay, ported from the
@@ -58,8 +58,8 @@ DETECTION_ALGORITHMS = ("otsu_watershed", "fm_edge_overlay")
 def subtract_background(plane: np.ndarray) -> np.ndarray:
     """Rolling-ball background subtraction (radius 12px), returned as
     uint16. Flattens uneven illumination — shared first step of both
-    render_hand_count_image's grayscale render and detect_droplets's
-    threshold/watershed pipeline (see threshold_binary)."""
+    detect_droplets's threshold/watershed pipeline (see threshold_binary)
+    and render_hand_count_image's display render."""
     if plane.size == 0 or plane.max() <= plane.min():
         return plane.astype(np.uint16)  # empty/flat crop — let threshold_binary's guard handle it
 
@@ -118,10 +118,16 @@ def _fill_and_watershed(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 def render_hand_count_image(plane: np.ndarray) -> np.ndarray:
     """Rolling-ball background subtraction + CLAHE contrast enhancement,
-    returned as a real grayscale uint16 image (not a binary threshold mask)
-    for the stored hand-count image (cells.image_url). Flattens uneven
-    illumination and lifts droplets out of low local contrast without
-    reducing the crop to black/white regions.
+    returned as a real grayscale uint16 image (not a binary threshold mask).
+    Flattens uneven illumination and lifts droplets out of low local
+    contrast without reducing the crop to black/white regions.
+
+    Computed on demand (see api/main.py's GET /cells/{id}/display-image),
+    not stored — cells.image_url stays the plain normalize_to_uint16 crop
+    (api/imaging.py) so that single stored asset is also exactly what
+    detect_droplets is calibrated against; this render is only for the
+    Count screen's display, generated fresh from that stored crop every
+    time it's requested.
 
     Not shared with either detect_droplets algorithm, which each run their
     own independent pipeline on the raw normalized crop; see
@@ -137,8 +143,7 @@ def render_hand_count_image(plane: np.ndarray) -> np.ndarray:
 def _detect_droplets_otsu_watershed(plane: np.ndarray) -> tuple[int, list[tuple[int, int]]]:
     """Auto-count pipeline: subtract_background -> dark-background threshold
     -> fill-holes -> watershed to split touching droplets before counting
-    regions. Independent of render_hand_count_image's grayscale render —
-    neither shares any intermediate result with the other.
+    regions.
 
     Returns (count, points): count is the number of regions passing the
     area filter, and points is the (row, col) pixel coordinate of each

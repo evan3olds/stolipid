@@ -9,7 +9,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 import pingouin as pg
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -184,6 +184,29 @@ def upload_png(path: str, png_bytes: bytes) -> str:
         path, png_bytes, file_options={"content-type": "image/png"}
     )
     return supabase.storage.from_("cell-images").get_public_url(path)
+
+
+# cells.image_url is the plain normalize_to_uint16 crop (no auth required to
+# fetch it, see above) — that's also the exact input detect_droplets is
+# calibrated against, so it has to stay unenhanced (see PUT
+# /cells/{id}/auto-count and api/detection.py). The Count screen still wants
+# a background-subtracted + CLAHE-enhanced view for the human counter, so
+# rather than storing a second image, this renders that enhancement fresh
+# from the stored crop on every request. No auth/ownership check, same
+# public-image trust model as image_url itself — this endpoint's <img src>
+# can't carry an auth header either.
+@app.get("/cells/{cell_id}/display-image")
+def cell_display_image(cell_id: str):
+    response = supabase.table("cells").select("image_url").eq("id", cell_id).execute()
+    if not response.data or not response.data[0].get("image_url"):
+        raise HTTPException(status_code=404, detail="Cell has no stored image")
+
+    with urllib.request.urlopen(response.data[0]["image_url"]) as resp:
+        png_bytes = resp.read()
+    plane = np.array(Image.open(io.BytesIO(png_bytes)))
+
+    rendered = render_hand_count_image(plane)
+    return Response(content=encode_png_16(rendered), media_type="image/png")
 
 
 # ---- Experiments ----
@@ -494,9 +517,17 @@ def cells_from_tif(
         # per cell afterward, triggered from the Cells screen's Auto count
         # section (see PUT /cells/{id}/auto-count below), which writes its
         # result as a counts row rather than at upload time.
+        #
+        # The stored PNG is the plain linear-stretched crop (no background
+        # subtraction/CLAHE) rather than a separately-enhanced render: both
+        # detect_droplets algorithms already run their own background
+        # subtraction internally and were calibrated against this exact
+        # linear range, so a further-enhanced render as the auto-count input
+        # would double-process the image and throw off their fixed
+        # thresholds (see api/detection.py). One shared image keeps the
+        # Count screen's display and the auto-count input identical.
         normalized_crop = normalize_to_uint16(raw_crop)
-        hand_count_crop = render_hand_count_image(normalized_crop)
-        url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", encode_png_16(hand_count_crop))
+        url = upload_png(f"cells/{condition_id}/{uuid.uuid4()}.png", encode_png_16(normalized_crop))
 
         response = (
             supabase.table("cells")

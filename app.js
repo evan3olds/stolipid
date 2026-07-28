@@ -2300,8 +2300,14 @@ function renderMarkerHTML(m, readOnly, groupColorClass = '') {
 function renderCountHTML() {
   const { cell, markers, zoom, readOnly, compareGroups } = countState;
 
+  // Not cell.image_url directly — that's the plain stored crop
+  // (detect_droplets's calibrated input, see CLAUDE.md). This endpoint
+  // renders the background-subtracted + CLAHE-enhanced view fresh on every
+  // load instead, so the human counter still gets the higher-contrast image
+  // without a second one being stored (api/main.py's GET
+  // /cells/{id}/display-image).
   const image = cell.image_url
-    ? `<img class="photo-preview-img" src="${escHtml(cell.image_url)}" alt="Processed fluorescence image of ${escHtml(cell.name)}">`
+    ? `<img class="photo-preview-img" src="${escHtml(RENDER_API_URL)}/cells/${escHtml(cell.id)}/display-image" alt="Processed fluorescence image of ${escHtml(cell.name)}">`
     : renderPhotoPreviewSVG(cell.id);
 
   const markerEls = compareGroups
