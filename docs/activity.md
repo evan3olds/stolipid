@@ -1911,3 +1911,24 @@ No project skill or `chromium-cli` available in this (Windows, no Node) environm
 ## Final step (per project convention)
 
 Added a follow-up bullet to `docs/tasks.md` Phase 9. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Follow-up — Main menu trimmed to Home/Help/About/Settings; Graph and Raw data moved to a bottom bar
+
+**Request:** "The main menu should still have the hamburger menu button, but it should only have Home, Help, About, and Settings (later implemented). Raw Data and Graph will be buttons on the bottom of the screen when you are in a project, experiment, or condition."
+
+### What changed
+
+**`app.js`**:
+- `NAV_LINKS` (sidebar drawer contents) trimmed from `[Home, Experiments, Graph, Raw data, About, Help]` to `[Home, Help, About, Settings]`. Experiments was already reachable without a sidebar entry (opening a project routes straight into it, plus breadcrumbs/back-button); Graph and Raw data move to the new bottom bar below.
+- `SCREENS.settings = { title: 'Settings' }` added so the sidebar's new Settings link resolves to the existing generic `screenStub()` placeholder ("The Settings screen is coming in a later phase.") — no real Settings screen yet, per the request's "(later implemented)".
+- New `bottomBarHTML(screen)` renders a two-button `<nav class="bottom-bar">` (Graph, Raw data) whenever `PROJECT_SCREENS.includes(screen)` — i.e. on Experiments/Conditions/Cells/Graph/Raw data, exactly the screens that only make sense once a project is open. Wired into `renderShell()` alongside the existing sidebar, and clicks routed through the same `navigate(btn.dataset.screen)` pattern as `.sidebar-link`/`.crumb`, added in `wireShell()`. The active screen's button gets `.active` (mirrors `.sidebar-link.active`).
+
+**`style.css`**: added `.bottom-bar`/`.bottom-bar-btn`/`.bottom-bar-btn.active` — a flat two-button row matching the app's existing (non-fixed, flows with page content) topbar/subheader convention, not a viewport-pinned mobile tab bar.
+
+### Verification
+
+Ran the same ad hoc Playwright setup as the prior Graph follow-up (`python -m http.server` + Playwright driving the `local:` test-account login). Confirmed via `innerText` reads and screenshots: hamburger drawer lists exactly `['Home', 'Help', 'About', 'Settings']`; opening a project and viewing Experiments shows a bottom bar reading `['Graph', 'Raw data']`; clicking either navigates correctly (breadcrumb updates to e.g. "Lipid Droplet Study / Graph") and marks the clicked button `.active`; the Raw data table's long row list scrolls the bottom bar down with it (matching the app's existing non-sticky topbar/subheader, not a regression); Settings renders the stub title "Settings". No console/page errors during the pass.
+
+## Final step (per project convention)
+
+Added a Phase 3 bullet to `docs/tasks.md` (sidebar drawer contents updated, new bottom bar item). This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

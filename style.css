@@ -645,6 +645,35 @@ body {
   color: var(--accent);
 }
 
+/* Bottom bar (Graph / Raw data — shown while inside a project) */
+.bottom-bar {
+  display: flex;
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-card);
+}
+
+.bottom-bar-btn {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.bottom-bar-btn:hover {
+  background: var(--surface-tint);
+}
+
+.bottom-bar-btn.active {
+  color: var(--accent);
+  background: var(--accent-tint-soft);
+}
+
 /* Sidebar drawer */
 .sidebar-backdrop {
   position: fixed;
