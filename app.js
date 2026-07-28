@@ -3296,9 +3296,14 @@ async function initRawData() {
     if (localStorage.getItem('token')?.startsWith('local:')) {
       conditionsByExperiment = experiments.map(exp => TEST_CONDITIONS[exp.id] || []);
     } else {
-      conditionsByExperiment = await Promise.all(
-        experiments.map(exp => api(`/experiments/${exp.id}/conditions`))
-      );
+      // Sequential, not Promise.all — firing one request per experiment at
+      // once burst-loads Render's free-tier instance (and re-validates the
+      // auth token on each), which was intermittently 500ing under that
+      // concurrent load on projects with several experiments.
+      conditionsByExperiment = [];
+      for (const exp of experiments) {
+        conditionsByExperiment.push(await api(`/experiments/${exp.id}/conditions`));
+      }
     }
   } catch {
     content.innerHTML = '<div class="error-state">Could not load raw data. The API may not be reachable yet.</div>';
