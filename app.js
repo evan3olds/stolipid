@@ -3020,7 +3020,7 @@ function renderGraphScatterSVG(selected, metric) {
       const x = cx + jitter;
       const y = yFor(avg);
       const countsStr = handCounts(cell).map(c => c.value).join(', ') || '—';
-      const autoStr = cellAutoCount(cell) != null ? cellAutoCount(cell).toFixed(1) : '—';
+      const autoStr = cellAutoCounts(cell).map(r => `${autoAlgorithmLabel(r.type)}: ${r.value}`).join(', ') || '—';
       return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" class="graph-dot" style="fill:${color}"
         data-experiment="${escHtml(s.experimentName)}" data-condition="${escHtml(s.conditionName)}"
         data-cell="${escHtml(cell.name)}" data-counts="${escHtml(countsStr)}" data-average="${autoStr}"
@@ -3069,7 +3069,7 @@ function wireGraphTooltip() {
         <div class="graph-tooltip-row">${escHtml(dot.dataset.condition)}</div>
         <div class="graph-tooltip-row">${escHtml(dot.dataset.cell)}</div>
         <div class="graph-tooltip-row">Hand counts: ${escHtml(dot.dataset.counts)}</div>
-        <div class="graph-tooltip-row">Auto count: ${escHtml(dot.dataset.average)}</div>
+        <div class="graph-tooltip-row">Auto counts: ${escHtml(dot.dataset.average)}</div>
         ${dot.dataset.metricKey === 'auto' ? '' : `<div class="graph-tooltip-row">${escHtml(dot.dataset.metric)}: ${escHtml(dot.dataset.plotted)}</div>`}
       `;
       tooltip.hidden = false;

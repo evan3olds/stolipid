@@ -2475,3 +2475,31 @@ Traced the render lifecycle (subheader per-`navigate()` vs. content per-`init*()
 ## Final step (per project convention)
 
 Added a bug-fix bullet to `docs/tasks.md` Phase 14; matching entry appended to `docs/activity.md`.
+
+
+# Follow-up — Graph screen UX fixes: dropdown chevrons, mean-bar hover, 50-unit y-axis, per-algorithm auto counts
+
+**Request:** dropdown arrows on the Experiment/Condition selects, hover-to-see-value on the condition mean bar, y-axis gridlines every 50 units with the top one rounding up to the next 50 above the highest plotted cell — followed by a second request that the dot tooltip's auto-count line list every auto-count algorithm a cell has run, not just their blended average.
+
+## Approach
+
+All four changes are local to the Graph screen's render/wire functions (`app.js`) plus their `style.css` counterparts — no data-model or API changes needed, since `cells.counts` already carries one row per auto-count algorithm (`counts.type`) and the existing `cellAutoCounts(cell)`/`autoAlgorithmLabel(type)` helpers (added for the Raw Data screen's per-algorithm display) cover exactly what the tooltip needed.
+
+The one design decision: the mean-bar hover target needs to be wider than the 3px-stroke line itself, but per-cell dots are plotted at the same x-position range and sometimes sit directly on the mean line. Rather than let the wider invisible hit-rect intercept hover before a dot gets a chance, order it *underneath* the dots in the SVG's paint/hit-test order (SVG hit-tests top-down by document order) — the dot naturally wins where they overlap, and the hit-rect still catches hover anywhere else along the bar. The visible tick line itself gets `pointer-events: none` and keeps rendering after the dots (visually on top, matching the pre-existing look) so it never interferes either way.
+
+## What to build
+
+**`app.js`**:
+- `renderGraphHTML`: wrap both `<select>`s in `.graph-select-wrap`.
+- `renderGraphScatterSVG`: fixed `TICK_STEP = 50`; `niceMax = Math.ceil(rawMax / 50) * 50`; `tickCount = niceMax / 50`. Split the mean marker into `meanHit` (invisible `<rect>`, carries the tooltip's `data-*`) rendered before `dots`, and `meanTick` (visible `<line>`) rendered after — return order `meanHit + dots + meanTick + label`.
+- `wireGraphTooltip`: add a `.graph-mean-hit` hover block mirroring the existing `.graph-dot` one, showing `Condition mean (<metric>): <value>`. Change the dot tooltip's auto-count row from `cellAutoCount(cell)` (averaged) to `cellAutoCounts(cell).map(r => \`${autoAlgorithmLabel(r.type)}: ${r.value}\`).join(', ')`.
+
+**`style.css`**: `.graph-select-wrap` + `::after` chevron triangle (theme-aware via `var(--text-secondary)`); `.graph-select` gets `width: 100%` and right padding for the chevron; `.graph-mean-hit { fill: transparent; cursor: pointer; }`; `.graph-mean-tick { pointer-events: none; }`.
+
+## Verification
+
+No project-specific run skill and no `chromium-cli` in this environment (Windows, no Node) — improvised with `python -m http.server` + Playwright (present under the system Python install) driving the app's built-in local test-account login into the Graph screen against the `TEST_PROJECTS`/`TEST_CONDITIONS` fixtures. Checked: chevrons render on both selects; hovering the mean bar away from any dot shows the condition-mean tooltip; hovering a dot that overlaps the mean line still shows the per-cell tooltip (confirms the paint/hit-test ordering fix actually works, not just compiles); y-axis ticks read `0, 50` for the fixture data's ~4-max range; `test-cell-001`'s tooltip (has both `otsu_watershed` and `fm_edge_overlay` runs) reads "Auto counts: Standard: 3, FM_edge_overlay (ALDQ): 4". No console errors.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to `docs/tasks.md` Phase 9; matching entry appended to `docs/activity.md`.
