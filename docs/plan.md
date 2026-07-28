@@ -2605,3 +2605,47 @@ Same ad hoc Playwright + `python -m http.server` setup. Verified breadcrumb text
 ## Final step (per project convention)
 
 Added a Phase 3 bullet to `docs/tasks.md`; matching entry appended to `docs/activity.md`.
+
+---
+
+# Bug fix — Raw data intermittently 500ing (`GET /experiments/{id}/conditions`)
+
+**Request:** user pasted a server log line (`500 Internal Server Error` / `Exception in ASGI application` on `GET /experiments/{id}/conditions`) and said Raw data "only sometimes works."
+
+## Root cause
+
+`initRawData()` fetched every experiment's conditions concurrently via `Promise.all(experiments.map(...))`. Each of those N simultaneous requests also independently re-validates the auth token against Supabase (`get_current_user`'s `Depends`), so a project with several experiments produces a burst of concurrent load against Render's free-tier instance and its single shared service-role Supabase client. Under that burst, some requests intermittently threw unhandled server-side exceptions (500) while others in the same batch succeeded — exactly the "only sometimes" pattern reported, and worse now that Raw Data is a one-click bottom-bar button instead of a buried sidebar link (see the menu-restructure follow-up), so it's likely being opened, and this bug hit, much more often. The Graph screen's parallel lookup doesn't have this problem because it only ever fetches one experiment's conditions at a time, on demand.
+
+## Fix
+
+`app.js` (`initRawData`): replaced the `Promise.all` fan-out with a sequential `for...of` `await` loop — one `/conditions` request in flight at a time instead of N at once. Trades some load time (acceptable for a read-only report screen) for not overloading the backend. The `local:` test-data path (`TEST_CONDITIONS`, no real API calls) is unaffected.
+
+## Verification
+
+No live Render/Supabase credentials in this environment, so the actual intermittent 500 couldn't be reproduced directly (same constraint as the other pending-migration items already noted in `docs/tasks.md`). Confirmed via the ad hoc Playwright + `python -m http.server` setup that the only testable path (`local:` test data) still renders the Raw Data table correctly after the change — no regression, and the change itself is a mechanical serialize-vs-fan-out swap with no difference in the resulting data.
+
+## Final step (per project convention)
+
+Added a bug-fix bullet to `docs/tasks.md` Phase 3; matching entry appended to `docs/activity.md`.
+
+---
+
+# Follow-up — Global unhandled-exception handler in the Python API
+
+**Request:** "Yes implement this," confirming the offer to also address the backend-side possibility flagged in the prior fix — that this might trace back to something in `api/main.py` itself, which needed the actual Python traceback to diagnose and wasn't available from the user's pasted log (just the opaque ASGI wrapper line).
+
+## Approach
+
+There's no traceback yet, so there's no specific backend bug to fix — the only honest, useful thing to implement is making the *next* occurrence diagnosable. A global `Exception` handler that logs the full traceback before responding does that without guessing at a root cause. The one risk with a catch-all handler is accidentally swallowing FastAPI's existing intentional error responses (404s from the `owned_*` helpers, 401s from `get_current_user`, 422s from body validation) — mitigated by relying on Starlette's documented dispatch behavior: it picks the most specific handler registered for the raised exception's type by walking its MRO, and `HTTPException` already has its own default handler, so it's matched first and this new handler never sees it.
+
+## What to build
+
+**`api/main.py`**: `@app.exception_handler(Exception)` registered right after the CORS middleware, before any routes. Logs `request.method`/`request.url.path` plus `traceback.print_exc()` (via `print`, matching this file's existing logging convention in `reset_password_for_email`), returns `JSONResponse(status_code=500, content={"detail": "Internal server error"})`.
+
+## Verification
+
+`python -m py_compile api/main.py` passes. Can't run it end-to-end — `fastapi`/`supabase` aren't installed in this sandbox and there are no live Supabase credentials here (same constraint as other pending-migration items in `docs/tasks.md`) — so the actual JSON response from a triggered exception couldn't be observed directly. The non-interference-with-HTTPException claim is based on Starlette's documented most-specific-match exception dispatch, the standard pattern for this exact kind of catch-all handler.
+
+## Final step (per project convention)
+
+Added a Phase 3 bullet to `docs/tasks.md`; matching entry appended to `docs/activity.md`.

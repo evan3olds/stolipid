@@ -1987,3 +1987,43 @@ Same ad hoc Playwright + `python -m http.server` setup. Checked all three origin
 ## Final step (per project convention)
 
 Added a Phase 3 bullet to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Bug fix — Raw data intermittently 500ing (`GET /experiments/{id}/conditions`)
+
+**Request:** user reported the server log `INFO: ... "GET /experiments/{id}/conditions HTTP/1.1" 500 Internal Server Error / ERROR: Exception in ASGI application` and said clicking Raw data "only sometimes works."
+
+### Root cause
+
+`initRawData()` (`app.js`) builds its table by fetching every experiment's conditions at once via `Promise.all(experiments.map(exp => api(\`/experiments/${exp.id}/conditions\`)))` — one concurrent request per experiment, each of which also independently re-validates the bearer token against Supabase Auth server-side (`get_current_user` in `api/main.py`, called via FastAPI's `Depends` on every request). On a project with more than a couple of experiments, that's a burst of simultaneous requests against Render's free-tier instance and its single shared `supabase` service-role client — under that concurrent load, some of the burst intermittently raised an unhandled exception server-side (visible only as "Exception in ASGI application," no Python traceback in what the user pasted) instead of a clean response, while the rest of the batch succeeded. That matches the "only sometimes" symptom exactly.
+
+The Graph screen's equivalent lookup (`loadConditionsFor` in `wireGraph`) never fans out like this — it only fetches one experiment's conditions at a time, on demand when the user picks it from the dropdown — which is why Graph doesn't show the same failure. Raw Data is also now one bottom-bar click away instead of buried in the old sidebar (see the earlier menu-restructure follow-up), so it's plausible it's simply being hit — and hitting this latent bug — far more often now.
+
+### Fix
+
+`app.js` (`initRawData`): replaced the `Promise.all` fan-out with a sequential `for...of` loop that `await`s each experiment's `/conditions` call one at a time. This trades some load time (acceptable for a read-only report screen) for removing the concurrent burst that was overloading the Render instance. The `local:` test-account code path (`TEST_CONDITIONS`) was untouched — it never made real API calls to begin with.
+
+### Verification
+
+No way to reproduce the real intermittent 500 in this environment (no live Render/Supabase credentials — same limitation noted elsewhere for the pending-migration items in `docs/tasks.md`). Confirmed via the ad hoc Playwright + `python -m http.server` setup that the `local:` test-data path still renders the Raw Data table correctly post-change (45 rows, no console errors) — i.e. the fix didn't regress the only path testable in this environment. The fix itself is a mechanical serialize-instead-of-fan-out change with no behavioral difference in the resulting data, only in how many requests are in flight at once.
+
+## Final step (per project convention)
+
+Added a bug-fix bullet to `docs/tasks.md` Phase 3. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Follow-up — Global unhandled-exception handler in the Python API
+
+**Request:** "Yes implement this," confirming the offer to also address the deeper backend-side possibility flagged in the prior bug-fix follow-up — that the intermittent 500 might trace back to something in `api/main.py` itself, which couldn't be diagnosed further without the actual Python traceback (the user's pasted log only showed the opaque "Exception in ASGI application" ASGI wrapper line, no traceback).
+
+### What changed
+
+**`api/main.py`**: added `@app.exception_handler(Exception)` (`log_unhandled_exception`) right after the CORS middleware setup. It logs the request method/path plus the full traceback via `traceback.print_exc()` (Render captures stdout, and `print` is already this file's existing logging convention — see `reset_password_for_email`'s error path) and returns a clean `{"detail": "Internal server error"}` JSON 500 instead of the exception crashing out unlogged. This doesn't fix a specific bug — there's no traceback yet to fix — it makes the *next* occurrence (if the Raw Data concurrency fix doesn't fully eliminate it, or if it resurfaces somewhere else) actually diagnosable from Render's logs instead of another dead-end "Exception in ASGI application" line.
+
+One thing worth calling out: `@app.exception_handler(Exception)` is deliberately scoped to exceptions with no more specific registered handler. Starlette's `ExceptionMiddleware` walks the raised exception's MRO and dispatches to the closest match, and it registers a handler for `HTTPException` by default — so this doesn't touch any of the existing intentional 404/401/400/422 responses (`owned_project`, `owned_experiment`, `get_current_user`, etc. all still behave exactly as before); it only catches what would otherwise be an unhandled crash.
+
+### Verification
+
+`python -m py_compile api/main.py` passes. Couldn't exercise this against a running server — `fastapi`/`supabase` aren't installed in this sandbox's Python and there are no live Supabase credentials in this environment (same constraint noted for the Phase 11c/14 pending-migration items in `docs/tasks.md`), so no way to actually trigger an exception and confirm the JSON response shape end-to-end. Verified the non-interference-with-HTTPException claim by reasoning through Starlette's documented exception-handler dispatch (most-specific-match-in-MRO), which is also the standard documented pattern for adding a catch-all handler alongside FastAPI's default HTTPException handling.
+
+## Final step (per project convention)
+
+Added a Phase 3 bullet to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

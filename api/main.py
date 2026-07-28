@@ -4,6 +4,7 @@ import os
 import random
 import re
 import string
+import traceback
 import urllib.request
 import uuid
 from typing import Optional
@@ -11,8 +12,9 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 import pingouin as pg
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from PIL import Image
 from pydantic import BaseModel, Field
 from supabase import create_client
@@ -39,6 +41,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Without this, an unhandled exception surfaces in Render's logs only as
+# "Exception in ASGI application" with no traceback attached — undiagnosable
+# after the fact. This doesn't fix any particular bug; it just makes the next
+# occurrence of one debuggable. Doesn't shadow HTTPException (404s, 401s,
+# etc. keep using FastAPI's default handler) since Starlette dispatches to
+# the most specific registered handler for the raised type.
+@app.exception_handler(Exception)
+async def log_unhandled_exception(request: Request, exc: Exception):
+    print(f"Unhandled exception on {request.method} {request.url.path}:")
+    traceback.print_exc()
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 @app.get("/")

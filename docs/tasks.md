@@ -34,6 +34,8 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Style bottom bar buttons to match the primary-action ("Add experiment") accent color, with a gap between the two buttons and padding off the screen edge
 - [x] Give Graph/Raw data a back button that returns to the Experiments/Conditions/Cells screen they were opened from, instead of the fixed hierarchy back-chain
 - [x] Graph/Raw data breadcrumb shows the full Experiments/Experiment/Condition path they were opened from (mirroring the back button target), not just a flat "Graph"/"Raw data" label
+- [x] Bug fix — Raw data's per-experiment conditions fetch changed from a `Promise.all` burst to sequential requests, fixing intermittent 500s from the Render API under concurrent load
+- [x] `api/main.py`: added a global unhandled-exception handler that logs the full traceback and returns a clean 500, so any future occurrence of an opaque "Exception in ASGI application" is actually diagnosable from Render's logs
 
 ---
 
