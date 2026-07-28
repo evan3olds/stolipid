@@ -2531,3 +2531,29 @@ Same ad hoc Playwright setup as the prior Graph follow-up (`python -m http.serve
 ## Final step (per project convention)
 
 Added a Phase 3 bullet to `docs/tasks.md`; matching entry appended to `docs/activity.md`.
+
+---
+
+# Follow-up — Bottom bar buttons restyled to match "Add experiment", with spacing
+
+**Request:** "Make them the same colors as the Add experiment button (according to the theme), and separate them from the bottom and from each other."
+
+## Approach
+
+`.primary-action` ("Add experiment") already themes correctly via `var(--accent)`, so the simplest correct fix is to make `.bottom-bar-btn` reuse that same declaration set rather than inventing a parallel color — anything else risks drifting out of sync on the next theme tweak. The only new problem that creates: once both buttons are solid accent-colored, the old "colored background = active" signal no longer works, so the active state needs its own visual language — an inset ring reads as "selected" without fighting the accent fill.
+
+## What to build
+
+**`style.css`**:
+- `.bottom-bar-btn`: replace `background: none` / `color: var(--text-secondary)` with `.primary-action`'s `background: var(--accent)` / `color: oklch(0.98 0.005 75)` / `border-radius: 0.375rem`.
+- `.bottom-bar-btn:hover`: swap the background-tint hover for `filter: brightness(1.05)` (matches `.primary-action:hover`).
+- `.bottom-bar-btn.active`: swap the tint-background indicator for `box-shadow: inset 0 0 0 2px oklch(0.98 0.005 75 / 0.6)`.
+- `.bottom-bar`: add `gap: 0.75rem` between buttons and `padding: 0.75rem 1.25rem` off the container edges.
+
+## Verification
+
+Same ad hoc Playwright + `python -m http.server` setup as prior follow-ups. Screenshotted Experiments (Paper theme) — buttons match "Add experiment"'s color with a visible gap and edge padding — then toggled `#theme-toggle` to Sage and re-screenshotted to confirm the buttons re-color via the token (not hardcoded), and screenshotted Graph with "Graph" active to confirm the inset-ring indicator reads clearly against the accent fill in both themes. No console errors.
+
+## Final step (per project convention)
+
+Added a Phase 3 bullet to `docs/tasks.md`; matching entry appended to `docs/activity.md`.
