@@ -1887,3 +1887,27 @@ Reasoned through the DOM lifecycle by hand (subheader is per-`navigate()`, `.con
 ## Final step (per project convention)
 
 Added a bug-fix bullet to `docs/tasks.md` Phase 14. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+## Follow-up — Graph screen UX fixes: dropdown chevrons, mean-bar hover, 50-unit y-axis, per-algorithm auto counts
+
+**Request:** "make the dropdowns of experiment and condition have a downarrow to look like a dropdown, hovering over the average bar should show the average, and each marker on the y axis should be 50 different, with the top one rounding to the next 50 from the highest cell in the graph" — followed by "The auto count shown when you hover over a cell should be auto counts and show all the auto counts".
+
+### What changed
+
+**`app.js`** (`renderGraphHTML`, `renderGraphScatterSVG`, `wireGraphTooltip`):
+- Wrapped `#graph-experiment-select`/`#graph-condition-select` in a `.graph-select-wrap` div (arrow is CSS, see below).
+- Y-axis: replaced the old `Math.ceil(rawMax / 5) * 5`/5-tick logic with a fixed `TICK_STEP = 50`; `niceMax = Math.ceil(rawMax / 50) * 50`, `tickCount = niceMax / 50` — gridlines now always land on multiples of 50, with the top one being the next 50 above the highest plotted cell.
+- Mean bar: split the old single `<line class="graph-mean-tick">` into a `<rect class="graph-mean-hit">` (invisible, carries `data-experiment`/`data-condition`/`data-mean`/`data-metric`, taller than the line for an easier hover target) plus the visible `<line class="graph-mean-tick">`. Render order is `meanHit + dots + meanTick` — the hit rect sits *underneath* the per-cell dots in the SVG so a dot overlapping the mean line still wins hover (dots are individually more specific data), while the visible tick line renders last (on top, unchanged from before) with `pointer-events: none` so it never itself blocks a dot. `wireGraphTooltip` grew a second `.graph-mean-hit` hover handler alongside the existing `.graph-dot` one, showing "Condition mean (<metric label>): <value>".
+- Dot tooltip's auto-count line: was `cellAutoCount(cell)` (the single cross-algorithm average). Changed to `cellAutoCounts(cell).map(r => \`${autoAlgorithmLabel(r.type)}: ${r.value}\`).join(', ')` so a cell with both `otsu_watershed` and `fm_edge_overlay` runs shows both, e.g. "Auto counts: Standard: 3, FM_edge_overlay (ALDQ): 4" instead of a single blended number.
+
+**`style.css`**:
+- `.graph-select-wrap` (`position: relative`) + `::after` CSS-triangle chevron (border-trick, colored `var(--text-secondary)` so it's theme-aware) — replaces the native arrow that `.graph-select { appearance: none }` had removed. `.graph-select` gained `width: 100%` and right padding to clear the chevron; `.graph-select-wrap:has(.graph-select:disabled)::after` dims the chevron to match the disabled select.
+- `.graph-mean-hit { fill: transparent; cursor: pointer; }`; `.graph-mean-tick` gained `pointer-events: none`.
+
+### Verification
+
+No project skill or `chromium-cli` available in this (Windows, no Node) environment, so set up an ad hoc headless-browser check instead: served the repo with `python -m http.server`, drove it with Playwright (already installed under the system Python) through the app's built-in `local:` test-account login (`docs/test-accounts.json`) into the Graph screen using `TEST_PROJECTS`/`TEST_CONDITIONS` fixture data. Confirmed via screenshots and `innerText` reads: both selects show a chevron; hovering the mean bar's edge (away from any dot) pops "Condition mean (Average of both): 3.6"; hovering a dot that overlaps the mean line still wins and shows the per-cell tooltip (confirming the hit-rect ordering fix); y-axis gridline text reads `['0', '50']` for the test data's ~4-max range; `test-cell-001` (0 Hr Starved, has both `otsu_watershed` and `fm_edge_overlay` runs) tooltip reads "Auto counts: Standard: 3, FM_edge_overlay (ALDQ): 4". No console errors during the pass.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to `docs/tasks.md` Phase 9. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
