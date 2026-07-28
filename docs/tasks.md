@@ -191,6 +191,22 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ---
 
+## Phase 14 — Projects (shared, invite-code)
+
+> UI/navigation structure only this phase — built against local test-account fixtures and documented "assumed" Render endpoints, same convention as every earlier screen's original build. The real backend is a separate follow-up (see unchecked items below).
+
+- [x] New Home screen (`initHome`/`renderHomeHTML`/`wireHome` in `app.js`) — becomes the post-login landing screen, replacing Experiments. Same two-column `.folder-layout` grid + detail panel as Experiments; project cards show name, experiment count, and invite-code chip; detail panel adds a "Copy" button for the invite code and an "Open project" button
+- [x] "Create/Join project" primary action opens a single tabbed modal (`openCreateJoinProjectModal`) — "Create new" (name field) and "Join existing" (invite code field) tabs, one submit button whose label/target endpoint follows the active tab
+- [x] `state.project` (`{ id, name, inviteCode }`) added to nav state; `navigate()` redirects `experiments`/`conditions`/`cells`/`graph`/`rawdata` back to `home` if no project is selected yet (guard, not a URL route — matches the app's existing no-routing design)
+- [x] Breadcrumb prepends the project name (linking back to Home) on every authenticated screen except Home itself; back button chains Cells → Conditions → Experiments → Home
+- [x] Sidebar gained a "Home" link; login success, boot-time session restore, and password-recovery landing all route to `home` instead of `experiments`; logout clears `state.project`
+- [x] Experiments/Graph/Raw data screens scoped to the selected project: local test accounts read `TEST_PROJECTS` (new fixture wrapping the existing `TEST_EXPERIMENTS` array as one project, plus a second empty project for the empty state) via `currentProjectExperiments()`; real accounts call assumed endpoints `GET /projects/{project_id}/experiments` and `POST /projects/{project_id}/experiments` in place of the old unscoped `/experiments`
+- [x] Assumed Render endpoints documented (not implemented): `GET /projects` (list projects the user belongs to), `POST /projects` (create, returns a generated invite code), `POST /projects/join` (join by invite code)
+- [ ] **Not yet implemented — real backend:** new Supabase `projects` (`id`, `name`, `invite_code`, `created_by`) and `project_members` (`project_id`, `user_id`) tables; `experiments.project_id` column + migration; `api/main.py` endpoints for the four assumed routes above; invite-code generation (unique, human-shareable); rewiring `owned_experiment`/`owned_condition`/`owned_cell` from `created_by == user.id` to project-membership checks so collaborators can actually co-edit shared experiments
+- [ ] Project Edit/Remove and member-management UI (leave project, see member list) — out of scope for this pass, not requested yet
+
+---
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table

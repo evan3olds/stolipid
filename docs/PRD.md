@@ -202,6 +202,8 @@ counts
   id uuid PK, cell_id uuid FK, value integer, points jsonb, counted_by uuid FK, created_at timestamptz, type text
 ```
 
+**Projects (planned, not yet implemented server-side — see `docs/tasks.md` Phase 14):** a `projects` table sits above `experiments` (shared with collaborators via an invite code), with a `project_members` join table and `experiments.project_id` replacing single-owner `created_by` scoping. The frontend already has a Home screen and project-scoped navigation (Experiments/Conditions/Cells/Graph/Raw data) built against local test fixtures and assumed endpoints; the Supabase schema, invite-code generation, and `api/main.py` membership checks are a follow-up phase.
+
 `counts.type` is `'hand'` for a manual count or a detection-algorithm slug (`otsu_watershed`/`fm_edge_overlay`) for a machine-generated one — see CLAUDE.md for the full breakdown. `cell.average`/`condition.icc` only consider `type = 'hand'` rows.
 
 **Supabase Storage:**
