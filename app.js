@@ -81,6 +81,7 @@ const state = {
   editingCount: null,      // { id, points } when reopening a saved hand count for edit, else null
   viewingAutoPoints: null, // points[] when read-only viewing a cell's auto-count grid, else null
   viewingAllCounts: null,  // counts[] when read-only viewing every hand count's grid overlaid, else null
+  returnScreen: null,      // screen to restore on Back from Graph/Raw data — see navigate()
 };
 
 // Per-screen chrome metadata: subheader title, primary action label, back button
@@ -88,8 +89,8 @@ const SCREENS = {
   experiments: { title: 'Experiments', action: 'Add experiment', back: true },
   conditions:  { title: 'Conditions',  action: 'New slide',    back: true },
   cells:       { title: 'Cells',       action: 'Add photos',   back: true },
-  graph:       { title: 'Graph' },
-  rawdata:     { title: 'Raw data' },
+  graph:       { title: 'Graph',    back: true },
+  rawdata:     { title: 'Raw data', back: true },
   about:       { title: 'About' },
   help:        { title: 'Help' },
   settings:    { title: 'Settings' },
@@ -119,6 +120,15 @@ function navigate(screen, params = {}) {
   if ('condition' in params) state.condition = params.condition;
   if ('cell' in params) state.cell = params.cell;
   if (PROJECT_SCREENS.includes(screen) && !state.project) screen = 'home';
+
+  // Graph/Raw data are a detour from Experiments/Conditions/Cells, reached
+  // from the bottom bar — remember where the user came from so Back returns
+  // there directly instead of retracing the Experiments→Conditions→Cells
+  // hierarchy. Hopping between Graph and Raw data doesn't overwrite it.
+  if ((screen === 'graph' || screen === 'rawdata') && !['graph', 'rawdata'].includes(state.screen)) {
+    state.returnScreen = state.screen;
+  }
+
   state.screen = screen;
   if (screen === 'login') return renderLogin();
   if (screen === 'addphotos') return renderAddPhotos();
@@ -462,7 +472,9 @@ function subheaderHTML(screen, meta) {
 }
 
 // Breadcrumb reflects the experiment → condition hierarchy for folder screens,
-// and is a single label for the flat screens (Graph, Raw data, About, Help).
+// mirrors that same hierarchy (via state.returnScreen) for the Graph/Raw data
+// detour so it matches exactly where the Back button leads, and is a single
+// label for the remaining flat screens (About, Help, Settings).
 function breadcrumbHTML(screen) {
   const crumbs = [];
   if (state.project) {
@@ -476,6 +488,16 @@ function breadcrumbHTML(screen) {
     if (screen === 'cells') {
       crumbs.push({ label: state.condition?.name || 'Condition', target: 'cells' });
     }
+  } else if (screen === 'graph' || screen === 'rawdata') {
+    const origin = state.returnScreen;
+    crumbs.push({ label: 'Experiments', target: 'experiments' });
+    if (origin === 'conditions' || origin === 'cells') {
+      crumbs.push({ label: state.experiment?.name || 'Experiment', target: 'conditions' });
+    }
+    if (origin === 'cells') {
+      crumbs.push({ label: state.condition?.name || 'Condition', target: 'cells' });
+    }
+    crumbs.push({ label: SCREENS[screen]?.title || screen, target: screen });
   } else {
     crumbs.push({ label: SCREENS[screen]?.title || screen, target: screen });
   }
@@ -603,6 +625,10 @@ function wireShell(screen) {
   const backBtn = document.getElementById('back-btn');
   if (backBtn) {
     backBtn.addEventListener('click', () => {
+      if (screen === 'graph' || screen === 'rawdata') {
+        navigate(state.returnScreen || 'experiments');
+        return;
+      }
       navigate(screen === 'cells' ? 'conditions' : screen === 'conditions' ? 'experiments' : 'home');
     });
   }
