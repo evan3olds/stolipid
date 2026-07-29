@@ -2773,3 +2773,52 @@ Re-ran the Playwright pass against the `local:` fixture path (unaffected by this
 ## Final step (per project convention)
 
 Added a Phase 18 section to `docs/tasks.md`. Matching entry appended to `docs/activity.md`.
+
+---
+
+# Plan: Settings screen (theme + avatar)
+
+## Context
+
+Request: "Implement settings page, move the theme to there and call it light and dark, also make an avatar selection from one of five images we will eventually put in assets." The `settings` screen already existed as a routable, breadcrumb-able entry point (`SCREENS.settings`, reachable via the profile dropdown's "Settings" item) but had no real implementation — it fell through to the generic `screenStub()` placeholder. The theme toggle lived in the top bar (`topbarHTML()`/`wireTopbarChrome()`), labeled "Paper"/"Sage" after the app's two CSS themes (confirmed via `style.css`: `[data-theme="sage"]` is a full dark theme, re-deriving every token from its `-paper` literal via CSS relative-color syntax). No avatar picker existed at all — the profile menu's avatar `<img>` was hardcoded to `assets/DefaultProfile.png`.
+
+## Implementation Details
+
+- `app.js`: added `initSettings()`/`renderSettingsHTML()`/`wireSettings()`, wired into `navigate()`'s dispatch alongside `initAbout`/`initHelp`. Two `.settings-section` cards: Theme (two buttons, `data-theme="paper"|"sage"`, calling the existing `applyTheme()` and toggling `.active`) and Avatar (a grid of buttons over a new `AVATARS` array, each entry `{ id, src, label }`).
+- Removed `#theme-toggle` from `topbarHTML()` and its wiring from `wireTopbarChrome()` — Settings is now the only place to change theme. Kept the underlying `data-theme`/`localStorage['theme']` values as `'paper'`/`'sage'` (internal implementation detail) and only renamed the user-facing button text to "Light"/"Dark", to avoid a ~100-declaration rename across every `-paper`-suffixed custom property in `style.css` for a change that's purely about UI labels.
+- Added `currentAvatarId()` (reads `localStorage['avatar']`, falls back to the first `AVATARS` entry if unset/invalid) and `avatarSrcById()`. `profileMenuHTML()` now renders the selected avatar's `src` instead of the hardcoded default; since that markup is shared by the top bar and the Home screen's corner account menu, both stay in sync automatically. Clicking an avatar in Settings also live-updates every `.profile-avatar` currently in the DOM via `document.querySelectorAll`, so the top bar's own icon changes without a re-render.
+- `assets/`: 4 new placeholder avatar PNGs (`avatar-2.png`..`avatar-5.png`), generated with a one-off Pillow script in the same generic-silhouette style as the existing `DefaultProfile.png` (outer circle background tint + darker head/shoulders shape), just recolored per swatch — real artwork can replace these files later with no code change as long as filenames match.
+- `style.css`: deleted the now-dead `.theme-toggle`/`.theme-toggle-dot` rules; added `.settings-panel`/`.settings-section`/`.settings-section-title`/`.settings-theme-options`/`.settings-theme-btn`/`.settings-theme-swatch`/`.settings-avatar-grid`/`.settings-avatar-btn`/`.settings-avatar-img`, matching the existing About/Help panel conventions (`--surface-card` cards, accent-colored uppercase mono section titles, accent-bordered `.active` state consistent with `.crumb-current`/card-menu patterns elsewhere).
+- `SCREENS.settings` gained `back: true`; `wireShell`'s back-button handler now includes `settings` alongside `about`/`help` (→ Home), for consistency with the other flat screens.
+
+## Scope
+
+UI-only — no backend/schema change. Both theme and avatar selection persist to `localStorage` only (matching how theme already worked pre-existing), not to any `cells`/`counts`-style Supabase table; per-account server-side persistence isn't part of this request and there's no user-profile table in the current schema (`CLAUDE.md`) to hang it off of.
+
+## Verification
+
+Playwright pass against `python -m http.server` + the `local:` test account: navigated to Settings via the profile dropdown, screenshotted Light and Dark, confirmed the Dark screenshot re-themes the entire page (not just the Settings panel) via the CSS custom-property cascade, selected a non-default avatar and confirmed via `get_attribute` that the top bar's `.profile-avatar` updated live and that navigating to Home shows the same avatar in its corner account menu, and confirmed `#theme-toggle` no longer exists anywhere in the DOM. Zero console errors.
+
+## Final step (per project convention)
+
+Added a Phase 19 section to `docs/tasks.md`. Matching entry appended to `docs/activity.md`.
+
+---
+
+# Plan (follow-up): avatar-1.png naming + eventual animal-mascot artwork
+
+## Context
+
+Right after the Settings screen landed, user follow-up: "There should be an avatar-1.png, and all five of these replace the default initial profile, they will eventually be animals with lab gear so implement it so that we can change these png's later." The first pass kept the pre-existing `assets/DefaultProfile.png` as a special `id: 'default'` entry and only added 4 new numbered files (`avatar-2..5.png`) alongside it — inconsistent naming, and it implied "default" was conceptually different from the other 4 rather than just being option 1 of 5.
+
+## What changed
+
+`git mv assets/DefaultProfile.png assets/avatar-1.png` (keeps file history). `app.js`'s `AVATARS` array rebuilt from a `[1,2,3,4,5].map(...)` instead of hand-written entries, so all 5 are uniform `assets/avatar-N.png` placeholders with no special-cased id. This is the key property the request asked for ("implement it so we can change these PNGs later") — swapping in the real lab-animal-with-gear artwork later is purely a file replacement over these 5 filenames, no `app.js` change needed.
+
+## Verification
+
+Playwright: confirmed `assets/avatar-1.png` 200s, confirmed the Settings avatar grid shows `avatar-1`..`avatar-5` ids/srcs in order, zero console errors, zero failed requests.
+
+## Final step (per project convention)
+
+No new `docs/tasks.md` phase (folded into the existing Phase 19 bullet). Activity entry appended to `docs/activity.md`.

@@ -2137,3 +2137,50 @@ Confirmed via `python -m py_compile api/main.py`... actually confirmed by re-run
 ## Final step (per project convention)
 
 Added a Phase 18 section to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Settings screen (theme + avatar)
+
+**Request:** implement the Settings page — move the theme control there (renamed "Light"/"Dark" instead of "Paper"/"Sage"), and add an avatar picker with 5 selectable images to eventually live in `assets/`.
+
+### What was built
+
+`app.js`:
+- `SCREENS.settings` now has a real `initSettings()`/`renderSettingsHTML()`/`wireSettings()` implementation instead of falling through to the generic "coming in a later phase" `screenStub()`. Two sections: Theme (Light/Dark buttons, calling the existing `applyTheme()`) and Avatar (a 5-image button grid).
+- Removed the top bar's `#theme-toggle` pill entirely — `topbarHTML()` no longer renders it, `wireTopbarChrome()` no longer wires it. Settings, reachable from anywhere via the profile dropdown, is now the only place to change theme.
+- New `AVATARS` array + `currentAvatarId()`/`avatarSrcById()` helpers. `profileMenuHTML()`'s avatar `<img>` (rendered in the top bar and, via the same shared markup, the Home screen's corner account menu) now reflects the `localStorage`-persisted selection instead of a hardcoded `assets/DefaultProfile.png`. Selecting a new avatar in Settings updates every `.profile-avatar` on the page immediately, no re-render needed.
+- `SCREENS.settings` gained `back: true`; the shell back-button handler now sends `settings` to Home, same as `about`/`help`.
+
+`style.css`: removed the now-unused `.theme-toggle`/`.theme-toggle-dot` rules; added `.settings-panel`/`.settings-section`/`.settings-theme-*`/`.settings-avatar-*`, styled to match the existing About/Help card conventions (accent-colored uppercase mono section titles, `--surface-card` panels).
+
+`assets/`: generated 4 placeholder avatars (`avatar-2.png` through `avatar-5.png`, via a one-off Pillow script) in the same generic silhouette style as the existing `assets/DefaultProfile.png`, just recolored, so the picker shows real thumbnails instead of broken-image icons until real artwork is swapped in — no code change needed later as long as the filenames are kept.
+
+Internal implementation detail left unchanged on purpose: the `data-theme="paper"|"sage"` attribute values and every `-paper`-suffixed CSS custom property in `style.css` keep their existing names — only the user-facing button labels changed to "Light"/"Dark". Renaming the internals too would have touched ~100 CSS declarations for no user-visible benefit.
+
+### Verification
+
+Playwright pass against `python -m http.server` with the `local:` test account: logged in, opened Settings via the profile dropdown, screenshotted the Light theme, clicked Dark and confirmed the whole page re-themed via the CSS token cascade (screenshotted), selected a non-default avatar and confirmed via `get_attribute` that both the top bar's and (after navigating Home) the Home corner's `.profile-avatar` `src` updated to the new file live, and confirmed `#theme-toggle` no longer exists anywhere in the DOM. Zero console errors throughout.
+
+## Final step (per project convention)
+
+Added a Phase 19 section to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Follow-up: avatar-1.png naming + eventual animal-mascot artwork
+
+**Request:** "There should be an avatar-1.png, and all five of these replace the default initial profile, they will eventually be animals with lab gear so implement it so that we can change these png's later."
+
+### What changed
+
+- `git mv assets/DefaultProfile.png assets/avatar-1.png` — preserves file history under the new name. There's no longer a special "default" avatar concept; avatar-1 through avatar-5 are 5 uniform, equal placeholder options.
+- `app.js`: `AVATARS` rebuilt as `[1,2,3,4,5].map(n => ({ id: 'avatar-'+n, src: 'assets/avatar-'+n+'.png', label: 'Avatar '+n }))` instead of a hand-written array with a one-off `'default'`/`DefaultProfile.png` entry — every id maps straight to `assets/avatar-N.png`, so dropping in the real lab-animal artwork later is just replacing those 5 files in place, no code change. `currentAvatarId()`'s fallback (`AVATARS[0]`) now resolves to avatar-1, unchanged in effect from before.
+
+### Verification
+
+Playwright pass against `python -m http.server` + the `local:` test account: confirmed the top bar's default avatar now serves `assets/avatar-1.png` (200, no failed requests), confirmed the Settings avatar grid renders exactly `avatar-1`..`avatar-5` with matching `data-avatar` ids and `<img>` srcs, zero console errors, zero failed network requests.
+
+## Final step (per project convention)
+
+No new `docs/tasks.md` phase — folded into the Phase 19 bullet (updated in place) since it's a same-day refinement of that unreleased feature, not new scope. This entry appended to `docs/activity.md`. Plan note appended to `docs/plan.md`.

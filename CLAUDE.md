@@ -79,7 +79,7 @@ Render communicates with Supabase **directly server-to-server** using the Supaba
 
 ## Theming
 
-Two themes: **Paper** (default) and **Sage**. CSS tokens:
+Two themes: **Paper** (default) and **Sage**, internally — user-facing UI labels them **Light** and **Dark** (Settings screen). CSS tokens:
 
 | Token | Paper |
 |---|---|
@@ -89,7 +89,9 @@ Two themes: **Paper** (default) and **Sage**. CSS tokens:
 | Mono / labels | IBM Plex Mono |
 | Headings | Newsreader (serif) |
 
-Theme, app title, and prototype badge visibility are all runtime-configurable props (see PRD §10).
+Sage (`:root[data-theme="sage"]` in `style.css`) is a full dark theme — every active token is re-derived from its own `-paper` literal via CSS relative-color syntax rather than hand-authored, so the two palettes can't drift out of sync.
+
+Theme, app title, and prototype badge visibility are all runtime-configurable props (see PRD §10). Theme selection lives on the Settings screen (`initSettings`/`renderSettingsHTML` in `app.js`), reachable from the profile dropdown on any screen; it persists to `localStorage['theme']` using the internal `'paper'`/`'sage'` values, unaffected by the Light/Dark label rename. The Settings screen also has an avatar picker (`AVATARS` in `app.js`, persisted to `localStorage['avatar']`) — 5 uniformly-named placeholders, `assets/avatar-1.png`..`avatar-5.png`, standing in until real artwork (planned: lab animal mascots) replaces those 5 files in place.
 
 ---
 

@@ -30,6 +30,25 @@ function applyTheme(theme) {
   localStorage.setItem('theme', theme);
 }
 
+// Avatar picker (Settings screen). All 5 files are placeholders — every id
+// maps straight to assets/avatar-N.png, so the eventual real artwork (lab
+// animal mascots) can drop in over these same 5 filenames with no code
+// change. AVATARS[0] (avatar-1) is the default when nothing is picked yet.
+const AVATARS = [1, 2, 3, 4, 5].map(n => ({
+  id: `avatar-${n}`,
+  src: `assets/avatar-${n}.png`,
+  label: `Avatar ${n}`,
+}));
+
+function currentAvatarId() {
+  const id = localStorage.getItem('avatar');
+  return AVATARS.some(a => a.id === id) ? id : AVATARS[0].id;
+}
+
+function avatarSrcById(id) {
+  return (AVATARS.find(a => a.id === id) || AVATARS[0]).src;
+}
+
 // Static Help screen content — one card per workflow step (PRD 5.9)
 const HELP_CONTENT = [
   {
@@ -97,7 +116,7 @@ const SCREENS = {
   rawdata:     { title: 'Raw data', back: true },
   about:       { title: 'About', back: true },
   help:        { title: 'Help',  back: true },
-  settings:    { title: 'Settings' },
+  settings:    { title: 'Settings', back: true },
   count:       { title: 'Count' },
   addphotos:   { title: 'Add Photos' },
 };
@@ -148,6 +167,7 @@ function navigate(screen, params = {}) {
   if (screen === 'rawdata') initRawData();
   if (screen === 'about') initAbout();
   if (screen === 'help') initHelp();
+  if (screen === 'settings') initSettings();
 }
 
 function initHelp() {
@@ -197,6 +217,58 @@ function renderAboutHTML() {
       ` : ''}
     </div>
   `;
+}
+
+function initSettings() {
+  document.querySelector('.content').innerHTML = renderSettingsHTML();
+  wireSettings();
+}
+
+function renderSettingsHTML() {
+  const theme = document.documentElement.dataset.theme === 'sage' ? 'sage' : 'paper';
+  const activeAvatar = currentAvatarId();
+  return `
+    <div class="settings-panel">
+      <div class="settings-section">
+        <h3 class="settings-section-title">Theme</h3>
+        <div class="settings-theme-options">
+          <button type="button" class="settings-theme-btn${theme === 'paper' ? ' active' : ''}" data-theme="paper">
+            <span class="settings-theme-swatch settings-theme-swatch-light"></span>Light
+          </button>
+          <button type="button" class="settings-theme-btn${theme === 'sage' ? ' active' : ''}" data-theme="sage">
+            <span class="settings-theme-swatch settings-theme-swatch-dark"></span>Dark
+          </button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3 class="settings-section-title">Avatar</h3>
+        <div class="settings-avatar-grid">
+          ${AVATARS.map(a => `
+            <button type="button" class="settings-avatar-btn${a.id === activeAvatar ? ' active' : ''}" data-avatar="${a.id}" aria-label="${escHtml(a.label)}" title="${escHtml(a.label)}">
+              <img class="settings-avatar-img" src="${a.src}" alt="">
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function wireSettings() {
+  document.querySelectorAll('.settings-theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyTheme(btn.dataset.theme);
+      document.querySelectorAll('.settings-theme-btn').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  document.querySelectorAll('.settings-avatar-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      localStorage.setItem('avatar', btn.dataset.avatar);
+      document.querySelectorAll('.settings-avatar-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.profile-avatar').forEach(img => { img.src = avatarSrcById(btn.dataset.avatar); });
+    });
+  });
 }
 
 // mode: 'login' | 'signup' | 'forgot'
@@ -421,7 +493,6 @@ function renderShell(screen) {
 }
 
 function topbarHTML() {
-  const theme = document.documentElement.dataset.theme === 'sage' ? 'sage' : 'paper';
   return `
     <header class="topbar">
       <div class="topbar-left">
@@ -435,9 +506,6 @@ function topbarHTML() {
         ${CONFIG.prototypeBadge ? '<span class="badge">Prototype</span>' : ''}
       </div>
       <div class="topbar-right">
-        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Switch theme">
-          <span class="theme-toggle-dot"></span>${theme === 'sage' ? 'Sage' : 'Paper'}
-        </button>
         ${profileMenuHTML()}
       </div>
     </header>
@@ -451,7 +519,7 @@ function profileMenuHTML() {
   return `
     <div class="profile-menu">
       <button type="button" class="profile-btn" id="profile-btn" aria-label="Account menu" aria-haspopup="true" aria-expanded="false" title="${escHtml(currentUser())}">
-        <img class="profile-avatar" src="assets/DefaultProfile.png" alt="">
+        <img class="profile-avatar" src="${avatarSrcById(currentAvatarId())}" alt="">
       </button>
       <div class="profile-dropdown" id="profile-dropdown">
         <div class="profile-dropdown-user">${escHtml(currentUserName())}</div>
@@ -547,18 +615,11 @@ function screenStub(screen, meta) {
   `;
 }
 
-// Theme toggle + account menu wiring, shared by the full shell (wireShell)
-// and the standalone Projects screen (renderProjects) — both render the
-// full topbarHTML(). The Home screen (renderHome) has no theme toggle, only
+// Account menu wiring, shared by the full shell (wireShell) and the
+// standalone Projects screen (renderProjects) — both render the full
+// topbarHTML(). The Home screen (renderHome) has no topbar at all, only
 // the account menu, so it calls wireProfileMenu() directly instead.
 function wireTopbarChrome() {
-  const themeToggle = document.getElementById('theme-toggle');
-  themeToggle.addEventListener('click', () => {
-    const next = document.documentElement.dataset.theme === 'sage' ? 'paper' : 'sage';
-    applyTheme(next);
-    themeToggle.innerHTML = `<span class="theme-toggle-dot"></span>${next === 'sage' ? 'Sage' : 'Paper'}`;
-  });
-
   const homeBtn = document.getElementById('home-btn');
   if (homeBtn) homeBtn.addEventListener('click', () => navigate('home'));
 
@@ -567,8 +628,8 @@ function wireTopbarChrome() {
 
 // Wires the #profile-btn/#profile-dropdown/#profile-logout markup rendered
 // by profileMenuHTML(). Split out from wireTopbarChrome() so the Home
-// screen's corner-only account menu (no topbar, no theme toggle) can wire
-// itself without a #theme-toggle element to fail on.
+// screen's corner-only account menu (no topbar at all) can wire itself
+// without depending on the rest of wireTopbarChrome()'s elements.
 function wireProfileMenu() {
   const profileBtn = document.getElementById('profile-btn');
   const profileDropdown = document.getElementById('profile-dropdown');
@@ -622,7 +683,7 @@ function wireShell(screen) {
         navigate(state.returnScreen || 'experiments');
         return;
       }
-      if (screen === 'about' || screen === 'help') {
+      if (screen === 'about' || screen === 'help' || screen === 'settings') {
         navigate('home');
         return;
       }
