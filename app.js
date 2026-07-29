@@ -2362,8 +2362,8 @@ function renderAddPhotosHTML() {
       <header class="addphotos-topbar">
         <div class="addphotos-topbar-left">
           <div class="addphotos-condition">${escHtml(conditionName)}</div>
-          <div class="addphotos-instructions">Click anywhere on the image to box a cell.</div>
         </div>
+        <div class="addphotos-instructions">Click anywhere on the image to box a cell.</div>
         <div class="addphotos-topbar-right">
           <div class="addphotos-topbar-actions">
             <button class="modal-cancel" id="addphotos-cancel">Cancel</button>
@@ -2405,7 +2405,7 @@ function renderAddPhotosSidebarHTML() {
       </div>
       <div class="addphotos-file-list">
         ${files.length === 0
-          ? '<div class="addphotos-empty"><p>No photos yet.</p><button class="detail-open-btn" id="addphotos-choose">Choose .tif files</button></div>'
+          ? '<div class="addphotos-empty"><p>No photos yet.</p><p>Drag and drop .tif files here, or</p><button class="detail-open-btn" id="addphotos-choose">Choose .tif files</button></div>'
           : items}
       </div>
     </aside>
@@ -2637,6 +2637,29 @@ function wireAddPhotos() {
 
   document.getElementById('addphotos-cancel').addEventListener('click', () => {
     navigate('cells');
+  });
+
+  const body = document.querySelector('.addphotos-body');
+  let dragDepth = 0;
+  body.addEventListener('dragenter', e => {
+    e.preventDefault();
+    dragDepth++;
+    body.classList.add('dragover');
+  });
+  body.addEventListener('dragover', e => {
+    e.preventDefault();
+  });
+  body.addEventListener('dragleave', e => {
+    e.preventDefault();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) body.classList.remove('dragover');
+  });
+  body.addEventListener('drop', e => {
+    e.preventDefault();
+    dragDepth = 0;
+    body.classList.remove('dragover');
+    const dropped = Array.from(e.dataTransfer?.files || []).filter(f => /\.tiff?$/i.test(f.name));
+    if (dropped.length) queuePhotoFiles(dropped);
   });
 
   const createBtn = document.getElementById('addphotos-create');
