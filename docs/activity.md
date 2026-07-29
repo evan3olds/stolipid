@@ -2091,3 +2091,23 @@ Headless-browser (Playwright) pass against `python -m http.server` + the `local:
 ## Final step (per project convention)
 
 Added a Phase 16 section to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Help/About content refresh (Projects, Graph chart types) + centering
+
+**Request:** update the Help and About screens for any changes since they were last written, and center their content on the screen.
+
+### What changed
+
+`HELP_CONTENT` (`app.js`) had gone stale against two features that shipped after it was originally written: Phase 14's Projects layer (added above Experiments) and Phase 15's Graph chart-type selector. Added a new "Projects" card ahead of "Experiments" describing the shared, invite-code-based container and the Home screen's Create/Join flow; reworded the "Experiments" card from "the top-level folder" to "a folder... within a project"; rewrote the "Graph" card to mention the scatter/bar (mean ± SD)/box plot chart-type choice instead of only describing the original scatter view. `ABOUT_CONTENT.status` got "shared projects" added to its list of functional core-workflow features — the rest of About (purpose/origin/links) didn't need changes.
+
+Centering: `.help-grid` and `.about-panel` (`style.css`) both already had a `max-width` but no horizontal centering, so they hugged the left edge of `.content`. Added `margin: 0 auto` to both.
+
+### Verification
+
+No browser-automation tooling was available in this session — `chromium-cli` isn't installed, and there's no Node.js/npm/Playwright in this environment (a recurring limitation noted in several earlier phases; unlike phases where Chrome itself was still present for a manual headless-launch harness, that path wasn't set up here either). The content edits are plain string changes to existing template literals, and the centering fix is an additive `margin: 0 auto` on already-correct `max-width` blocks, but this was **not** visually confirmed — flagged back to the user to spot-check both themes before treating this as fully verified.
+
+## Final step (per project convention)
+
+Added a Phase 17 section to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

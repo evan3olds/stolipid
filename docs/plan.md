@@ -2725,3 +2725,27 @@ Headless-browser (Playwright) pass: screenshotted the breadcrumb at all five dep
 ## Final step (per project convention)
 
 Added a Phase 16 section to `docs/tasks.md`. Matching entry appended to `docs/activity.md`.
+
+---
+
+# Help/About content refresh (Projects, Graph chart types) + centering
+
+**Request:** update the Help and About screens for any changes since they were last written (About might not need any), and center their content on the screen.
+
+## Approach
+
+Diffed `HELP_CONTENT`/`ABOUT_CONTENT` (`app.js`) against `docs/tasks.md` Phase 14 (Projects, shared invite-code container above Experiments) and Phase 15 (Graph chart-type selector) to find what the static copy never caught up to. Both predated those features. For centering, checked `.help-grid`/`.about-panel` in `style.css` — both already used `max-width` to cap width but had no `margin: 0 auto`, so they sat flush against the left edge of `.content` instead of centering within it.
+
+## What was built
+
+- `app.js` `HELP_CONTENT`: new "Projects" card (invite-code sharing, Home screen's Create/Join flow) inserted before "Experiments"; "Experiments" card reworded from "the top-level folder" to "a folder... within a project"; "Graph" card rewritten to describe the scatter/bar (mean ± SD)/box plot chart-type choice instead of only the original scatter view.
+- `app.js` `ABOUT_CONTENT.status`: added "shared projects" to the functional-features list. Purpose/origin/links left as-is — still accurate.
+- `style.css`: `margin: 0 auto` added to `.help-grid` and `.about-panel`.
+
+## Verification
+
+No browser-automation tooling available this session (no `chromium-cli`, no Node/npm/Playwright, and no path to a manual headless-Chrome harness either) — could not screenshot-verify the centering or new copy. Flagged to the user as unverified; recommended a manual spot-check in both themes before treating this as done.
+
+## Final step (per project convention)
+
+Added a Phase 17 section to `docs/tasks.md`. Matching entry appended to `docs/activity.md`.

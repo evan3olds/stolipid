@@ -236,6 +236,15 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ---
 
+## Phase 17 — Help & About content refresh (Projects, Graph chart types)
+
+- [x] `HELP_CONTENT` (`app.js`) updated for Phase 14/15 features it predated: added a new "Projects" card (top-level shared container, invite-code create/join flow via Home) ahead of the existing "Experiments" card, which was rewritten from "top-level folder" to "a folder... within a project"; the "Graph" card rewritten to cover the Phase 15 chart-type selector (scatter/bar ± SD/box plot) instead of only describing the original scatter view
+- [x] `ABOUT_CONTENT.status` (`app.js`) — added "shared projects" to the list of functional core-workflow features
+- [x] `.help-grid`/`.about-panel` (`style.css`) gained `margin: 0 auto` so both panels center horizontally in `.content` instead of hugging the left edge, per user request
+- [ ] Not verified with a screenshot — no browser-automation tooling (`chromium-cli`, Node/Playwright) was available in this environment to launch and drive the app; the CSS/content changes are low-risk (an added `margin: 0 auto` on an existing `max-width` block, plus text-only content edits) but a visual pass against both themes is still outstanding
+
+---
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table
