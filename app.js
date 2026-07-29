@@ -481,17 +481,21 @@ function subheaderHTML(screen, meta) {
   `;
 }
 
-// Breadcrumb reflects the experiment → condition hierarchy for folder screens,
+// Breadcrumb reflects the full project → experiment → condition hierarchy
+// (Home / Projects / Project / Experiment / Condition) for folder screens,
 // mirrors that same hierarchy (via state.returnScreen) for the Graph/Raw data
 // detour so it matches exactly where the Back button leads, and is a single
 // label for the remaining flat screens (About, Help, Settings).
 function breadcrumbHTML(screen) {
   const crumbs = [];
-  if (state.project) {
-    crumbs.push({ label: state.project.name, target: 'projects' });
+  if (['experiments', 'conditions', 'cells', 'graph', 'rawdata'].includes(screen)) {
+    crumbs.push({ label: 'Home', target: 'home' });
+    crumbs.push({ label: 'Projects', target: 'projects' });
+    if (state.project) {
+      crumbs.push({ label: state.project.name, target: 'experiments' });
+    }
   }
   if (['experiments', 'conditions', 'cells'].includes(screen)) {
-    crumbs.push({ label: 'Experiments', target: 'experiments' });
     if (screen === 'conditions' || screen === 'cells') {
       crumbs.push({ label: state.experiment?.name || 'Experiment', target: 'conditions' });
     }
@@ -500,7 +504,6 @@ function breadcrumbHTML(screen) {
     }
   } else if (screen === 'graph' || screen === 'rawdata') {
     const origin = state.returnScreen;
-    crumbs.push({ label: 'Experiments', target: 'experiments' });
     if (origin === 'conditions' || origin === 'cells') {
       crumbs.push({ label: state.experiment?.name || 'Experiment', target: 'conditions' });
     }

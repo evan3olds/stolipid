@@ -2702,3 +2702,26 @@ Headless-browser (Playwright) pass against `python -m http.server` + the `local:
 ## Final step (per project convention)
 
 Added follow-up bullets to `docs/tasks.md` (the "View all counts" phase and Phase 6d). Matching entry appended to `docs/activity.md`.
+
+---
+
+# Home button + full breadcrumb path for Experiments/Conditions/Cells
+
+**Request:** Home button reported missing on the Projects screen; experiments/conditions/cells file path should read `Home / Projects / Project_name / Experiment_name / Condition_name`.
+
+## Approach
+
+Ran the app headlessly (Playwright + `python -m http.server`, `local:` test-account login) to reproduce before touching code. The Projects screen's Home crumb turned out to already work — no bug there. The actual gap was in `breadcrumbHTML`, shared by Experiments/Conditions/Cells/Graph/Raw data: it used the literal "Experiments" screen label as its second crumb and never included Home or Projects, so those five screens showed `Project_name / Experiments / ...` instead of the full hierarchy.
+
+## What was built
+
+- `app.js` `breadcrumbHTML`: for the `experiments`/`conditions`/`cells`/`graph`/`rawdata` screens, now prepends `Home` (→ home screen) and `Projects` (→ project list) ahead of the project's actual name (→ that project's Experiments screen), and drops the old literal "Experiments" crumb since the project name now occupies that slot. Experiment/condition name crumbs and the Graph/Raw data origin-aware prefix logic (`state.returnScreen`) are unchanged.
+- No changes needed to `renderProjects` — its hardcoded `Home / Projects` breadcrumb was already correct.
+
+## Verification
+
+Headless-browser (Playwright) pass: screenshotted the breadcrumb at all five depths (Experiments through Graph, reached via a real project/experiment/condition/cell drill-down with the `local:` test fixtures), confirmed the path text and clickability of mid-path crumbs (clicking an experiment crumb from Graph correctly returns to Conditions), checked it fits without wrapping at both 1280px and 390px viewports, and confirmed zero console errors.
+
+## Final step (per project convention)
+
+Added a Phase 16 section to `docs/tasks.md`. Matching entry appended to `docs/activity.md`.
