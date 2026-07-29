@@ -268,27 +268,6 @@ class JoinProjectBody(BaseModel):
     invite_code: str
 
 
-def project_member_emails(project_id: str) -> list[str]:
-    """Emails of every member of a project, for the Projects screen's detail
-    panel (see app.js wireProjects). project_members only stores user_id, so
-    each row's email has to come from the auth admin API rather than a join."""
-    rows = (
-        supabase.table("project_members")
-        .select("user_id")
-        .eq("project_id", project_id)
-        .execute()
-    )
-    emails = []
-    for row in rows.data:
-        try:
-            result = supabase.auth.admin.get_user_by_id(row["user_id"])
-        except Exception:
-            continue
-        if result and result.user and result.user.email:
-            emails.append(result.user.email)
-    return emails
-
-
 @app.get("/projects")
 def list_projects(user=Depends(get_current_user)):
     response = (
@@ -304,7 +283,6 @@ def list_projects(user=Depends(get_current_user)):
             continue
         experiments = project.pop("experiments", None) or []
         project["experiment_count"] = experiments[0]["count"] if experiments else 0
-        project["members"] = project_member_emails(project["id"])
         projects.append(project)
     return projects
 
