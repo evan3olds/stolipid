@@ -2071,3 +2071,23 @@ One incidental note from this session: while implementing the earlier Graph char
 ## Final step (per project convention)
 
 Added follow-up bullets to `docs/tasks.md` (the "View all counts" phase and Phase 6d). This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Home button + full breadcrumb path for Experiments/Conditions/Cells
+
+**Request:** the Home button was reported missing on the Projects screen, and the experiments/conditions/cells file path should read `Home / Projects / Project_name / Experiment_name / Condition_name`.
+
+### What changed
+
+Investigated the "Home button missing on Projects" report first via a headless-browser (Playwright) pass: the Projects screen's own breadcrumb (`renderProjects` in `app.js`, hardcoded separately from `breadcrumbHTML` since Projects is a standalone screen like Home/Login) already renders `Home / Projects` and the Home crumb is correctly wired to navigate to the Home screen — reproduced no bug there.
+
+The real gap was one level in: `breadcrumbHTML` (shared by the Experiments/Conditions/Cells/Graph/Raw data screens) built `Project_name / Experiments / Experiment_name / Condition_name` — using the literal screen label "Experiments" as the second crumb, and never including "Home" or "Projects" at all. Rewrote it to prepend `Home` and `Projects` (both linking to their respective screens) ahead of the project's actual name for all five of those screens, and dropped the literal "Experiments" crumb since the project name now plays that role — the resulting path (`Home / Projects / Project_name / Experiment_name / Condition_name`, extended with `/ Graph` or `/ Raw data` on those two detour screens) matches the requested format and the real `projects → experiments → conditions → cells` hierarchy in `CLAUDE.md`. Each crumb still links one level down into its children, same pattern as before.
+
+### Verification
+
+Headless-browser (Playwright) pass against `python -m http.server` + the `local:` test-account fixtures: screenshotted the breadcrumb at all five depths (Experiments, Conditions, Cells, Graph, and after clicking a mid-path crumb from Graph back up to Conditions) and confirmed the full path renders correctly and fits the subheader without wrapping at both desktop and mobile (390px) widths; confirmed the Projects screen's Home crumb click actually navigates to the Home screen; zero console errors throughout.
+
+## Final step (per project convention)
+
+Added a Phase 16 section to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

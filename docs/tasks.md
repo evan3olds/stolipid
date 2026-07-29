@@ -229,6 +229,13 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ---
 
+## Phase 16 — Breadcrumb fix: full project hierarchy path
+
+- [x] `breadcrumbHTML` (`app.js`) fixed for the Experiments/Conditions/Cells/Graph/Raw data screens — it was building `Project_name / Experiments / Experiment_name / Condition_name`, using the literal screen label "Experiments" as the second crumb and omitting "Home" and "Projects" entirely (the two standalone screens above a project). Now builds `Home / Projects / Project_name / Experiment_name / Condition_name`, matching the actual `projects → experiments → conditions → cells` data hierarchy in `CLAUDE.md`; Graph/Raw data append their own label after the same origin-aware prefix (unchanged `state.returnScreen` logic). Each crumb still links one level down into its children (Home → home screen, Projects → project list, project name → that project's Experiments screen, etc.), consistent with the existing back-button chain
+- [ ] The "Projects screen home button doesn't show" half of the original report couldn't be reproduced — the Projects screen's own breadcrumb (`renderProjects`, hardcoded separately from `breadcrumbHTML`) already renders and correctly wires a clickable "Home" crumb; verified via headless-browser screenshot and a scripted click that it navigates to the Home screen. Likely what was actually missing was Home once *inside* a project (Experiments/Conditions/Cells/Graph/Raw data), which the breadcrumb fix above now covers
+
+---
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table
