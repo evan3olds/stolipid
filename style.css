@@ -322,6 +322,14 @@ body {
   text-align: center;
 }
 
+.home-title-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
 .home-title {
   font-family: var(--font-heading);
   font-size: 4.5rem;
@@ -427,11 +435,10 @@ body {
   color: var(--accent);
 }
 
-.hamburger {
+.home-btn {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 3px;
   width: 2rem;
   height: 2rem;
   padding: 0.375rem;
@@ -439,17 +446,11 @@ body {
   border: none;
   cursor: pointer;
   border-radius: 0.25rem;
+  color: var(--icon-fill);
 }
 
-.hamburger:hover {
+.home-btn:hover {
   background: var(--surface-tint);
-}
-
-.hamburger span {
-  display: block;
-  height: 2px;
-  background: var(--icon-fill);
-  border-radius: 1px;
 }
 
 .profile-menu {
@@ -756,81 +757,6 @@ body {
 
 .bottom-bar-btn.active {
   box-shadow: inset 0 0 0 2px oklch(0.98 0.005 75 / 0.6);
-}
-
-/* Sidebar drawer */
-.sidebar-backdrop {
-  position: fixed;
-  inset: 0;
-  background: oklch(0.2 0.02 75 / 0.35);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
-  z-index: 10;
-}
-
-.sidebar-backdrop.open {
-  opacity: 1;
-  visibility: visible;
-}
-
-.sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 16rem;
-  max-width: 80vw;
-  background: var(--surface-card);
-  border-right: 1px solid var(--border-default);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  transform: translateX(-100%);
-  transition: transform 0.2s ease;
-  z-index: 11;
-}
-
-.sidebar.open {
-  transform: translateX(0);
-}
-
-.sidebar-header {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  margin-bottom: 0.75rem;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.sidebar-link {
-  text-align: left;
-  font-family: var(--font-body);
-  font-size: 0.9375rem;
-  padding: 0.5rem 0.625rem;
-  background: none;
-  border: none;
-  border-radius: 0.375rem;
-  cursor: pointer;
-  color: inherit;
-}
-
-.sidebar-link:hover {
-  background: var(--surface-tint);
-}
-
-.sidebar-link.active {
-  background: var(--accent-tint-soft);
-  color: var(--accent);
-  font-weight: 600;
 }
 
 /* ---- Shared folder grid + detail panel layout (Experiments, Conditions, Cells) ---- */
