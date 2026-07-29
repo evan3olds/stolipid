@@ -271,32 +271,18 @@ class JoinProjectBody(BaseModel):
 def project_member_emails(project_id: str) -> list[str]:
     """Emails of every member of a project, for the Projects screen's detail
     panel (see app.js wireProjects). project_members only stores user_id, so
-    each row's email has to come from the auth admin API rather than a join."""
-    rows = (
-        supabase.table("project_members")
-        .select("user_id")
-        .eq("project_id", project_id)
-        .execute()
-    )
-    print(f"project_member_emails: {len(rows.data)} project_members row(s) for project {project_id}")
-    emails = []
-    for row in rows.data:
-        try:
-            result = supabase.auth.admin.get_user_by_id(row["user_id"])
-        except Exception:
-            print(f"Failed to look up email for user_id {row['user_id']} in project {project_id}:")
-            traceback.print_exc()
-            continue
-        if result and result.user and result.user.email:
-            emails.append(result.user.email)
-        else:
-            # get_user_by_id can return successfully with no email attached
-            # (e.g. user field empty/None) instead of raising — the except
-            # block above never sees this case, so without this branch it
-            # was a second, completely silent way to end up with "members": [].
-            print(f"get_user_by_id for user_id {row['user_id']} in project {project_id} "
-                  f"returned no usable email: {result!r}")
-    return emails
+    each row's email has to come from auth.users rather than a plain
+    Postgrest join (auth schema isn't exposed to the API). Previously did
+    this with a per-row supabase.auth.admin.get_user_by_id(...) call, but
+    that Admin Auth API enforces its own service_role check independent of
+    ordinary table grants and was 403ing ("User not allowed") on Render —
+    Postgrest calls succeeding with the same key didn't actually prove it had
+    admin rights. get_project_member_emails (see the migration in CLAUDE.md)
+    is a SECURITY DEFINER SQL function that does the auth.users join
+    server-side and is called here as a plain RPC over the same Postgrest
+    channel every other query already uses successfully."""
+    result = supabase.rpc("get_project_member_emails", {"p_project_id": project_id}).execute()
+    return [row["email"] for row in result.data if row.get("email")]
 
 
 @app.get("/projects")
