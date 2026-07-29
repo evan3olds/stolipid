@@ -446,17 +446,26 @@ function topbarHTML(showHamburger = true) {
         <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Switch theme">
           <span class="theme-toggle-dot"></span>${theme === 'sage' ? 'Sage' : 'Paper'}
         </button>
-        <div class="profile-menu">
-          <button type="button" class="profile-btn" id="profile-btn" aria-label="Account menu" aria-haspopup="true" aria-expanded="false" title="${escHtml(currentUser())}">
-            <img class="profile-avatar" src="assets/DefaultProfile.png" alt="">
-          </button>
-          <div class="profile-dropdown" id="profile-dropdown">
-            <div class="profile-dropdown-user">${escHtml(currentUserName())}</div>
-            <button type="button" class="profile-dropdown-item" id="profile-logout">Log out</button>
-          </div>
-        </div>
+        ${profileMenuHTML()}
       </div>
     </header>
+  `;
+}
+
+// Just the account menu — reused by topbarHTML() for the full topbar and by
+// the Home screen's corner-only chrome (see renderHome), which has no
+// topbar bar at all but still needs sign-out to be reachable.
+function profileMenuHTML() {
+  return `
+    <div class="profile-menu">
+      <button type="button" class="profile-btn" id="profile-btn" aria-label="Account menu" aria-haspopup="true" aria-expanded="false" title="${escHtml(currentUser())}">
+        <img class="profile-avatar" src="assets/DefaultProfile.png" alt="">
+      </button>
+      <div class="profile-dropdown" id="profile-dropdown">
+        <div class="profile-dropdown-user">${escHtml(currentUserName())}</div>
+        <button type="button" class="profile-dropdown-item" id="profile-logout">Log out</button>
+      </div>
+    </div>
   `;
 }
 
@@ -552,9 +561,9 @@ function screenStub(screen, meta) {
 }
 
 // Theme toggle + account menu wiring, shared by the full shell (wireShell)
-// and the standalone Home screen (renderHome) — both render the same
-// #theme-toggle/#profile-btn/#profile-dropdown/#profile-logout markup via
-// topbarHTML(), but only the full shell also has a hamburger/sidebar.
+// and the standalone Projects screen (renderProjects) — both render the
+// full topbarHTML(). The Home screen (renderHome) has no theme toggle, only
+// the account menu, so it calls wireProfileMenu() directly instead.
 function wireTopbarChrome() {
   const themeToggle = document.getElementById('theme-toggle');
   themeToggle.addEventListener('click', () => {
@@ -563,6 +572,14 @@ function wireTopbarChrome() {
     themeToggle.innerHTML = `<span class="theme-toggle-dot"></span>${next === 'sage' ? 'Sage' : 'Paper'}`;
   });
 
+  wireProfileMenu();
+}
+
+// Wires the #profile-btn/#profile-dropdown/#profile-logout markup rendered
+// by profileMenuHTML(). Split out from wireTopbarChrome() so the Home
+// screen's corner-only account menu (no topbar, no theme toggle) can wire
+// itself without a #theme-toggle element to fail on.
+function wireProfileMenu() {
   const profileBtn = document.getElementById('profile-btn');
   const profileDropdown = document.getElementById('profile-dropdown');
   const closeProfileMenu = () => {
@@ -881,11 +898,13 @@ function formatDate(dateStr) {
 // standalone Projects screen and the About/Help screens in the shell.
 // Like Projects below, it does NOT go through renderShell/wireShell — no
 // project is selected yet, so there's nothing for a hamburger/sidebar to
-// scope to.
+// scope to. Unlike every other screen it has no topbar at all (no
+// topbarHTML() call) — just the account menu floating in the corner, via
+// profileMenuHTML()/wireProfileMenu(), so sign-out stays reachable.
 function renderHome() {
   app.innerHTML = `
     <div class="shell home-shell">
-      ${topbarHTML(false)}
+      <div class="home-profile-corner">${profileMenuHTML()}</div>
       <main class="content home-content">
         <h1 class="home-title">${escHtml(CONFIG.appTitle)}</h1>
         <div class="home-boxes-wrap">
@@ -907,7 +926,7 @@ function renderHome() {
       </main>
     </div>
   `;
-  wireTopbarChrome();
+  wireProfileMenu();
   document.getElementById('home-box-projects').addEventListener('click', () => navigate('projects'));
   document.getElementById('home-box-help').addEventListener('click', () => navigate('help'));
   document.getElementById('home-box-about').addEventListener('click', () => navigate('about'));
