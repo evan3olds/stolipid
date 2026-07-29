@@ -300,7 +300,19 @@ body {
   filter: brightness(1.15);
 }
 
-/* Home landing screen (see renderHome) */
+/* Home landing screen (see renderHome) — no topbar, just the account menu
+   floating in the corner where it would otherwise sit. */
+.home-shell {
+  position: relative;
+}
+
+.home-profile-corner {
+  position: absolute;
+  top: 0.75rem;
+  right: 1.25rem;
+  z-index: 10;
+}
+
 .home-content {
   display: flex;
   flex-direction: column;
@@ -312,7 +324,7 @@ body {
 
 .home-title {
   font-family: var(--font-heading);
-  font-size: 3rem;
+  font-size: 4.5rem;
   font-weight: 600;
   margin: 0;
 }
