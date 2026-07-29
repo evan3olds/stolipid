@@ -2171,6 +2171,42 @@ body {
   cursor: pointer;
 }
 
+.graph-bar {
+  pointer-events: none;
+}
+
+.graph-bar-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.graph-error-whisker {
+  stroke: var(--text-primary);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.graph-box {
+  fill-opacity: 0.25;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.graph-box-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.graph-box-whisker {
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.graph-box-median {
+  stroke-width: 3;
+  pointer-events: none;
+}
+
 .graph-gridline {
   stroke: var(--border-default);
   stroke-width: 1;

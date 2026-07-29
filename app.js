@@ -751,12 +751,13 @@ const TEST_CONDITIONS = {
 
 // ---- Card menu (three-dot edit/remove, shared by experiments/conditions/cells) ----
 
-function cardMenuHTML(id) {
+function cardMenuHTML(id, { showOpen = false } = {}) {
   const safeId = escHtml(String(id));
   return `
     <div class="card-menu">
       <button type="button" class="card-menu-btn" data-id="${safeId}" aria-label="More options" aria-haspopup="true" aria-expanded="false">&#8942;</button>
       <div class="card-menu-dropdown" data-id="${safeId}">
+        ${showOpen ? '<button type="button" class="card-menu-item" data-action="open">Open</button>' : ''}
         <button type="button" class="card-menu-item" data-action="edit">Edit</button>
         <button type="button" class="card-menu-item card-menu-item-danger" data-action="remove">Remove</button>
       </div>
@@ -773,7 +774,7 @@ function closeAllCardMenus(grid) {
 // a new one is attached, mirroring the escHandler pattern in wireShell.
 let cardMenuDocHandler = null;
 
-function wireCardMenus(grid, { onEdit, onRemove }) {
+function wireCardMenus(grid, { onOpen, onEdit, onRemove }) {
   if (cardMenuDocHandler) document.removeEventListener('click', cardMenuDocHandler);
   cardMenuDocHandler = () => closeAllCardMenus(grid);
   document.addEventListener('click', cardMenuDocHandler);
@@ -793,6 +794,11 @@ function wireCardMenus(grid, { onEdit, onRemove }) {
 
   grid.querySelectorAll('.card-menu-dropdown').forEach(dropdown => {
     const id = dropdown.dataset.id;
+    dropdown.querySelector('[data-action="open"]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      closeAllCardMenus(grid);
+      onOpen(id);
+    });
     dropdown.querySelector('[data-action="edit"]').addEventListener('click', e => {
       e.stopPropagation();
       closeAllCardMenus(grid);
@@ -1144,7 +1150,7 @@ function renderExperimentsHTML(experiments) {
         const condLabel = `${condCount} condition${condCount !== 1 ? 's' : ''}`;
         return `
           <div class="folder-card" data-id="${escHtml(String(exp.id))}" role="button" tabindex="0">
-            ${cardMenuHTML(exp.id)}
+            ${cardMenuHTML(exp.id, { showOpen: true })}
             <div class="folder-name">${escHtml(exp.name)}</div>
             <div class="folder-meta">
               ${exp.dye ? `<span class="folder-meta-item">${escHtml(exp.dye)}</span>` : ''}
@@ -1217,6 +1223,10 @@ function wireExperiments(experiments) {
   });
 
   wireCardMenus(grid, {
+    onOpen: id => {
+      const exp = experiments.find(e => String(e.id) === String(id));
+      if (exp) navigate('conditions', { experiment: { id: exp.id, name: exp.name, dye: exp.dye } });
+    },
     onEdit: id => {
       const exp = experiments.find(e => String(e.id) === String(id));
       if (exp) openEditExperimentModal(exp, () => initExperiments());
@@ -1488,7 +1498,7 @@ function renderConditionsHTML(conditions) {
         const cellCount = (cond.cells || []).length;
         return `
           <div class="folder-card" data-id="${escHtml(String(cond.id))}" role="button" tabindex="0">
-            ${cardMenuHTML(cond.id)}
+            ${cardMenuHTML(cond.id, { showOpen: true })}
             <div class="folder-name">${escHtml(cond.name)}</div>
             <div class="folder-meta">
               ${cond.starvation != null ? `<span class="folder-meta-item">${cond.starvation} hr</span>` : ''}
@@ -1566,6 +1576,10 @@ function wireConditions(conditions) {
   });
 
   wireCardMenus(grid, {
+    onOpen: id => {
+      const cond = conditions.find(c => String(c.id) === String(id));
+      if (cond) navigate('cells', { condition: { id: cond.id, name: cond.name } });
+    },
     onEdit: id => {
       const cond = conditions.find(c => String(c.id) === String(id));
       if (cond) openEditConditionModal(cond, () => initConditions());
@@ -1919,7 +1933,7 @@ function wireCells(cells) {
             `).join('')}</ul>`}
       </div>
       ${needsMore ? '<button class="count-cta-btn" id="count-cta">Add Hand Count</button>' : ''}
-      ${(counts.length > 0 || doneAlgorithms.length > 0) ? '<button class="count-viewall-btn" id="counts-viewall-btn">View all counts</button>' : ''}
+      ${(counts.length > 0 || doneAlgorithms.length > 0) ? '<button class="count-viewall-btn" id="counts-viewall-btn">Compare all counts</button>' : ''}
     `;
     panel.classList.add('visible');
 
@@ -2574,7 +2588,7 @@ const COUNT_GROUP_COLOR_CLASSES = ['count-marker-group-1', 'count-marker-group-2
 
 // One color per possible auto-count counts.type row (see AUTO_ALGORITHMS),
 // so both a Standard and an FM_edge_overlay (ALDQ) auto-count grid can be
-// told apart when "View all counts" overlays them together.
+// told apart when "Compare all counts" overlays them together.
 const AUTO_GROUP_COLOR_CLASSES = ['count-marker-group-auto', 'count-marker-group-auto-2'];
 
 function renderCount() {
@@ -2591,7 +2605,7 @@ function renderCount() {
       : (editing && editing.points)
         ? editing.points.map(p => ({ id: genLocalId('marker'), x: p.x, y: p.y }))
         : [],
-    // "View all counts" overlays every saved hand count's grid plus the
+    // "Compare all counts" overlays every saved hand count's grid plus the
     // auto count's grid (if any) at once, each in its own color, so raters
     // can compare placement — including against the machine suggestion —
     // at a glance.
@@ -2853,6 +2867,15 @@ const GRAPH_METRICS = {
   combined: { label: 'Average of both', axisLabel: 'Lipid droplets / cell (combined avg)' },
 };
 
+// Chart type shown in the main panel: 'scatter' (per-cell dots + mean tick,
+// the original/default view), 'bar' (condition mean bar with a sample-SD
+// error whisker), or 'box' (min/Q1/median/Q3/max box-and-whisker).
+const GRAPH_CHART_TYPES = {
+  scatter: { label: 'Scatter' },
+  bar: { label: 'Bar chart (mean ± SD)' },
+  box: { label: 'Box plot' },
+};
+
 function cellValueForMetric(cell, metric) {
   const auto = cellAutoCount(cell);
   const hand = cellAverage(cell);
@@ -2865,10 +2888,44 @@ function cellValueForMetric(cell, metric) {
   return auto;
 }
 
+function conditionValuesForMetric(cond, metric) {
+  return (cond.cells || []).map(cell => cellValueForMetric(cell, metric)).filter(v => v != null);
+}
+
 function conditionMeanForMetric(cond, metric) {
-  const values = (cond.cells || []).map(cell => cellValueForMetric(cell, metric)).filter(v => v != null);
+  const values = conditionValuesForMetric(cond, metric);
   if (!values.length) return null;
   return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
+// Sample standard deviation (ddof=1); null below n=2 since a spread isn't
+// meaningful for a single point.
+function conditionStdDevForMetric(cond, metric) {
+  const values = conditionValuesForMetric(cond, metric);
+  if (values.length < 2) return null;
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / (values.length - 1);
+  return Math.sqrt(variance);
+}
+
+function medianOfSorted(sorted) {
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Quartiles via median-of-halves (Tukey's hinges: median excluded from both
+// halves on odd n) -- simple and standard for the small per-condition sample
+// sizes here, unlike interpolated-percentile methods meant for large n.
+function conditionQuartilesForMetric(cond, metric) {
+  const values = conditionValuesForMetric(cond, metric).slice().sort((a, b) => a - b);
+  if (!values.length) return null;
+  const n = values.length;
+  const median = medianOfSorted(values);
+  const lowerHalf = values.slice(0, Math.floor(n / 2));
+  const upperHalf = values.slice(Math.ceil(n / 2));
+  const q1 = lowerHalf.length ? medianOfSorted(lowerHalf) : median;
+  const q3 = upperHalf.length ? medianOfSorted(upperHalf) : median;
+  return { min: values[0], q1, median, q3, max: values[n - 1], n };
 }
 
 async function initGraph() {
@@ -2890,7 +2947,7 @@ async function initGraph() {
     }
   }
 
-  graphState = { conditionsCache: {}, selectedExperimentId: null, selected: [], colorAssignments: {}, metric: 'combined' };
+  graphState = { conditionsCache: {}, selectedExperimentId: null, selected: [], colorAssignments: {}, metric: 'combined', chartType: 'scatter' };
   content.innerHTML = renderGraphHTML(experiments);
   wireGraph(experiments);
 }
@@ -2922,6 +2979,17 @@ function renderGraphHTML(experiments) {
         </div>
         <button class="graph-add-btn" id="graph-add-btn" disabled>Add to graph</button>
         <div class="graph-selected-list" id="graph-selected-list">${renderGraphSelectedListHTML()}</div>
+        <div class="graph-field">
+          <label>Chart type</label>
+          <div class="graph-metric-checkboxes">
+            ${Object.entries(GRAPH_CHART_TYPES).map(([value, { label }]) => `
+              <label class="graph-metric-checkbox">
+                <input type="checkbox" class="graph-charttype-input" value="${value}"${value === graphState.chartType ? ' checked' : ''} />
+                ${escHtml(label)}
+              </label>
+            `).join('')}
+          </div>
+        </div>
         <div class="graph-field">
           <label>Metric</label>
           <div class="graph-metric-checkboxes">
@@ -2998,10 +3066,12 @@ function renderGraphChartArea() {
     return '<div class="empty-state">No data — add a condition from the sidebar to begin.</div>';
   }
 
-  // Render the scatter first: it's what assigns fresh color slots (in
-  // column order == first-seen order), so the legend below can just look
-  // the assignments up rather than risk a different assignment order.
-  const scatterSvg = renderGraphScatterSVG(selected, graphState.metric);
+  // Render the chart first: whichever renderer runs is what assigns fresh
+  // color slots (in column order == first-seen order), so the legend below
+  // can just look the assignments up rather than risk a different order.
+  const chartSvg = graphState.chartType === 'bar' ? renderGraphBarSVG(selected, graphState.metric)
+    : graphState.chartType === 'box' ? renderGraphBoxSVG(selected, graphState.metric)
+    : renderGraphScatterSVG(selected, graphState.metric);
 
   const distinctIds = [...new Set(selected.map(s => s.experimentId))];
   const legend = distinctIds.length > 1
@@ -3021,37 +3091,61 @@ function renderGraphChartArea() {
     `
     : '';
 
-  return legend + scatterSvg;
+  return legend + chartSvg;
 }
 
-function renderGraphScatterSVG(selected, metric) {
-  const width = 900;
-  const height = 420;
-  const padLeft = 40;
-  const padRight = 20;
-  const padTop = 20;
-  const padBottom = 56;
-  const plotWidth = width - padLeft - padRight;
-  const plotHeight = height - padTop - padBottom;
+// Shared layout constants for all three chart-type renderers below, so a
+// selected condition lands in the same column position regardless of which
+// chart type is active.
+const GRAPH_CHART_WIDTH = 900;
+const GRAPH_CHART_HEIGHT = 420;
+const GRAPH_PAD_LEFT = 40;
+const GRAPH_PAD_RIGHT = 20;
+const GRAPH_PAD_TOP = 20;
+const GRAPH_PAD_BOTTOM = 56;
+const GRAPH_TICK_STEP = 50;
 
-  const TICK_STEP = 50;
-  const allAverages = selected.flatMap(s => (s.cells || []).map(cell => cellValueForMetric(cell, metric))).filter(a => a != null);
-  const rawMax = Math.max(1, ...allAverages);
-  const niceMax = Math.ceil(rawMax / TICK_STEP) * TICK_STEP || TICK_STEP;
-  const tickCount = niceMax / TICK_STEP;
-  const yFor = val => padTop + plotHeight - (val / niceMax) * plotHeight;
+function computeNiceMax(values, tickStep) {
+  const rawMax = Math.max(1, ...values);
+  const niceMax = Math.ceil(rawMax / tickStep) * tickStep || tickStep;
+  return { niceMax, tickCount: niceMax / tickStep };
+}
 
-  const n = selected.length;
-  const colWidth = plotWidth / n;
-
-  const gridlines = Array.from({ length: tickCount + 1 }).map((_, i) => {
-    const val = TICK_STEP * i;
+function renderGraphGridlinesSVG(niceMax, tickStep, yFor, padLeft, plotWidth) {
+  const tickCount = niceMax / tickStep;
+  return Array.from({ length: tickCount + 1 }).map((_, i) => {
+    const val = tickStep * i;
     const y = yFor(val);
     return `
       <line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${(padLeft + plotWidth).toFixed(1)}" y2="${y.toFixed(1)}" class="graph-gridline" />
       <text x="${(padLeft - 8).toFixed(1)}" y="${(y + 3).toFixed(1)}" class="graph-axis-tick" text-anchor="end">${val.toFixed(0)}</text>
     `;
   }).join('');
+}
+
+function renderGraphColumnLabelSVG(cx, height, conditionName, experimentName) {
+  return `
+    <text x="${cx.toFixed(1)}" y="${height - 34}" class="graph-col-label" text-anchor="middle">${escHtml(truncateLabel(conditionName, 14))}</text>
+    <text x="${cx.toFixed(1)}" y="${height - 18}" class="graph-col-sublabel" text-anchor="middle">${escHtml(truncateLabel(experimentName, 16))}</text>
+  `;
+}
+
+function renderGraphScatterSVG(selected, metric) {
+  const width = GRAPH_CHART_WIDTH;
+  const height = GRAPH_CHART_HEIGHT;
+  const padLeft = GRAPH_PAD_LEFT;
+  const padTop = GRAPH_PAD_TOP;
+  const plotWidth = width - padLeft - GRAPH_PAD_RIGHT;
+  const plotHeight = height - padTop - GRAPH_PAD_BOTTOM;
+
+  const allAverages = selected.flatMap(s => (s.cells || []).map(cell => cellValueForMetric(cell, metric))).filter(a => a != null);
+  const { niceMax } = computeNiceMax(allAverages, GRAPH_TICK_STEP);
+  const yFor = val => padTop + plotHeight - (val / niceMax) * plotHeight;
+
+  const n = selected.length;
+  const colWidth = plotWidth / n;
+
+  const gridlines = renderGraphGridlinesSVG(niceMax, GRAPH_TICK_STEP, yFor, padLeft, plotWidth);
 
   const columns = selected.map((s, i) => {
     const cx = padLeft + colWidth * (i + 0.5);
@@ -3086,16 +3180,135 @@ function renderGraphScatterSVG(selected, metric) {
       ? `<line x1="${(cx - barHalf).toFixed(1)}" y1="${yFor(mean).toFixed(1)}" x2="${(cx + barHalf).toFixed(1)}" y2="${yFor(mean).toFixed(1)}" class="graph-mean-tick" style="stroke:${color}" />`
       : '';
 
-    const label = `
-      <text x="${cx.toFixed(1)}" y="${height - 34}" class="graph-col-label" text-anchor="middle">${escHtml(truncateLabel(s.conditionName, 14))}</text>
-      <text x="${cx.toFixed(1)}" y="${height - 18}" class="graph-col-sublabel" text-anchor="middle">${escHtml(truncateLabel(s.experimentName, 16))}</text>
-    `;
+    const label = renderGraphColumnLabelSVG(cx, height, s.conditionName, s.experimentName);
 
     return meanHit + dots + meanTick + label;
   }).join('');
 
   return `
     <svg class="graph-scatter-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Lipid droplet counts by condition">
+      <text x="${padLeft}" y="14" class="graph-axis-label">${escHtml(GRAPH_METRICS[metric].axisLabel)}</text>
+      ${gridlines}
+      ${columns}
+    </svg>
+  `;
+}
+
+function renderGraphBarSVG(selected, metric) {
+  const width = GRAPH_CHART_WIDTH;
+  const height = GRAPH_CHART_HEIGHT;
+  const padLeft = GRAPH_PAD_LEFT;
+  const padTop = GRAPH_PAD_TOP;
+  const plotWidth = width - padLeft - GRAPH_PAD_RIGHT;
+  const plotHeight = height - padTop - GRAPH_PAD_BOTTOM;
+
+  const bars = selected.map(s => ({
+    s,
+    mean: conditionMeanForMetric(s, metric),
+    sd: conditionStdDevForMetric(s, metric),
+    n: conditionValuesForMetric(s, metric).length,
+  }));
+
+  const allTops = bars.map(b => (b.mean ?? 0) + (b.sd ?? 0));
+  const { niceMax } = computeNiceMax(allTops, GRAPH_TICK_STEP);
+  const yFor = val => padTop + plotHeight - (val / niceMax) * plotHeight;
+
+  const n = selected.length;
+  const colWidth = plotWidth / n;
+
+  const gridlines = renderGraphGridlinesSVG(niceMax, GRAPH_TICK_STEP, yFor, padLeft, plotWidth);
+
+  const columns = bars.map(({ s, mean, sd, n: cellCount }, i) => {
+    const cx = padLeft + colWidth * (i + 0.5);
+    const label = renderGraphColumnLabelSVG(cx, height, s.conditionName, s.experimentName);
+    if (mean == null) return label;
+
+    const color = seriesColorForExperiment(s.experimentId);
+    const barHalf = colWidth * 0.3;
+    const baselineY = yFor(0);
+    const meanY = yFor(mean);
+    const barTop = Math.min(baselineY, meanY);
+    const barHeight = Math.abs(baselineY - meanY);
+
+    // Full-column invisible hit target, same approach as the scatter chart's
+    // mean-hit rect: the visible bar/whisker stay pointer-events:none so a
+    // single hover target covers the whole column instead of just the bar.
+    const barHit = `<rect x="${(cx - barHalf).toFixed(1)}" y="${padTop}" width="${(barHalf * 2).toFixed(1)}" height="${plotHeight.toFixed(1)}" class="graph-bar-hit"
+      data-experiment="${escHtml(s.experimentName)}" data-condition="${escHtml(s.conditionName)}"
+      data-mean="${mean.toFixed(1)}" data-sd="${sd != null ? sd.toFixed(1) : '—'}" data-n="${cellCount}" data-metric="${escHtml(GRAPH_METRICS[metric].label)}" />`;
+
+    const bar = `<rect x="${(cx - barHalf).toFixed(1)}" y="${barTop.toFixed(1)}" width="${(barHalf * 2).toFixed(1)}" height="${barHeight.toFixed(1)}" class="graph-bar" style="fill:${color}" />`;
+
+    let whisker = '';
+    if (sd != null) {
+      const capHalf = barHalf * 0.5;
+      const yTop = yFor(mean + sd);
+      const yBottom = yFor(mean - sd);
+      whisker = `
+        <line x1="${cx.toFixed(1)}" y1="${yTop.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${yBottom.toFixed(1)}" class="graph-error-whisker" />
+        <line x1="${(cx - capHalf).toFixed(1)}" y1="${yTop.toFixed(1)}" x2="${(cx + capHalf).toFixed(1)}" y2="${yTop.toFixed(1)}" class="graph-error-whisker" />
+        <line x1="${(cx - capHalf).toFixed(1)}" y1="${yBottom.toFixed(1)}" x2="${(cx + capHalf).toFixed(1)}" y2="${yBottom.toFixed(1)}" class="graph-error-whisker" />
+      `;
+    }
+
+    return barHit + bar + whisker + label;
+  }).join('');
+
+  return `
+    <svg class="graph-scatter-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Lipid droplet condition means with standard deviation">
+      <text x="${padLeft}" y="14" class="graph-axis-label">${escHtml(GRAPH_METRICS[metric].axisLabel)}</text>
+      ${gridlines}
+      ${columns}
+    </svg>
+  `;
+}
+
+function renderGraphBoxSVG(selected, metric) {
+  const width = GRAPH_CHART_WIDTH;
+  const height = GRAPH_CHART_HEIGHT;
+  const padLeft = GRAPH_PAD_LEFT;
+  const padTop = GRAPH_PAD_TOP;
+  const plotWidth = width - padLeft - GRAPH_PAD_RIGHT;
+  const plotHeight = height - padTop - GRAPH_PAD_BOTTOM;
+
+  const boxes = selected.map(s => ({ s, stats: conditionQuartilesForMetric(s, metric) }));
+
+  const allMaxes = boxes.map(b => b.stats?.max ?? 0);
+  const { niceMax } = computeNiceMax(allMaxes, GRAPH_TICK_STEP);
+  const yFor = val => padTop + plotHeight - (val / niceMax) * plotHeight;
+
+  const n = selected.length;
+  const colWidth = plotWidth / n;
+
+  const gridlines = renderGraphGridlinesSVG(niceMax, GRAPH_TICK_STEP, yFor, padLeft, plotWidth);
+
+  const columns = boxes.map(({ s, stats }, i) => {
+    const cx = padLeft + colWidth * (i + 0.5);
+    const label = renderGraphColumnLabelSVG(cx, height, s.conditionName, s.experimentName);
+    if (!stats) return label;
+
+    const { min, q1, median, q3, max, n: cellCount } = stats;
+    const color = seriesColorForExperiment(s.experimentId);
+    const boxHalf = colWidth * 0.3;
+
+    const boxHit = `<rect x="${(cx - boxHalf).toFixed(1)}" y="${padTop}" width="${(boxHalf * 2).toFixed(1)}" height="${plotHeight.toFixed(1)}" class="graph-box-hit"
+      data-experiment="${escHtml(s.experimentName)}" data-condition="${escHtml(s.conditionName)}"
+      data-min="${min.toFixed(1)}" data-q1="${q1.toFixed(1)}" data-median="${median.toFixed(1)}" data-q3="${q3.toFixed(1)}" data-max="${max.toFixed(1)}"
+      data-n="${cellCount}" data-metric="${escHtml(GRAPH_METRICS[metric].label)}" />`;
+
+    const whisker = `<line x1="${cx.toFixed(1)}" y1="${yFor(max).toFixed(1)}" x2="${cx.toFixed(1)}" y2="${yFor(min).toFixed(1)}" class="graph-box-whisker" style="stroke:${color}" />`;
+
+    const boxTop = yFor(q3);
+    const boxBottom = yFor(q1);
+    const box = `<rect x="${(cx - boxHalf).toFixed(1)}" y="${boxTop.toFixed(1)}" width="${(boxHalf * 2).toFixed(1)}" height="${(boxBottom - boxTop).toFixed(1)}" class="graph-box" style="fill:${color};stroke:${color}" />`;
+
+    const medianTick = `<line x1="${(cx - boxHalf).toFixed(1)}" y1="${yFor(median).toFixed(1)}" x2="${(cx + boxHalf).toFixed(1)}" y2="${yFor(median).toFixed(1)}" class="graph-box-median" style="stroke:${color}" />`;
+
+    return boxHit + whisker + box + medianTick + label;
+  }).join('');
+
+  return `
+    <svg class="graph-scatter-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Lipid droplet count distribution by condition">
       <text x="${padLeft}" y="14" class="graph-axis-label">${escHtml(GRAPH_METRICS[metric].axisLabel)}</text>
       ${gridlines}
       ${columns}
@@ -3145,6 +3358,48 @@ function wireGraphTooltip() {
       tooltip.hidden = true;
     });
   });
+
+  document.querySelectorAll('.graph-bar-hit').forEach(hit => {
+    hit.addEventListener('mouseenter', () => {
+      tooltip.innerHTML = `
+        <div class="graph-tooltip-row"><strong>${escHtml(hit.dataset.experiment)}</strong></div>
+        <div class="graph-tooltip-row">${escHtml(hit.dataset.condition)}</div>
+        <div class="graph-tooltip-row">${escHtml(hit.dataset.metric)}: ${escHtml(hit.dataset.mean)} ± ${escHtml(hit.dataset.sd)}</div>
+        <div class="graph-tooltip-row">n = ${escHtml(hit.dataset.n)}</div>
+      `;
+      tooltip.hidden = false;
+    });
+    hit.addEventListener('mousemove', e => {
+      tooltip.style.left = `${e.clientX + 12}px`;
+      tooltip.style.top = `${e.clientY + 12}px`;
+    });
+    hit.addEventListener('mouseleave', () => {
+      tooltip.hidden = true;
+    });
+  });
+
+  document.querySelectorAll('.graph-box-hit').forEach(hit => {
+    hit.addEventListener('mouseenter', () => {
+      tooltip.innerHTML = `
+        <div class="graph-tooltip-row"><strong>${escHtml(hit.dataset.experiment)}</strong></div>
+        <div class="graph-tooltip-row">${escHtml(hit.dataset.condition)}</div>
+        <div class="graph-tooltip-row">Max: ${escHtml(hit.dataset.max)}</div>
+        <div class="graph-tooltip-row">Q3: ${escHtml(hit.dataset.q3)}</div>
+        <div class="graph-tooltip-row">Median: ${escHtml(hit.dataset.median)}</div>
+        <div class="graph-tooltip-row">Q1: ${escHtml(hit.dataset.q1)}</div>
+        <div class="graph-tooltip-row">Min: ${escHtml(hit.dataset.min)}</div>
+        <div class="graph-tooltip-row">n = ${escHtml(hit.dataset.n)}</div>
+      `;
+      tooltip.hidden = false;
+    });
+    hit.addEventListener('mousemove', e => {
+      tooltip.style.left = `${e.clientX + 12}px`;
+      tooltip.style.top = `${e.clientY + 12}px`;
+    });
+    hit.addEventListener('mouseleave', () => {
+      tooltip.hidden = true;
+    });
+  });
 }
 
 function wireGraph(experiments) {
@@ -3152,6 +3407,7 @@ function wireGraph(experiments) {
   const condSelect = document.getElementById('graph-condition-select');
   const addBtn = document.getElementById('graph-add-btn');
   const metricInputs = document.querySelectorAll('.graph-metric-input');
+  const chartTypeInputs = document.querySelectorAll('.graph-charttype-input');
 
   // Behave like a single-choice group despite being checkboxes: checking one
   // unchecks the rest, and unchecking the active one snaps it back on so
@@ -3161,6 +3417,19 @@ function wireGraph(experiments) {
       if (input.checked) {
         graphState.metric = input.value;
         metricInputs.forEach(other => { if (other !== input) other.checked = false; });
+        refreshGraphChartArea();
+      } else {
+        input.checked = true;
+      }
+    });
+  });
+
+  // Same single-choice-of-N behavior as the metric checkboxes above.
+  chartTypeInputs.forEach(input => {
+    input.addEventListener('change', () => {
+      if (input.checked) {
+        graphState.chartType = input.value;
+        chartTypeInputs.forEach(other => { if (other !== input) other.checked = false; });
         refreshGraphChartArea();
       } else {
         input.checked = true;
