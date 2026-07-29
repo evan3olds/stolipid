@@ -2649,3 +2649,56 @@ There's no traceback yet, so there's no specific backend bug to fix — the only
 ## Final step (per project convention)
 
 Added a Phase 3 bullet to `docs/tasks.md`; matching entry appended to `docs/activity.md`.
+
+---
+
+# Feature — Graph screen: Bar chart (mean ± SD) and Box plot chart types
+
+**Request:** add a way to change the Graph screen's chart type, starting with a bar chart of condition averages, and suggest other chart-type ideas.
+
+## Approach
+
+The Graph screen (`app.js`) rendered exactly one chart type: a jittered per-cell scatter plot with a mean-tick line per condition column (`renderGraphScatterSVG`). Asked the user to pick from a shortlist of chart-type ideas and a UI style for the switch; they chose **Bar chart with SD error bars** and **Box plot**, presented via a checkbox group mirroring the existing single-choice Metric control. Scatter stays the default so existing behavior is unchanged until a user opts into a new type.
+
+## What was built
+
+- **Data helpers**: `conditionValuesForMetric` (extracted from `conditionMeanForMetric`), `conditionStdDevForMetric` (sample SD, `ddof=1`, null below n=2), `conditionQuartilesForMetric` (min/Q1/median/Q3/max via median-of-halves/Tukey's hinges — simple and standard for these small per-condition sample sizes, unlike interpolated-percentile methods meant for large n).
+- **Shared SVG helpers**, extracted from `renderGraphScatterSVG` rather than duplicated across three renderers: `computeNiceMax`, `renderGraphGridlinesSVG`, `renderGraphColumnLabelSVG`.
+- **Chart-type state + UI**: `graphState.chartType` (`'scatter' | 'bar' | 'box'`, default `'scatter'`), `GRAPH_CHART_TYPES` config, a "Chart type" `.graph-field` block in the sidebar using the same checkbox markup/wiring pattern as Metric.
+- **`renderGraphBarSVG`**: bar per condition at `conditionMeanForMetric`, SD error whisker from `conditionStdDevForMetric` (omitted below n=2); y-domain sized to fit `mean + SD`.
+- **`renderGraphBoxSVG`**: box-and-whisker per condition from `conditionQuartilesForMetric`; y-domain sized to the dataset max. No per-cell dot overlay (kept out of scope).
+- Both new renderers use a full-column invisible hit rect for hover (`.graph-bar-hit`/`.graph-box-hit`), matching the scatter chart's existing `.graph-mean-hit` approach. `renderGraphChartArea` branches on `graphState.chartType`; the multi-experiment legend/`seriesColorForExperiment` coloring is unchanged and shared. `wireGraphTooltip` extended with two more hover-wiring blocks. New CSS classes added following the existing `.graph-mean-tick`/`.graph-mean-hit` conventions.
+- Other chart-type ideas given to the user but not built this pass (recorded in `docs/tasks.md` Phase 15): bar chart with per-cell dots overlaid, grouped/clustered bars across experiments, histogram of per-cell distribution, time-course line chart, sortable columns by mean value.
+
+## Verification
+
+Served the static site with `python -m http.server` and drove it with Playwright (Python) against the `local:` test-account fixtures: logged in, opened the "Lipid Droplet Study" project, added conditions (both from one experiment and from two different experiments), and toggled through all three chart types. Confirmed axis/gridlines rescale correctly per chart type, column labels remain correct, hover tooltips show accurate values (bar: mean/SD/n; box: min/Q1/median/Q3/max/n), the multi-experiment legend/coloring is unaffected by chart type switching, and there are zero console errors. Also cross-checked the box plot's rendered SVG rect/line attributes directly against the computed quartiles to confirm correctness even where the box was visually thin at this data's scale (an existing characteristic of the Graph screen's fixed 50-unit gridline step, not a regression).
+
+## Final step (per project convention)
+
+Added a Phase 15 section to `docs/tasks.md`; matching entry appended to `docs/activity.md`.
+
+---
+
+# Small fixes — "Compare all counts" rename, "Open" added to card menus
+
+**Request:** rename "View all counts" to "Compare all counts"; add an "Open" button to the three-dot menu on Experiments and Conditions cards.
+
+## Approach
+
+Both are small, mechanical changes with no ambiguity, so no separate design pass was needed. The rename is label-only. For "Open," the existing three-dot menu (`cardMenuHTML`/`wireCardMenus`, shared by Experiments/Conditions/Cells) already only had Edit/Remove — added Open as an opt-in third item so Cells (which has no child screen to navigate into) doesn't get a dead button.
+
+## What was built
+
+- `app.js`: `#counts-viewall-btn`'s label changed to "Compare all counts"; two comments referencing the old label updated too.
+- `cardMenuHTML(id, { showOpen = false } = {})`: renders an `Open` button first in the dropdown when `showOpen` is true.
+- `wireCardMenus(grid, { onOpen, onEdit, onRemove })`: wires `[data-action="open"]` via optional chaining (`?.addEventListener`) since it's absent when `showOpen` is false.
+- Experiments (`wireExperiments`) and Conditions (`wireConditions`) pass `{ showOpen: true }` and an `onOpen` that calls the same `navigate('conditions', …)` / `navigate('cells', …)` their existing detail-panel "Open experiment"/"Open condition" button and card double-click already use. Cells (`wireCells`) is untouched.
+
+## Verification
+
+Headless-browser (Playwright) pass against `python -m http.server` + the `local:` test-account fixtures: confirmed the renamed button text, confirmed the Experiments card menu reads "Open, Edit, Remove" and clicking Open navigates to that experiment's Conditions screen, and the same for a Conditions card opening its Cells screen. Zero console errors.
+
+## Final step (per project convention)
+
+Added follow-up bullets to `docs/tasks.md` (the "View all counts" phase and Phase 6d). Matching entry appended to `docs/activity.md`.
