@@ -42,7 +42,7 @@ const HELP_CONTENT = [
   },
   {
     title: 'Conditions',
-    body: 'A condition is a treatment group within an experiment (e.g. "6 Hr Starved"). Each condition tracks its own  and shows an ICC score once its cells have hand counts — ICC measures how well the hand counts agree with each other.',
+    body: 'A condition is a treatment group within an experiment (e.g. "6 Hr Starved"). Each condition tracks its own ICC score once its cells have hand counts — ICC measures how well the hand counts agree with each other.',
   },
   {
     title: 'Cells & Add Photos',
