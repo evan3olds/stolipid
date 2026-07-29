@@ -525,15 +525,40 @@ function breadcrumbHTML(screen) {
 
 // Bottom bar — Graph and Raw data are scoped to a project, so they live here
 // instead of the main menu, and only show once a project is loaded
-// (PROJECT_SCREENS: experiments/conditions/cells/graph/rawdata).
+// (PROJECT_SCREENS: experiments/conditions/cells/graph/rawdata). Experiments
+// and Cells are the exception — they embed their own small copy in the
+// bottom-left corner of the list column instead (see dataViewButtonsHTML),
+// so the full-width bar would just be a redundant second copy there.
+const SCREENS_WITH_EMBEDDED_DATA_VIEW_BUTTONS = ['experiments', 'cells'];
+
 function bottomBarHTML(screen) {
-  if (!PROJECT_SCREENS.includes(screen)) return '';
+  if (!PROJECT_SCREENS.includes(screen) || SCREENS_WITH_EMBEDDED_DATA_VIEW_BUTTONS.includes(screen)) return '';
   return `
     <nav class="bottom-bar" aria-label="Data views">
       <button class="bottom-bar-btn${screen === 'graph' ? ' active' : ''}" data-screen="graph">Graph</button>
       <button class="bottom-bar-btn${screen === 'rawdata' ? ' active' : ''}" data-screen="rawdata">Raw data</button>
     </nav>
   `;
+}
+
+// Small-footprint Graph/Raw data shortcut for the Experiments/Cells list
+// column (see SCREENS_WITH_EMBEDDED_DATA_VIEW_BUTTONS above). Reuses
+// .bottom-bar-btn's styling; wireDataViewButtons attaches the click handler
+// since these are (re)rendered by initExperiments/initCells, after
+// wireShell's own querySelectorAll('.bottom-bar-btn') pass has already run.
+function dataViewButtonsHTML() {
+  return `
+    <nav class="list-panel-actions" aria-label="Data views">
+      <button class="bottom-bar-btn" data-screen="graph">Graph</button>
+      <button class="bottom-bar-btn" data-screen="rawdata">Raw data</button>
+    </nav>
+  `;
+}
+
+function wireDataViewButtons() {
+  document.querySelectorAll('.list-panel-actions [data-screen]').forEach(btn => {
+    btn.addEventListener('click', () => navigate(btn.dataset.screen));
+  });
 }
 
 // Placeholder content — real screens land in their own phases
@@ -675,17 +700,17 @@ const TEST_CONDITIONS = {
       notes: 'Baseline, fed condition.',
       icc: 0.88,
       cells: [
-        { id: 'test-cell-001', name: 'Cell 1', counts: [
+        { id: 'test-cell-001', name: 'Cell 1', created_at: '2026-06-28', counts: [
           { id: 'test-cnt-001-auto1', value: 3, type: 'otsu_watershed', points: [{ x: 22, y: 30 }, { x: 58, y: 45 }, { x: 71, y: 68 }] },
           { id: 'test-cnt-001-auto2', value: 4, type: 'fm_edge_overlay', points: [{ x: 20, y: 28 }, { x: 40, y: 44 }, { x: 60, y: 46 }, { x: 72, y: 66 }] },
         ], source_filename: 'Image_43391.tif' },
-        { id: 'test-cell-002', name: 'Cell 2', counts: [{ id: 'test-cnt-002-1', value: 4, type: 'hand' }] },
-        { id: 'test-cell-003', name: 'Cell 3', counts: [
+        { id: 'test-cell-002', name: 'Cell 2', created_at: '2026-06-28', counts: [{ id: 'test-cnt-002-1', value: 4, type: 'hand' }] },
+        { id: 'test-cell-003', name: 'Cell 3', created_at: '2026-06-29', counts: [
           { id: 'test-cnt-003-1', value: 3, type: 'hand', points: [{ x: 16, y: 22 }, { x: 34, y: 51 }, { x: 69, y: 61 }] },
           { id: 'test-cnt-003-2', value: 2, type: 'hand', points: [{ x: 20, y: 25 }, { x: 53, y: 29 }] },
           { id: 'test-cnt-003-auto', value: 5, type: 'fm_edge_overlay', points: [{ x: 15, y: 20 }, { x: 33, y: 50 }, { x: 52, y: 28 }, { x: 68, y: 60 }, { x: 82, y: 40 }] },
         ], source_filename: 'Image_43391.tif' },
-        { id: 'test-cell-011', name: 'Cell 4', counts: [
+        { id: 'test-cell-011', name: 'Cell 4', created_at: '2026-06-29', counts: [
           { id: 'test-cnt-011-1', value: 3, type: 'hand', points: [{ x: 25, y: 30 }, { x: 50, y: 45 }, { x: 70, y: 65 }] },
           { id: 'test-cnt-011-2', value: 4, type: 'hand', points: [{ x: 27, y: 33 }, { x: 48, y: 42 }, { x: 65, y: 60 }, { x: 80, y: 35 }] },
           { id: 'test-cnt-011-3', value: 3, type: 'hand', points: [{ x: 30, y: 28 }, { x: 52, y: 48 }, { x: 72, y: 62 }] },
@@ -699,10 +724,10 @@ const TEST_CONDITIONS = {
       notes: '',
       icc: 0.93,
       cells: [
-        { id: 'test-cell-004', name: 'Cell 1', counts: [{ id: 'test-cnt-004-1', value: 6, type: 'hand' }, { id: 'test-cnt-004-2', value: 6, type: 'hand' }, { id: 'test-cnt-004-3', value: 7, type: 'hand' }] },
-        { id: 'test-cell-005', name: 'Cell 2', counts: [{ id: 'test-cnt-005-1', value: 7, type: 'hand' }, { id: 'test-cnt-005-2', value: 8, type: 'hand' }, { id: 'test-cnt-005-3', value: 7, type: 'hand' }] },
-        { id: 'test-cell-006', name: 'Cell 3', counts: [{ id: 'test-cnt-006-1', value: 6, type: 'hand' }, { id: 'test-cnt-006-2', value: 6, type: 'hand' }, { id: 'test-cnt-006-3', value: 6, type: 'hand' }] },
-        { id: 'test-cell-007', name: 'Cell 4', counts: [{ id: 'test-cnt-007-1', value: 7, type: 'hand' }, { id: 'test-cnt-007-2', value: 7, type: 'hand' }, { id: 'test-cnt-007-3', value: 7, type: 'hand' }] },
+        { id: 'test-cell-004', name: 'Cell 1', created_at: '2026-06-30', counts: [{ id: 'test-cnt-004-1', value: 6, type: 'hand' }, { id: 'test-cnt-004-2', value: 6, type: 'hand' }, { id: 'test-cnt-004-3', value: 7, type: 'hand' }] },
+        { id: 'test-cell-005', name: 'Cell 2', created_at: '2026-06-30', counts: [{ id: 'test-cnt-005-1', value: 7, type: 'hand' }, { id: 'test-cnt-005-2', value: 8, type: 'hand' }, { id: 'test-cnt-005-3', value: 7, type: 'hand' }] },
+        { id: 'test-cell-006', name: 'Cell 3', created_at: '2026-07-01', counts: [{ id: 'test-cnt-006-1', value: 6, type: 'hand' }, { id: 'test-cnt-006-2', value: 6, type: 'hand' }, { id: 'test-cnt-006-3', value: 6, type: 'hand' }] },
+        { id: 'test-cell-007', name: 'Cell 4', created_at: '2026-07-01', counts: [{ id: 'test-cnt-007-1', value: 7, type: 'hand' }, { id: 'test-cnt-007-2', value: 7, type: 'hand' }, { id: 'test-cnt-007-3', value: 7, type: 'hand' }] },
       ],
     },
     {
@@ -712,9 +737,9 @@ const TEST_CONDITIONS = {
       notes: 'High variance between raters on Cell 2.',
       icc: 0.61,
       cells: [
-        { id: 'test-cell-008', name: 'Cell 1', counts: [{ id: 'test-cnt-008-1', value: 9, type: 'hand' }, { id: 'test-cnt-008-2', value: 9, type: 'hand' }, { id: 'test-cnt-008-3', value: 10, type: 'hand' }] },
-        { id: 'test-cell-009', name: 'Cell 2', counts: [{ id: 'test-cnt-009-1', value: 8, type: 'hand' }, { id: 'test-cnt-009-2', value: 14, type: 'hand' }, { id: 'test-cnt-009-3', value: 15, type: 'hand' }] },
-        { id: 'test-cell-010', name: 'Cell 3', counts: [{ id: 'test-cnt-010-1', value: 7, type: 'hand' }, { id: 'test-cnt-010-2', value: 8, type: 'hand' }] },
+        { id: 'test-cell-008', name: 'Cell 1', created_at: '2026-07-02', counts: [{ id: 'test-cnt-008-1', value: 9, type: 'hand' }, { id: 'test-cnt-008-2', value: 9, type: 'hand' }, { id: 'test-cnt-008-3', value: 10, type: 'hand' }] },
+        { id: 'test-cell-009', name: 'Cell 2', created_at: '2026-07-02', counts: [{ id: 'test-cnt-009-1', value: 8, type: 'hand' }, { id: 'test-cnt-009-2', value: 14, type: 'hand' }, { id: 'test-cnt-009-3', value: 15, type: 'hand' }] },
+        { id: 'test-cell-010', name: 'Cell 3', created_at: '2026-07-02', counts: [{ id: 'test-cnt-010-1', value: 7, type: 'hand' }, { id: 'test-cnt-010-2', value: 8, type: 'hand' }] },
       ],
     },
   ],
@@ -726,8 +751,8 @@ const TEST_CONDITIONS = {
       notes: '',
       icc: 0.79,
       cells: [
-        { id: 'test-cell-012', name: 'Cell 1', counts: [{ id: 'test-cnt-012-1', value: 5, type: 'hand' }, { id: 'test-cnt-012-2', value: 4, type: 'hand' }] },
-        { id: 'test-cell-013', name: 'Cell 2', counts: [{ id: 'test-cnt-013-1', value: 6, type: 'hand' }, { id: 'test-cnt-013-2', value: 5, type: 'hand' }, { id: 'test-cnt-013-3', value: 6, type: 'hand' }] },
+        { id: 'test-cell-012', name: 'Cell 1', created_at: '2026-06-14', counts: [{ id: 'test-cnt-012-1', value: 5, type: 'hand' }, { id: 'test-cnt-012-2', value: 4, type: 'hand' }] },
+        { id: 'test-cell-013', name: 'Cell 2', created_at: '2026-06-14', counts: [{ id: 'test-cnt-013-1', value: 6, type: 'hand' }, { id: 'test-cnt-013-2', value: 5, type: 'hand' }, { id: 'test-cnt-013-3', value: 6, type: 'hand' }] },
       ],
     },
     {
@@ -737,8 +762,8 @@ const TEST_CONDITIONS = {
       notes: 'Robust droplet accumulation observed across all cells.',
       icc: 0.95,
       cells: [
-        { id: 'test-cell-014', name: 'Cell 1', counts: [{ id: 'test-cnt-014-1', value: 18, type: 'hand' }, { id: 'test-cnt-014-2', value: 17, type: 'hand' }, { id: 'test-cnt-014-3', value: 19, type: 'hand' }] },
-        { id: 'test-cell-015', name: 'Cell 2', counts: [{ id: 'test-cnt-015-1', value: 21, type: 'hand' }, { id: 'test-cnt-015-2', value: 20, type: 'hand' }] },
+        { id: 'test-cell-014', name: 'Cell 1', created_at: '2026-06-18', counts: [{ id: 'test-cnt-014-1', value: 18, type: 'hand' }, { id: 'test-cnt-014-2', value: 17, type: 'hand' }, { id: 'test-cnt-014-3', value: 19, type: 'hand' }] },
+        { id: 'test-cell-015', name: 'Cell 2', created_at: '2026-06-18', counts: [{ id: 'test-cnt-015-1', value: 21, type: 'hand' }, { id: 'test-cnt-015-2', value: 20, type: 'hand' }] },
       ],
     },
   ],
@@ -1198,28 +1223,23 @@ async function initExperiments() {
 }
 
 function renderExperimentsHTML(experiments) {
-  const cards = experiments.length === 0
+  const rows = experiments.length === 0
     ? '<p class="empty-state">No experiments yet. Click "Add experiment" to create one.</p>'
-    : experiments.map(exp => {
-        const condCount = exp.condition_count ?? 0;
-        const condLabel = `${condCount} condition${condCount !== 1 ? 's' : ''}`;
-        return `
-          <div class="folder-card" data-id="${escHtml(String(exp.id))}" role="button" tabindex="0">
-            ${cardMenuHTML(exp.id, { showOpen: true })}
-            <div class="folder-name">${escHtml(exp.name)}</div>
-            <div class="folder-meta">
-              ${exp.dye ? `<span class="folder-meta-item">${escHtml(exp.dye)}</span>` : ''}
-              <span class="folder-meta-item">${condLabel}</span>
-              ${exp.date ? `<span class="folder-meta-item">${formatDate(exp.date)}</span>` : ''}
-            </div>
-          </div>
-        `;
-      }).join('');
+    : experiments.map(exp => `
+        <div class="list-row" data-id="${escHtml(String(exp.id))}" role="button" tabindex="0">
+          ${cardMenuHTML(exp.id, { showOpen: true })}
+          <span class="list-row-title">${escHtml(exp.name)}</span>
+          <span class="list-row-date">${exp.date ? formatDate(exp.date) : '—'}</span>
+        </div>
+      `).join('');
 
   return `
-    <div class="folder-layout">
-      <div class="folder-grid" id="folder-grid">${cards}</div>
-      <aside class="detail-panel" id="detail-panel" aria-label="Experiment details"></aside>
+    <div class="list-panel-layout">
+      <div class="list-panel-column">
+        <div class="list-panel" id="folder-grid">${rows}</div>
+        ${dataViewButtonsHTML()}
+      </div>
+      <aside class="detail-panel detail-panel--large" id="detail-panel" aria-label="Experiment details"></aside>
     </div>
   `;
 }
@@ -1232,9 +1252,9 @@ function wireExperiments(experiments) {
     const exp = experiments.find(e => String(e.id) === String(id));
     if (!exp) return;
 
-    grid.querySelectorAll('.folder-card').forEach(c => c.classList.remove('selected'));
-    const card = grid.querySelector(`.folder-card[data-id="${CSS.escape(String(id))}"]`);
-    if (card) card.classList.add('selected');
+    grid.querySelectorAll('.list-row').forEach(c => c.classList.remove('selected'));
+    const row = grid.querySelector(`.list-row[data-id="${CSS.escape(String(id))}"]`);
+    if (row) row.classList.add('selected');
 
     const condCount = exp.condition_count ?? 0;
     panel.innerHTML = `
@@ -1266,14 +1286,14 @@ function wireExperiments(experiments) {
     });
   }
 
-  grid.querySelectorAll('.folder-card').forEach(card => {
-    card.addEventListener('click', () => selectExperiment(card.dataset.id));
-    card.addEventListener('dblclick', () => {
-      const exp = experiments.find(e => String(e.id) === card.dataset.id);
+  grid.querySelectorAll('.list-row').forEach(row => {
+    row.addEventListener('click', () => selectExperiment(row.dataset.id));
+    row.addEventListener('dblclick', () => {
+      const exp = experiments.find(e => String(e.id) === row.dataset.id);
       if (exp) navigate('conditions', { experiment: { id: exp.id, name: exp.name, dye: exp.dye } });
     });
-    card.addEventListener('keydown', e => {
-      if (e.key === 'Enter') selectExperiment(card.dataset.id);
+    row.addEventListener('keydown', e => {
+      if (e.key === 'Enter') selectExperiment(row.dataset.id);
     });
   });
 
@@ -1297,7 +1317,13 @@ function wireExperiments(experiments) {
     },
   });
 
+  wireDataViewButtons();
   wireExperimentsAction();
+
+  // Unlike Conditions/Projects (whose detail panel starts empty until a
+  // card is clicked), Experiments now defaults to the first row and stays
+  // open, matching Cells (see wireCells' selectCell(cells[0].id) below).
+  if (experiments.length) selectExperiment(experiments[0].id);
 }
 
 async function deleteExperiment(id) {
@@ -1826,11 +1852,6 @@ function compareCellNames(a, b) {
   return 0;
 }
 
-function cellCountStatus(cell) {
-  const n = handCounts(cell).length;
-  return n === 0 ? 'needs count' : `${n} count${n !== 1 ? 's' : ''}`;
-}
-
 // Simple seeded PRNG (Park-Miller) so a cell's placeholder thumbnail is
 // stable across re-renders instead of reshuffling every time.
 function seededRandom(seed) {
@@ -1899,25 +1920,30 @@ async function initCells() {
   wireCells(cells);
 }
 
+// cell.created_at may be a bare date (local test fixtures) or a full ISO
+// timestamp (real API) — slice(0, 10) normalizes either into the
+// YYYY-MM-DD formatDate() expects.
+function cellDateLabel(cell) {
+  return cell.created_at ? formatDate(cell.created_at.slice(0, 10)) : '—';
+}
+
 function renderCellsHTML(cells) {
-  const cards = cells.length === 0
+  const rows = cells.length === 0
     ? '<p class="empty-state">No cells yet. Click "Add photos" to box some cells.</p>'
-    : cells.map(cell => {
-        const tier = handCounts(cell).length === 0 ? 'needs' : 'counted';
-        return `
-          <div class="folder-card folder-card--compact" data-id="${escHtml(String(cell.id))}" role="button" tabindex="0">
-            ${cardMenuHTML(cell.id)}
-            <div class="folder-name">${escHtml(cell.name)}</div>
-            <div class="folder-meta">
-              <span class="status-tag status-tag-${tier}">${cellCountStatus(cell)}</span>
-            </div>
-          </div>
-        `;
-      }).join('');
+    : cells.map(cell => `
+        <div class="list-row" data-id="${escHtml(String(cell.id))}" role="button" tabindex="0">
+          ${cardMenuHTML(cell.id)}
+          <span class="list-row-title">${escHtml(cell.name)}</span>
+          <span class="list-row-date">${cellDateLabel(cell)}</span>
+        </div>
+      `).join('');
 
   return `
-    <div class="folder-layout">
-      <div class="folder-grid folder-grid--compact" id="folder-grid">${cards}</div>
+    <div class="list-panel-layout">
+      <div class="list-panel-column">
+        <div class="list-panel" id="folder-grid">${rows}</div>
+        ${dataViewButtonsHTML()}
+      </div>
       <aside class="detail-panel detail-panel--large" id="detail-panel" aria-label="Cell details"></aside>
     </div>
   `;
@@ -2056,15 +2082,6 @@ function wireCells(cells) {
     }
   }
 
-  function updateCardStatus(cell) {
-    const card = grid.querySelector(`.folder-card[data-id="${CSS.escape(String(cell.id))}"]`);
-    if (!card) return;
-    const tag = card.querySelector('.status-tag');
-    const tier = handCounts(cell).length === 0 ? 'needs' : 'counted';
-    tag.className = `status-tag status-tag-${tier}`;
-    tag.textContent = cellCountStatus(cell);
-  }
-
   async function runAutoCount(cell, algorithm) {
     const container = panel.querySelector('.auto-count-run');
     if (!container) return;
@@ -2116,24 +2133,23 @@ function wireCells(cells) {
       cell.counts = (cell.counts || []).filter(c => String(c.id) !== String(countId));
     }
     renderDetail(cell);
-    updateCardStatus(cell);
   }
 
   function selectCell(id) {
     const cell = cells.find(c => String(c.id) === String(id));
     if (!cell) return;
 
-    grid.querySelectorAll('.folder-card').forEach(c => c.classList.remove('selected'));
-    const card = grid.querySelector(`.folder-card[data-id="${CSS.escape(String(id))}"]`);
-    if (card) card.classList.add('selected');
+    grid.querySelectorAll('.list-row').forEach(c => c.classList.remove('selected'));
+    const row = grid.querySelector(`.list-row[data-id="${CSS.escape(String(id))}"]`);
+    if (row) row.classList.add('selected');
 
     renderDetail(cell);
   }
 
-  grid.querySelectorAll('.folder-card').forEach(card => {
-    card.addEventListener('click', () => selectCell(card.dataset.id));
-    card.addEventListener('keydown', e => {
-      if (e.key === 'Enter') selectCell(card.dataset.id);
+  grid.querySelectorAll('.list-row').forEach(row => {
+    row.addEventListener('click', () => selectCell(row.dataset.id));
+    row.addEventListener('keydown', e => {
+      if (e.key === 'Enter') selectCell(row.dataset.id);
     });
   });
 
@@ -2153,6 +2169,7 @@ function wireCells(cells) {
     },
   });
 
+  wireDataViewButtons();
   wireCellsAction();
 
   if (cells.length > 0) selectCell(cells[0].id);

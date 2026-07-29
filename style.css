@@ -1032,20 +1032,90 @@ body {
   color: var(--danger);
 }
 
-/* ---- Cells screen ---- */
-.folder-grid--compact {
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+/* ---- Experiments & Cells: compact list layout ----
+   Replaces the shared .folder-layout card grid (still used by Conditions)
+   with a scrollable single-column list of title+date rows on the left and
+   a permanently-open, default-selected detail panel on the right — see
+   renderExperimentsHTML/wireExperiments and renderCellsHTML/wireCells.
+   The list's own max-height (rather than a fixed-height page shell) is
+   what makes it scroll internally instead of growing the whole page. */
+.list-panel-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.list-panel-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
 }
 
-.folder-card--compact {
-  padding: 0.75rem;
-  padding-top: 1rem;
+.list-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: calc(100dvh - 17rem);
+  overflow-y: auto;
+  padding-right: 0.25rem;
 }
 
-.folder-card--compact .folder-name {
+.list-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: 0.5rem;
+  padding: 0.625rem 2.5rem 0.625rem 0.875rem;
+  cursor: pointer;
+  transition: box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.list-row:hover {
+  box-shadow: 0 2px 8px oklch(0.2 0.02 75 / 0.1);
+  border-color: var(--border-emphasis);
+}
+
+.list-row.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Rows sit directly on top of each other with almost no gap, so an open
+   card-menu dropdown (see .card-menu in the shared card-menu section)
+   would otherwise render underneath the next row's own menu button —
+   lift the open row's whole stacking context above its siblings. */
+.list-row:has(.card-menu-dropdown.open) {
+  z-index: 3;
+}
+
+.list-row-title {
+  font-family: var(--font-heading);
   font-size: 0.9375rem;
-  margin-bottom: 0.5rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-row-date {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Small-footprint Graph/Raw data shortcut, bottom-left of the list column
+   (see dataViewButtonsHTML in app.js) — reuses .bottom-bar-btn styling. */
+.list-panel-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0.5rem;
 }
 
 .detail-panel--large {
@@ -1085,26 +1155,6 @@ body {
 
 .cell-thumb-droplet {
   fill: oklch(0.78 0.19 145);
-}
-
-.status-tag {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.status-tag-needs {
-  background: oklch(from var(--accent-tint-strong) l c h / 0.5);
-  color: var(--warn-text);
-}
-
-.status-tag-counted {
-  background: oklch(from var(--success-tint) l c h / 0.5);
-  color: var(--success-text-2);
 }
 
 .detail-average {
