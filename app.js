@@ -33,12 +33,16 @@ function applyTheme(theme) {
 // Static Help screen content — one card per workflow step (PRD 5.9)
 const HELP_CONTENT = [
   {
+    title: 'Projects',
+    body: 'A project is the top-level container for a group of experiments, shared with collaborators via an invite code. From Home, click "Create/Join project" to start a new project or join one a labmate already created by entering their invite code. Open a project\'s detail panel to copy its invite code and share it.',
+  },
+  {
     title: 'Experiments',
-    body: 'An experiment is the top-level folder for one experimental run (e.g. a serum starvation timecourse). Click "Add experiment" to record its name, date, dye, and notes. Open an experiment to see its conditions.',
+    body: 'An experiment is a folder for one experimental run within a project (e.g. a serum starvation timecourse). Click "Add experiment" to record its name, date, dye, and notes. Open an experiment to see its conditions.',
   },
   {
     title: 'Conditions',
-    body: 'A condition is a treatment group within an experiment (e.g. "6 Hr Starved"). Dye is set once at the experiment level and shown here for reference; each condition tracks its own starvation length, and shows an ICC score once its cells have hand counts — ICC measures how well the hand counts agree with each other.',
+    body: 'A condition is a treatment group within an experiment (e.g. "6 Hr Starved"). Each condition tracks its own  and shows an ICC score once its cells have hand counts — ICC measures how well the hand counts agree with each other.',
   },
   {
     title: 'Cells & Add Photos',
@@ -50,7 +54,7 @@ const HELP_CONTENT = [
   },
   {
     title: 'Graph',
-    body: 'Pick an experiment and condition (or "All conditions") in the sidebar and add it to the chart to compare auto counts visually. Each dot is one cell; the bar marks the condition mean. Hover a dot for the full breakdown, including hand counts.',
+    body: 'Pick an experiment and condition (or "All conditions") in the sidebar and add it to the chart to compare counts visually. Choose a chart type — scatter (each dot is one cell, the bar marks the condition mean), bar chart (mean ± standard deviation), or box plot (min/median/max quartiles) — and hover any point, bar, or box for the full breakdown, including hand counts.',
   },
   {
     title: 'Raw data',
@@ -67,7 +71,7 @@ const HELP_CONTENT = [
 const ABOUT_CONTENT = {
   purpose: 'Lipid Counter turns manual lipid droplet hand counts from fluorescence microscopy into reproducible, comparable figures. It replaces scattered spreadsheets and folders of unlabeled images with a structured hierarchy: Experiments → Conditions → Cells → Counts.',
   origin: 'Built for biology researchers and students at St. Olaf College quantifying cellular lipid accumulation (BODIPY, Nile Red staining) under different experimental treatments, where the previous process had no link between counts and source images and no way to check inter-rater reliability.',
-  status: 'Working prototype. Core workflow (experiments, conditions, cells, hand counting, auto-count suggestions, graphing, and raw data export) is functional; see the Prototype badge in the top bar.',
+  status: 'Working prototype. Core workflow (shared projects, experiments, conditions, cells, hand counting, auto-count suggestions, graphing, and raw data export) is functional; see the Prototype badge in the top bar.',
   links: [],
 };
 
