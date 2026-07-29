@@ -20,7 +20,7 @@ const app = document.getElementById('app');
 // prototypeBadge are developer-set constants; theme has a user-facing
 // toggle (top bar) and persists to localStorage, overriding this default.
 const CONFIG = {
-  appTitle: 'Lipid Counter',
+  appTitle: 'Cell Archive',
   prototypeBadge: true,
   theme: 'paper',
 };
@@ -119,7 +119,7 @@ function navigate(screen, params = {}) {
   if ('experiment' in params) state.experiment = params.experiment;
   if ('condition' in params) state.condition = params.condition;
   if ('cell' in params) state.cell = params.cell;
-  if (PROJECT_SCREENS.includes(screen) && !state.project) screen = 'home';
+  if (PROJECT_SCREENS.includes(screen) && !state.project) screen = 'projects';
 
   // Graph/Raw data are a detour from Experiments/Conditions/Cells, reached
   // from the bottom bar — remember where the user came from so Back returns
@@ -141,10 +141,11 @@ function navigate(screen, params = {}) {
     state.viewingAllCounts = params.viewingAllCounts || null;
     return renderCount();
   }
-  // Home is a standalone screen (like Login/Add Photos), not part of the
-  // authenticated shell — there's no project yet, so no hamburger/sidebar
-  // and nothing for Experiments/Graph/etc. to be scoped to.
+  // Home and Projects are standalone screens (like Login/Add Photos), not
+  // part of the authenticated shell — there's no project yet, so no
+  // hamburger/sidebar and nothing for Experiments/Graph/etc. to be scoped to.
   if (screen === 'home') return renderHome();
+  if (screen === 'projects') return renderProjects();
   renderShell(screen);
   if (screen === 'experiments') initExperiments();
   if (screen === 'conditions') initConditions();
@@ -478,7 +479,7 @@ function subheaderHTML(screen, meta) {
 function breadcrumbHTML(screen) {
   const crumbs = [];
   if (state.project) {
-    crumbs.push({ label: state.project.name, target: 'home' });
+    crumbs.push({ label: state.project.name, target: 'projects' });
   }
   if (['experiments', 'conditions', 'cells'].includes(screen)) {
     crumbs.push({ label: 'Experiments', target: 'experiments' });
@@ -499,6 +500,7 @@ function breadcrumbHTML(screen) {
     }
     crumbs.push({ label: SCREENS[screen]?.title || screen, target: screen });
   } else {
+    crumbs.push({ label: 'Home', target: 'home' });
     crumbs.push({ label: SCREENS[screen]?.title || screen, target: screen });
   }
   return crumbs
@@ -629,7 +631,7 @@ function wireShell(screen) {
         navigate(state.returnScreen || 'experiments');
         return;
       }
-      navigate(screen === 'cells' ? 'conditions' : screen === 'conditions' ? 'experiments' : 'home');
+      navigate(screen === 'cells' ? 'conditions' : screen === 'conditions' ? 'experiments' : 'projects');
     });
   }
 
@@ -873,26 +875,67 @@ function formatDate(dateStr) {
   }
 }
 
-// ---- Home screen (Projects) ----
+// ---- Home screen (landing) ----
+// The true top-level landing screen: big centered app title over three
+// big accent-colored boxes (Projects/Help/About) that fan out to the
+// standalone Projects screen and the About/Help screens in the shell.
+// Like Projects below, it does NOT go through renderShell/wireShell — no
+// project is selected yet, so there's nothing for a hamburger/sidebar to
+// scope to.
+function renderHome() {
+  app.innerHTML = `
+    <div class="shell home-shell">
+      ${topbarHTML(false)}
+      <main class="content home-content">
+        <h1 class="home-title">${escHtml(CONFIG.appTitle)}</h1>
+        <div class="home-boxes-wrap">
+          <div class="home-boxes">
+            <button type="button" class="home-box" id="home-box-projects">
+              <span class="home-box-title">Projects</span>
+              <span class="home-box-desc">Add/view cells, Graph data, Raw data</span>
+            </button>
+            <button type="button" class="home-box" id="home-box-help">
+              <span class="home-box-title">Help</span>
+              <span class="home-box-desc">Tutorial and Page explanations</span>
+            </button>
+            <button type="button" class="home-box" id="home-box-about">
+              <span class="home-box-title">About</span>
+              <span class="home-box-desc">Maintainers, Background, and History</span>
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+  `;
+  wireTopbarChrome();
+  document.getElementById('home-box-projects').addEventListener('click', () => navigate('projects'));
+  document.getElementById('home-box-help').addEventListener('click', () => navigate('help'));
+  document.getElementById('home-box-about').addEventListener('click', () => navigate('about'));
+}
+
+// ---- Projects screen ----
 // Mirrors initExperiments/renderExperimentsHTML/wireExperiments below —
 // same .folder-layout two-column grid + detail panel, one level up the
 // hierarchy. See docs/tasks.md Phase 14: the real GET /projects,
 // POST /projects, and POST /projects/join endpoints are assumed, not yet
 // implemented server-side.
 //
-// Unlike every other authenticated screen, Home does NOT go through
+// Unlike every other authenticated screen, Projects does NOT go through
 // renderShell/wireShell — it's a standalone top-level screen (like Login or
 // Add Photos), reusing .shell/.topbar/.subheader purely for visual
 // consistency but with no hamburger and no sidebar, since there's no
 // project yet for Experiments/Graph/Raw data to be scoped to. Opening a
 // project is what reveals the full shell with its menu.
-function renderHome() {
+function renderProjects() {
   app.innerHTML = `
     <div class="shell">
       ${topbarHTML(false)}
       <div class="subheader">
         <div class="subheader-left">
-          <nav class="breadcrumb"><span class="crumb crumb-current">Home</span></nav>
+          <button class="back-btn" id="back-btn" aria-label="Go back">←</button>
+          <nav class="breadcrumb">
+            <button class="crumb" data-target="home">Home</button><span class="crumb-sep">/</span><span class="crumb crumb-current">Projects</span>
+          </nav>
         </div>
         <button class="primary-action" id="primary-action">Create/Join project</button>
       </div>
@@ -900,10 +943,12 @@ function renderHome() {
     </div>
   `;
   wireTopbarChrome();
-  initHome();
+  document.getElementById('back-btn').addEventListener('click', () => navigate('home'));
+  document.querySelector('.breadcrumb .crumb[data-target]').addEventListener('click', () => navigate('home'));
+  initProjects();
 }
 
-async function initHome() {
+async function initProjects() {
   const content = document.querySelector('.content');
   content.innerHTML = '<div class="loading-state">Loading projects…</div>';
 
@@ -923,16 +968,16 @@ async function initHome() {
       projects = await api('/projects');
     } catch {
       content.innerHTML = '<div class="error-state">Could not load projects. The API may not be reachable yet.</div>';
-      wireHomeAction();
+      wireProjectsAction();
       return;
     }
   }
 
-  content.innerHTML = renderHomeHTML(projects);
-  wireHome(projects);
+  content.innerHTML = renderProjectsHTML(projects);
+  wireProjects(projects);
 }
 
-function renderHomeHTML(projects) {
+function renderProjectsHTML(projects) {
   const cards = projects.length === 0
     ? '<p class="empty-state">No projects yet. Click "Create/Join project" to get started.</p>'
     : projects.map(p => {
@@ -957,7 +1002,7 @@ function renderHomeHTML(projects) {
   `;
 }
 
-function wireHome(projects) {
+function wireProjects(projects) {
   const grid = document.getElementById('folder-grid');
   const panel = document.getElementById('detail-panel');
 
@@ -1016,13 +1061,13 @@ function wireHome(projects) {
     });
   });
 
-  wireHomeAction();
+  wireProjectsAction();
 }
 
-function wireHomeAction() {
+function wireProjectsAction() {
   const actionBtn = document.getElementById('primary-action');
   if (actionBtn) {
-    actionBtn.onclick = () => openCreateJoinProjectModal(() => initHome());
+    actionBtn.onclick = () => openCreateJoinProjectModal(() => initProjects());
   }
 }
 
