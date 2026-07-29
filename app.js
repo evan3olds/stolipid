@@ -98,19 +98,9 @@ const SCREENS = {
   addphotos:   { title: 'Add Photos' },
 };
 
-// Sidebar drawer destinations. Experiments/Graph/Raw data live under a
-// project instead — reached via the project itself or the bottom bar
-// (see bottomBarHTML), not the main menu.
-const NAV_LINKS = [
-  { screen: 'home',     label: 'Home' },
-  { screen: 'help',     label: 'Help' },
-  { screen: 'about',    label: 'About' },
-  { screen: 'settings', label: 'Settings' },
-];
-
 // Screens that only make sense once a project is selected — visiting one
-// directly (e.g. via the sidebar, before ever opening a project) bounces
-// back to Home rather than rendering against an undefined state.project.
+// directly before ever opening a project bounces back to Projects rather
+// than rendering against an undefined state.project.
 const PROJECT_SCREENS = ['experiments', 'conditions', 'cells', 'graph', 'rawdata'];
 
 // Screen router
@@ -142,8 +132,8 @@ function navigate(screen, params = {}) {
     return renderCount();
   }
   // Home and Projects are standalone screens (like Login/Add Photos), not
-  // part of the authenticated shell — there's no project yet, so no
-  // hamburger/sidebar and nothing for Experiments/Graph/etc. to be scoped to.
+  // part of the authenticated shell — there's no project yet for
+  // Experiments/Graph/etc. to be scoped to.
   if (screen === 'home') return renderHome();
   if (screen === 'projects') return renderProjects();
   renderShell(screen);
@@ -388,10 +378,9 @@ function renderResetPassword(accessToken) {
   });
 }
 
-// ---- Authenticated shell (top bar + sidebar + subheader + content) ----
+// ---- Authenticated shell (top bar + subheader + content) ----
 
-let escHandler = null; // tracked so we can detach it before each re-render
-let profileMenuDocHandler = null; // ditto, for the profile dropdown's outside-click close
+let profileMenuDocHandler = null; // tracked so we can detach it before each re-render
 
 function currentUser() {
   const t = localStorage.getItem('token') || '';
@@ -422,22 +411,25 @@ function renderShell(screen) {
       ${subheaderHTML(screen, meta)}
       <main class="content">${screenStub(screen, meta)}</main>
       ${bottomBarHTML(screen)}
-      ${sidebarHTML()}
     </div>
   `;
   wireShell(screen);
 }
 
-// showHamburger is false for the standalone Home screen (see renderHome) —
-// there's no sidebar to open before a project is selected.
-function topbarHTML(showHamburger = true) {
+// showHomeButton is false for the standalone Projects screen (see
+// renderProjects) — it already has its own Home breadcrumb/back arrow, so a
+// second Home button in the topbar would be redundant.
+function topbarHTML(showHomeButton = true) {
   const theme = document.documentElement.dataset.theme === 'sage' ? 'sage' : 'paper';
   return `
     <header class="topbar">
       <div class="topbar-left">
-        ${showHamburger ? `
-        <button class="hamburger" id="hamburger" aria-label="Open menu">
-          <span></span><span></span><span></span>
+        ${showHomeButton ? `
+        <button class="home-btn" id="home-btn" aria-label="Go to home" title="Home">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 11.5 12 4l9 7.5"/>
+            <path d="M5.5 10v9a1 1 0 0 0 1 1H10v-5.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V20h3.5a1 1 0 0 0 1-1v-9"/>
+          </svg>
         </button>` : ''}
         <span class="topbar-title">${CONFIG.appTitle}</span>
         ${CONFIG.prototypeBadge ? '<span class="badge">Prototype</span>' : ''}
@@ -463,6 +455,7 @@ function profileMenuHTML() {
       </button>
       <div class="profile-dropdown" id="profile-dropdown">
         <div class="profile-dropdown-user">${escHtml(currentUserName())}</div>
+        <button type="button" class="profile-dropdown-item" id="profile-settings">Settings</button>
         <button type="button" class="profile-dropdown-item" id="profile-logout">Log out</button>
       </div>
     </div>
@@ -487,10 +480,8 @@ function subheaderHTML(screen, meta) {
 // label for the remaining flat screens (About, Help, Settings).
 function breadcrumbHTML(screen) {
   const crumbs = [];
-  if (state.project) {
-    crumbs.push({ label: state.project.name, target: 'projects' });
-  }
   if (['experiments', 'conditions', 'cells'].includes(screen)) {
+    if (state.project) crumbs.push({ label: state.project.name, target: 'projects' });
     crumbs.push({ label: 'Experiments', target: 'experiments' });
     if (screen === 'conditions' || screen === 'cells') {
       crumbs.push({ label: state.experiment?.name || 'Experiment', target: 'conditions' });
@@ -499,6 +490,7 @@ function breadcrumbHTML(screen) {
       crumbs.push({ label: state.condition?.name || 'Condition', target: 'cells' });
     }
   } else if (screen === 'graph' || screen === 'rawdata') {
+    if (state.project) crumbs.push({ label: state.project.name, target: 'projects' });
     const origin = state.returnScreen;
     crumbs.push({ label: 'Experiments', target: 'experiments' });
     if (origin === 'conditions' || origin === 'cells') {
@@ -509,6 +501,10 @@ function breadcrumbHTML(screen) {
     }
     crumbs.push({ label: SCREENS[screen]?.title || screen, target: screen });
   } else {
+    // Flat screens (About/Help/Settings) aren't part of the project
+    // hierarchy — reachable from anywhere via the Home button/profile
+    // menu — so they never show the current project name, even if one
+    // happens to be open in state.
     crumbs.push({ label: 'Home', target: 'home' });
     crumbs.push({ label: SCREENS[screen]?.title || screen, target: screen });
   }
@@ -532,20 +528,6 @@ function bottomBarHTML(screen) {
       <button class="bottom-bar-btn${screen === 'graph' ? ' active' : ''}" data-screen="graph">Graph</button>
       <button class="bottom-bar-btn${screen === 'rawdata' ? ' active' : ''}" data-screen="rawdata">Raw data</button>
     </nav>
-  `;
-}
-
-function sidebarHTML() {
-  return `
-    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
-    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
-      <div class="sidebar-header">Menu</div>
-      <nav class="sidebar-nav">
-        ${NAV_LINKS.map(l =>
-          `<button class="sidebar-link${l.screen === state.screen ? ' active' : ''}" data-screen="${l.screen}">${l.label}</button>`
-        ).join('')}
-      </nav>
-    </aside>
   `;
 }
 
@@ -602,6 +584,11 @@ function wireProfileMenu() {
   profileMenuDocHandler = closeProfileMenu;
   document.addEventListener('click', profileMenuDocHandler);
 
+  document.getElementById('profile-settings').addEventListener('click', () => {
+    closeProfileMenu();
+    navigate('settings');
+  });
+
   document.getElementById('profile-logout').addEventListener('click', () => {
     localStorage.removeItem('token');
     state.project = null;
@@ -610,28 +597,10 @@ function wireProfileMenu() {
 }
 
 function wireShell(screen) {
-  const sidebar = document.getElementById('sidebar');
-  const backdrop = document.getElementById('sidebar-backdrop');
-  const openSidebar = () => { sidebar.classList.add('open'); backdrop.classList.add('open'); };
-  const closeSidebar = () => { sidebar.classList.remove('open'); backdrop.classList.remove('open'); };
-
-  document.getElementById('hamburger').addEventListener('click', openSidebar);
-  backdrop.addEventListener('click', closeSidebar);
-
   wireTopbarChrome();
 
-  // Esc closes the drawer. The listener lives on document, so detach the
-  // previous render's handler before attaching this one.
-  if (escHandler) document.removeEventListener('keydown', escHandler);
-  escHandler = (e) => { if (e.key === 'Escape') closeSidebar(); };
-  document.addEventListener('keydown', escHandler);
-
-  sidebar.querySelectorAll('.sidebar-link').forEach(btn => {
-    btn.addEventListener('click', () => {
-      closeSidebar();
-      navigate(btn.dataset.screen);
-    });
-  });
+  const homeBtn = document.getElementById('home-btn');
+  if (homeBtn) homeBtn.addEventListener('click', () => navigate('home'));
 
   document.querySelectorAll('.breadcrumb .crumb[data-target]').forEach(btn => {
     btn.addEventListener('click', () => navigate(btn.dataset.target));
@@ -790,7 +759,7 @@ function closeAllCardMenus(grid) {
 }
 
 // Tracked so the previous screen's outside-click listener is detached before
-// a new one is attached, mirroring the escHandler pattern in wireShell.
+// a new one is attached, mirroring the profileMenuDocHandler pattern above.
 let cardMenuDocHandler = null;
 
 function wireCardMenus(grid, { onOpen, onEdit, onRemove }) {
@@ -897,16 +866,19 @@ function formatDate(dateStr) {
 // big accent-colored boxes (Projects/Help/About) that fan out to the
 // standalone Projects screen and the About/Help screens in the shell.
 // Like Projects below, it does NOT go through renderShell/wireShell — no
-// project is selected yet, so there's nothing for a hamburger/sidebar to
-// scope to. Unlike every other screen it has no topbar at all (no
-// topbarHTML() call) — just the account menu floating in the corner, via
-// profileMenuHTML()/wireProfileMenu(), so sign-out stays reachable.
+// project is selected yet, so there's nothing for a Home button to scope
+// to. Unlike every other screen it has no topbar at all (no topbarHTML()
+// call) — just the account menu floating in the corner, via
+// profileMenuHTML()/wireProfileMenu(), so sign-out and Settings stay
+// reachable.
 function renderHome() {
   app.innerHTML = `
     <div class="shell home-shell">
       <div class="home-profile-corner">${profileMenuHTML()}</div>
       <main class="content home-content">
-        <h1 class="home-title">${escHtml(CONFIG.appTitle)}</h1>
+        <div class="home-title-wrap">
+          <h1 class="home-title">${escHtml(CONFIG.appTitle)}</h1>
+        </div>
         <div class="home-boxes-wrap">
           <div class="home-boxes">
             <button type="button" class="home-box" id="home-box-projects">
@@ -942,9 +914,9 @@ function renderHome() {
 // Unlike every other authenticated screen, Projects does NOT go through
 // renderShell/wireShell — it's a standalone top-level screen (like Login or
 // Add Photos), reusing .shell/.topbar/.subheader purely for visual
-// consistency but with no hamburger and no sidebar, since there's no
-// project yet for Experiments/Graph/Raw data to be scoped to. Opening a
-// project is what reveals the full shell with its menu.
+// consistency but with no Home button, since there's already an explicit
+// Home breadcrumb/back arrow here. Opening a project is what reveals the
+// full shell with its own Home button.
 function renderProjects() {
   app.innerHTML = `
     <div class="shell">
