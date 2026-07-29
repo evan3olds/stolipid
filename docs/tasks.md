@@ -245,6 +245,12 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ---
 
+## Phase 18 — Projects Members list returning empty on the real backend
+
+- [ ] Diagnosed, not yet fixed: the real (non-`local:`) `GET /projects` response showed `"members": []` for a project that definitely has at least one member (its own creator, the user viewing it). The `project_members` row lookup itself is confirmed working — the project only appears in the list because of that same join — so the failure is isolated to `project_member_emails()`'s (`api/main.py`) per-row `supabase.auth.admin.get_user_by_id(...)` call, whose result was previously discarded by a bare `except Exception: continue` with no logging, making the real failure invisible. Added a `print` + `traceback.print_exc()` in that except block (matching the file's existing `log_unhandled_exception` logging convention) so the next occurrence shows the actual exception in Render's logs. User confirmed the `SUPABASE_SECRET_KEY` env var is already the correct (non-anon) key and works for other Postgrest calls, ruling out the most common cause of this symptom — root cause still open pending a look at Render's logs after redeploying with this change
+
+---
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table

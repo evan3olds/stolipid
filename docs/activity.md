@@ -2111,3 +2111,29 @@ No browser-automation tooling was available in this session — `chromium-cli` i
 ## Final step (per project convention)
 
 Added a Phase 17 section to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Bug report — Projects side panel not showing Members
+
+**Request:** the Projects screen's detail panel wasn't showing the Members list anymore.
+
+### Investigation
+
+Unlike the last few sessions, Playwright was actually available in this environment, so the `local:` test-account path (`test@example.com` / `test`) was driven directly against `python -m http.server`: the Members list rendered correctly there for the multi-member test project (`test@example.com`, `jsmith@stolaf.edu`, `rlopez@stolaf.edu`) and correctly stayed hidden for the single-member one — so the bug wasn't in `app.js`'s rendering logic (`wireProjects`'s `selectProject`, `api/main.py:292`'s `list_projects`/`project_member_emails` all read correctly on inspection too).
+
+Asked the user to check the real (non-`local:`) `GET /projects` response in the browser's Network tab. It came back `"members": []` for a project that has at least one member (the user themselves, since the project only shows up in the list *because* of their `project_members` row). That isolates the failure to `project_member_emails()`'s per-row `supabase.auth.admin.get_user_by_id(...)` admin-API call — and a bare `except Exception: continue` around it meant any failure there was completely invisible, never reaching the file's existing global exception logger (`log_unhandled_exception`) since it was caught before propagating.
+
+Asked whether `SUPABASE_SECRET_KEY` on Render is the actual `service_role`/secret key rather than `anon`/`public` (the Admin Auth API requires the former, and this is the most common cause of exactly this symptom) — user confirmed it's already correct and used successfully for other Postgrest calls elsewhere in the app, ruling that out as the immediate explanation (Postgrest and the Auth Admin API are different subsystems under the same key, so this doesn't fully rule out a permissions gap between them, but the user was confident).
+
+### What changed
+
+`api/main.py` (`project_member_emails`): the per-row except block now does `print(...)` + `traceback.print_exc()` before `continue`, matching the file's existing `print`/`traceback.print_exc()` logging convention (`log_unhandled_exception`, `reset_password_for_email`'s error path). No behavior change otherwise — this doesn't fix the underlying cause, since there's no traceback yet to fix; it exists so the *next* real request against the live backend puts the actual exception in Render's logs instead of a silent empty list.
+
+### Verification
+
+Confirmed via `python -m py_compile api/main.py`... actually confirmed by re-running the Playwright pass against the `local:` fixture path (unaffected by this change, since that path never calls the real API) — still renders correctly, zero console errors. Could not exercise the actual failing code path end-to-end since it requires the live Supabase project's credentials, which aren't available in this environment. Still open: user needs to redeploy and reproduce against the real backend, then check Render's logs for the now-visible traceback to find the true root cause.
+
+## Final step (per project convention)
+
+Added a Phase 18 section to `docs/tasks.md`. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

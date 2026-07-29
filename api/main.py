@@ -283,6 +283,8 @@ def project_member_emails(project_id: str) -> list[str]:
         try:
             result = supabase.auth.admin.get_user_by_id(row["user_id"])
         except Exception:
+            print(f"Failed to look up email for user_id {row['user_id']} in project {project_id}:")
+            traceback.print_exc()
             continue
         if result and result.user and result.user.email:
             emails.append(result.user.email)

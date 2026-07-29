@@ -2749,3 +2749,27 @@ No browser-automation tooling available this session (no `chromium-cli`, no Node
 ## Final step (per project convention)
 
 Added a Phase 17 section to `docs/tasks.md`. Matching entry appended to `docs/activity.md`.
+
+---
+
+# Bug — Projects side panel not showing Members
+
+**Request:** the Projects screen's detail panel side no longer shows the list of users/members.
+
+## Approach
+
+Reproduce first, guess later. Ran the app under Playwright + `python -m http.server` against the `local:` test-account fixtures (`TEST_PROJECTS`) and confirmed the Members list renders correctly there for both the multi-member and single-member test projects — so `app.js`'s `wireProjects`/`selectProject` rendering logic isn't the bug. Read `api/main.py`'s `list_projects`/`project_member_emails` (`GET /projects`) end to end; nothing wrong on inspection.
+
+Since the user confirmed this is happening against the real deployed backend (not `local:` test mode), asked them to check the Network tab for the actual `GET /projects` response. It returned `"members": []` for a project where the user themselves is a member — meaning the email lookup, not the membership query, is failing. That call (`supabase.auth.admin.get_user_by_id`) was wrapped in a bare `except Exception: continue`, so any failure there was invisible — never reaching the file's existing catch-all logger.
+
+## What was built
+
+`api/main.py` (`project_member_emails`): added `print(...)` + `traceback.print_exc()` in the per-row except block before `continue`, matching this file's existing logging convention (`log_unhandled_exception`). This is a diagnostic change, not a fix — the actual root cause (why the admin API call fails) is still unknown; ruled out the most likely cause (wrong key type — anon instead of service_role) since the user confirmed the same key already works for other Postgrest calls.
+
+## Verification
+
+Re-ran the Playwright pass against the `local:` fixture path (unaffected by this change) — still renders correctly, zero console errors. Could not exercise the real failing path — no live Supabase/Render credentials in this environment. Next step is on the user: redeploy, reproduce against the real backend, and check Render's logs for the traceback this change now surfaces.
+
+## Final step (per project convention)
+
+Added a Phase 18 section to `docs/tasks.md`. Matching entry appended to `docs/activity.md`.
