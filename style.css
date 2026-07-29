@@ -335,24 +335,25 @@ body {
 }
 
 .home-box {
-  flex: 1 1 14rem;
-  max-width: 18rem;
+  flex: 1 1 16rem;
+  max-width: 20rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.625rem;
-  padding: 2.25rem 1.5rem;
+  gap: 0.75rem;
+  padding: 2.75rem 1.75rem;
   border: none;
   border-radius: 0.75rem;
   background: var(--accent);
   color: oklch(0.98 0.005 75);
   cursor: pointer;
-  transition: box-shadow 0.12s ease, filter 0.12s ease;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 }
 
 .home-box:hover {
+  transform: scale(1.08);
   filter: brightness(1.05);
-  box-shadow: 0 4px 14px oklch(0.2 0.02 75 / 0.18);
+  box-shadow: 0 8px 20px oklch(0.2 0.02 75 / 0.22);
 }
 
 .home-box-title {
