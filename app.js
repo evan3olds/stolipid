@@ -648,10 +648,12 @@ const TEST_EXPERIMENTS = [
 // collaborators via an invite code — see docs/tasks.md Phase 14). The real
 // backend/schema isn't implemented yet, so local test accounts wrap the
 // existing TEST_EXPERIMENTS fixture as one project's experiment list; a
-// second, empty project exercises the empty state.
+// second, empty project exercises the empty state. otherMembers exercises
+// the Projects screen's member list (shown only when the project has
+// collaborators beyond the current user — see initProjects).
 const TEST_PROJECTS = [
-  { id: 'test-project-001', name: 'Lipid Droplet Study', inviteCode: 'LDROP-4821', experiments: TEST_EXPERIMENTS },
-  { id: 'test-project-002', name: 'Starvation Timecourse', inviteCode: 'STARV-1090', experiments: [] },
+  { id: 'test-project-001', name: 'Lipid Droplet Study', inviteCode: 'LDROP-4821', experiments: TEST_EXPERIMENTS, otherMembers: ['jsmith@stolaf.edu', 'rlopez@stolaf.edu'] },
+  { id: 'test-project-002', name: 'Starvation Timecourse', inviteCode: 'STARV-1090', experiments: [], otherMembers: [] },
 ];
 
 function currentProjectExperiments() {
@@ -951,6 +953,7 @@ async function initProjects() {
       name: p.name,
       invite_code: p.inviteCode,
       experiment_count: p.experiments.length,
+      members: [currentUser(), ...(p.otherMembers || [])],
     }));
   }
 
@@ -969,25 +972,25 @@ async function initProjects() {
 }
 
 function renderProjectsHTML(projects) {
-  const cards = projects.length === 0
+  const boxes = projects.length === 0
     ? '<p class="empty-state">No projects yet. Click "Create/Join project" to get started.</p>'
     : projects.map(p => {
         const expCount = p.experiment_count ?? 0;
         const expLabel = `${expCount} experiment${expCount !== 1 ? 's' : ''}`;
         return `
-          <div class="folder-card" data-id="${escHtml(String(p.id))}" role="button" tabindex="0">
-            <div class="folder-name">${escHtml(p.name)}</div>
-            <div class="folder-meta">
-              <span class="folder-meta-item">${expLabel}</span>
-              ${p.invite_code ? `<span class="folder-meta-item folder-meta-code">${escHtml(p.invite_code)}</span>` : ''}
-            </div>
-          </div>
+          <button type="button" class="project-box" data-id="${escHtml(String(p.id))}">
+            <span class="project-box-title">${escHtml(p.name)}</span>
+            <span class="project-box-meta">
+              <span>${expLabel}</span>
+              ${p.invite_code ? `<span>${escHtml(p.invite_code)}</span>` : ''}
+            </span>
+          </button>
         `;
       }).join('');
 
   return `
     <div class="folder-layout">
-      <div class="folder-grid" id="folder-grid">${cards}</div>
+      <div class="project-box-grid" id="folder-grid">${boxes}</div>
       <aside class="detail-panel" id="detail-panel" aria-label="Project details"></aside>
     </div>
   `;
@@ -1005,11 +1008,12 @@ function wireProjects(projects) {
     const p = projects.find(pr => String(pr.id) === String(id));
     if (!p) return;
 
-    grid.querySelectorAll('.folder-card').forEach(c => c.classList.remove('selected'));
-    const card = grid.querySelector(`.folder-card[data-id="${CSS.escape(String(id))}"]`);
-    if (card) card.classList.add('selected');
+    grid.querySelectorAll('.project-box').forEach(c => c.classList.remove('selected'));
+    const box = grid.querySelector(`.project-box[data-id="${CSS.escape(String(id))}"]`);
+    if (box) box.classList.add('selected');
 
     const expCount = p.experiment_count ?? 0;
+    const members = p.members || [];
     panel.innerHTML = `
       <div class="detail-name">${escHtml(p.name)}</div>
       <div class="detail-row">
@@ -1020,6 +1024,14 @@ function wireProjects(projects) {
         <span class="detail-label">Experiments</span>
         <span class="detail-value">${expCount}</span>
       </div>
+      ${members.length > 1 ? `
+        <div class="detail-row">
+          <span class="detail-label">Members</span>
+          <ul class="detail-members">
+            ${members.map(m => `<li class="detail-member">${escHtml(m)}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
       <button class="detail-open-btn" id="detail-open">Open project</button>
     `;
     panel.classList.add('visible');
@@ -1041,16 +1053,18 @@ function wireProjects(projects) {
     document.getElementById('detail-open').addEventListener('click', () => openProject(p));
   }
 
-  grid.querySelectorAll('.folder-card').forEach(card => {
-    card.addEventListener('click', () => selectProject(card.dataset.id));
-    card.addEventListener('dblclick', () => {
-      const p = projects.find(pr => String(pr.id) === card.dataset.id);
+  grid.querySelectorAll('.project-box').forEach(box => {
+    box.addEventListener('click', () => selectProject(box.dataset.id));
+    box.addEventListener('dblclick', () => {
+      const p = projects.find(pr => String(pr.id) === box.dataset.id);
       if (p) openProject(p);
     });
-    card.addEventListener('keydown', e => {
-      if (e.key === 'Enter') selectProject(card.dataset.id);
-    });
   });
+
+  // Unlike Experiments/Conditions/Cells (whose detail panel starts empty
+  // until a card is clicked), Projects defaults to the first project and
+  // there's no way to deselect/collapse the panel.
+  if (projects.length) selectProject(projects[0].id);
 
   wireProjectsAction();
 }
