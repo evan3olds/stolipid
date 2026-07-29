@@ -278,6 +278,7 @@ def project_member_emails(project_id: str) -> list[str]:
         .eq("project_id", project_id)
         .execute()
     )
+    print(f"project_member_emails: {len(rows.data)} project_members row(s) for project {project_id}")
     emails = []
     for row in rows.data:
         try:
@@ -288,6 +289,13 @@ def project_member_emails(project_id: str) -> list[str]:
             continue
         if result and result.user and result.user.email:
             emails.append(result.user.email)
+        else:
+            # get_user_by_id can return successfully with no email attached
+            # (e.g. user field empty/None) instead of raising — the except
+            # block above never sees this case, so without this branch it
+            # was a second, completely silent way to end up with "members": [].
+            print(f"get_user_by_id for user_id {row['user_id']} in project {project_id} "
+                  f"returned no usable email: {result!r}")
     return emails
 
 

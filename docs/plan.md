@@ -2822,3 +2822,25 @@ Playwright: confirmed `assets/avatar-1.png` 200s, confirmed the Settings avatar 
 ## Final step (per project convention)
 
 No new `docs/tasks.md` phase (folded into the existing Phase 19 bullet). Activity entry appended to `docs/activity.md`.
+
+---
+
+# Bug follow-up — Projects Members list still empty on the real backend
+
+**Request:** "Reimplement the project members bug testing to see the issue in render, we aren't seeing any project members again."
+
+## Approach
+
+Reproduce first, guess later (project convention). Re-read the Phase 18 fix: it logged only inside `except Exception:` around `supabase.auth.admin.get_user_by_id(...)` in `api/main.py`'s `project_member_emails`. Realized that block can't be the whole story — the very next line silently drops a row if the call *succeeds* but returns no usable email (`result.user` empty/`None`), with no logging at all. That's a second, un-instrumented failure path that would produce the identical user-visible symptom (empty members list) with nothing new in Render's logs — matching the user's report that the bug "came back" after a fix that was supposed to make it debuggable.
+
+## What was built
+
+`api/main.py` (`project_member_emails`): added a row-count print up front, and an `else` branch on the existing email-presence check that logs the `user_id` and full `result` repr when the lookup succeeds but yields nothing usable. Re-ran the Playwright `local:`-fixture reproduction (through the now-tile-based Home screen, reworked since the last pass) to reconfirm the frontend rendering logic is still not at fault — both multi- and single-member test projects render correctly, screenshot-verified.
+
+## Verification
+
+`py_compile` clean. Playwright pass against `local:` fixtures clean (screenshots, zero console errors). Can't exercise the live Supabase path in this environment — same limitation as last session. Handed back to the user: redeploy, reproduce, and this time either log line (row count / per-row outcome) should make the real cause visible in Render's logs.
+
+## Final step (per project convention)
+
+Updated the existing Phase 18 section of `docs/tasks.md` in place. Matching entry appended to `docs/activity.md`.

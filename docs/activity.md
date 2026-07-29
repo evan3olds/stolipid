@@ -2184,3 +2184,36 @@ Playwright pass against `python -m http.server` + the `local:` test account: con
 ## Final step (per project convention)
 
 No new `docs/tasks.md` phase — folded into the Phase 19 bullet (updated in place) since it's a same-day refinement of that unreleased feature, not new scope. This entry appended to `docs/activity.md`. Plan note appended to `docs/plan.md`.
+
+---
+
+## Bug follow-up — Projects Members list still empty on the real backend
+
+**Request:** "Reimplement the project members bug testing to see the issue in render, we aren't seeing any project members again" — the diagnostic logging added in the prior session (Phase 18) hadn't surfaced a fix; members are still missing on the live deploy.
+
+### Investigation
+
+Re-read the prior session's fix (`api/main.py`'s `project_member_emails`): it only added `print`/`traceback.print_exc()` inside the `except Exception:` block around `supabase.auth.admin.get_user_by_id(...)`. That only catches the case where the admin API call *raises*. But the following line —
+
+```python
+if result and result.user and result.user.email:
+    emails.append(result.user.email)
+```
+
+— has no `else`. If `get_user_by_id` returns successfully but with `result.user` empty/`None` (a plausible outcome depending on the installed `supabase`/`gotrue` version's behavior on a lookup that doesn't resolve, since `requirements.txt` doesn't pin a version), the loop just silently skips that row with **zero log output**, indistinguishable from the exception path in symptom but invisible to the fix that was supposed to diagnose it. That would explain the user seeing the exact same symptom recur with nothing new in Render's logs to go on.
+
+### What changed
+
+`api/main.py` (`project_member_emails`):
+- Added a `print` of the `project_members` row count fetched for the project, up front — rules the membership query itself in or out at a glance.
+- Added an `else` branch on the existing `if result and result.user and result.user.email:` check that prints the row's `user_id` and the full `result!r` whenever the admin lookup succeeds but yields no usable email — closing the silent-skip path the previous fix's except-only logging missed.
+
+Re-ran the Playwright reproduction against the `local:` fixture path (`test@example.com`/`test`, via `python -m http.server`) to reconfirm `app.js`'s rendering logic is still not the culprit — worth re-checking since Home was reworked into the new tile-based screen (`group list and buttons`, `Settings implement`) since the last pass. Logged in, clicked the "Projects" home tile, selected both the multi-member (`Lipid Droplet Study`: `test@example.com`, `jsmith@stolaf.edu`, `rlopez@stolaf.edu`) and single-member (`Starvation Timecourse`: `test@example.com` only) test projects — both rendered their Members list correctly in the detail panel, confirmed via screenshot, zero console/page errors. This isolates the bug to the live backend path as before; the recent Home/group-list rework didn't introduce a regression here.
+
+### Verification
+
+`python -m py_compile api/main.py` — compiles clean. Playwright pass against the `local:` path as described above (screenshots: multi-member and single-member detail panels both show the expected `<ul class="detail-members">` list). Could not exercise the real failing path — no live Supabase/Render credentials in this environment, same limitation as the prior session. Next step is on the user: redeploy, reproduce against the real backend, and check Render's logs — the fix now guarantees a print line either way (row count, and either an email or the `else` diagnostic), so this should finally pin down whether it's an admin-API failure, a user-id mismatch, or something else entirely.
+
+## Final step (per project convention)
+
+Updated the existing Phase 18 section in `docs/tasks.md` in place (same open bug, not new scope) rather than adding a new phase. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
