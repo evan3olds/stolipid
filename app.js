@@ -91,8 +91,8 @@ const SCREENS = {
   cells:       { title: 'Cells',       action: 'Add photos',   back: true },
   graph:       { title: 'Graph',    back: true },
   rawdata:     { title: 'Raw data', back: true },
-  about:       { title: 'About' },
-  help:        { title: 'Help' },
+  about:       { title: 'About', back: true },
+  help:        { title: 'Help',  back: true },
   settings:    { title: 'Settings' },
   count:       { title: 'Count' },
   addphotos:   { title: 'Add Photos' },
@@ -416,21 +416,17 @@ function renderShell(screen) {
   wireShell(screen);
 }
 
-// showHomeButton is false for the standalone Projects screen (see
-// renderProjects) — it already has its own Home breadcrumb/back arrow, so a
-// second Home button in the topbar would be redundant.
-function topbarHTML(showHomeButton = true) {
+function topbarHTML() {
   const theme = document.documentElement.dataset.theme === 'sage' ? 'sage' : 'paper';
   return `
     <header class="topbar">
       <div class="topbar-left">
-        ${showHomeButton ? `
         <button class="home-btn" id="home-btn" aria-label="Go to home" title="Home">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M3 11.5 12 4l9 7.5"/>
             <path d="M5.5 10v9a1 1 0 0 0 1 1H10v-5.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V20h3.5a1 1 0 0 0 1-1v-9"/>
           </svg>
-        </button>` : ''}
+        </button>
         <span class="topbar-title">${CONFIG.appTitle}</span>
         ${CONFIG.prototypeBadge ? '<span class="badge">Prototype</span>' : ''}
       </div>
@@ -559,6 +555,9 @@ function wireTopbarChrome() {
     themeToggle.innerHTML = `<span class="theme-toggle-dot"></span>${next === 'sage' ? 'Sage' : 'Paper'}`;
   });
 
+  const homeBtn = document.getElementById('home-btn');
+  if (homeBtn) homeBtn.addEventListener('click', () => navigate('home'));
+
   wireProfileMenu();
 }
 
@@ -604,9 +603,6 @@ function wireProfileMenu() {
 function wireShell(screen) {
   wireTopbarChrome();
 
-  const homeBtn = document.getElementById('home-btn');
-  if (homeBtn) homeBtn.addEventListener('click', () => navigate('home'));
-
   document.querySelectorAll('.breadcrumb .crumb[data-target]').forEach(btn => {
     btn.addEventListener('click', () => navigate(btn.dataset.target));
   });
@@ -620,6 +616,10 @@ function wireShell(screen) {
     backBtn.addEventListener('click', () => {
       if (screen === 'graph' || screen === 'rawdata') {
         navigate(state.returnScreen || 'experiments');
+        return;
+      }
+      if (screen === 'about' || screen === 'help') {
+        navigate('home');
         return;
       }
       navigate(screen === 'cells' ? 'conditions' : screen === 'conditions' ? 'experiments' : 'projects');
@@ -921,13 +921,11 @@ function renderHome() {
 // Unlike every other authenticated screen, Projects does NOT go through
 // renderShell/wireShell — it's a standalone top-level screen (like Login or
 // Add Photos), reusing .shell/.topbar/.subheader purely for visual
-// consistency but with no Home button, since there's already an explicit
-// Home breadcrumb/back arrow here. Opening a project is what reveals the
-// full shell with its own Home button.
+// consistency, alongside its own explicit Home breadcrumb/back arrow.
 function renderProjects() {
   app.innerHTML = `
     <div class="shell">
-      ${topbarHTML(false)}
+      ${topbarHTML()}
       <div class="subheader">
         <div class="subheader-left">
           <button class="back-btn" id="back-btn" aria-label="Go back">←</button>
