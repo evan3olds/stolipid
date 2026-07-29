@@ -2217,3 +2217,34 @@ Re-ran the Playwright reproduction against the `local:` fixture path (`test@exam
 ## Final step (per project convention)
 
 Updated the existing Phase 18 section in `docs/tasks.md` in place (same open bug, not new scope) rather than adding a new phase. This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Bug root cause + fix — Projects Members list empty (Admin Auth API 403)
+
+**Request:** user reported "it worked on a render fresh start but it probably wont work again," then supplied the actual Render log output from the diagnostic logging added earlier this session.
+
+### Root cause
+
+The log showed, for every one of a project's 3 `project_members` rows:
+
+```
+httpx.HTTPStatusError: 403 Forbidden for url '.../auth/v1/admin/users/...'
+supabase_auth.errors.AuthApiError: User not allowed
+```
+
+`User not allowed` is GoTrue's specific error when the calling JWT doesn't carry the `service_role` claim — the Admin Auth API checks this independently of ordinary Postgrest table grants. That means the earlier reasoning ("the key already works for other Postgrest calls, so it must be `service_role`") never actually proved anything: an `anon` key would succeed on Postgrest calls too if RLS isn't enforced on `project_members`/`projects`, which is plausible for this prototype-stage schema. The 403 is deterministic (every row, both times it's been reproduced) rather than flaky — the "worked on a fresh start" observation was most likely from before this session's `else`-branch logging existed to actually surface it.
+
+### What changed
+
+Rather than keep chasing the exact Render key value, redesigned `project_member_emails()` (`api/main.py`) to drop the Admin Auth API dependency entirely:
+- Added a new Postgres migration (documented in `CLAUDE.md`, alongside the existing `projects`/`project_members` migration note, which was also updated to reflect that it's already been applied — the earlier "not yet applied" wording was stale, since the live traceback proved `project_members` rows already exist): `get_project_member_emails(p_project_id uuid)`, a `SECURITY DEFINER` SQL function that joins `project_members` to `auth.users` and returns emails.
+- `project_member_emails()` now calls this via `supabase.rpc("get_project_member_emails", {"p_project_id": project_id}).execute()` — the same Postgrest/RPC channel every other query in `api/main.py` already uses successfully, so it no longer depends on the Render key having Admin API privileges at all.
+
+### Verification
+
+`python -m py_compile api/main.py` — compiles clean. Could not exercise the RPC end-to-end — it requires the new SQL migration to actually be run against the live Supabase project first, and there are no live credentials in this environment. Next step is on the user: run the `get_project_member_emails` migration in Supabase's SQL editor, redeploy, and confirm the Members list populates.
+
+## Final step (per project convention)
+
+Updated the existing Phase 18 section in `docs/tasks.md` in place (marked root-cause item `[x]`, added a follow-up `[ ]` for live verification). This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.

@@ -36,7 +36,7 @@ projects (id, name, invite_code, created_by)
                     └── counts (id, cell_id, value, points, counted_by, created_at, type)
 ```
 
-**Projects (see `docs/tasks.md` Phase 14):** `projects` sits above `experiments` as the top-level parent, shared with collaborators via an invite code; `project_members` is the join table granting access. `api/main.py` enforces access at the project level — `owned_project` checks `project_members` for the requesting user, and `owned_experiment`/`owned_condition`/`owned_cell` all walk up to it, so any project member (not just the original creator) can read/write everything under a shared project. `experiments.created_by` is kept only as provenance (who created that specific experiment), not as an access check. **Schema migration not yet applied to the live Supabase project** (no real credentials in this environment — same situation as the other pending-migration notes in `docs/tasks.md` Phase 11c): run
+**Projects (see `docs/tasks.md` Phase 14):** `projects` sits above `experiments` as the top-level parent, shared with collaborators via an invite code; `project_members` is the join table granting access. `api/main.py` enforces access at the project level — `owned_project` checks `project_members` for the requesting user, and `owned_experiment`/`owned_condition`/`owned_cell` all walk up to it, so any project member (not just the original creator) can read/write everything under a shared project. `experiments.created_by` is kept only as provenance (who created that specific experiment), not as an access check. The `projects`/`project_members`/`experiments.project_id` schema migration below has already been applied to the live Supabase project. Project edit/delete and member-management (leave project, member list) are still out of scope — not implemented client or server side.
 ```sql
 create table projects (
   id uuid primary key default gen_random_uuid(),
@@ -53,7 +53,22 @@ create table project_members (
 );
 alter table experiments add column project_id uuid references projects(id);
 ```
-against Supabase before this deploys. Project edit/delete and member-management (leave project, member list) are still out of scope — not implemented client or server side.
+- **`get_project_member_emails` RPC — migration not yet applied to the live Supabase project** (see `docs/tasks.md` Phase 18): `project_member_emails()` (`api/main.py`) originally resolved each `project_members.user_id` to an email with a per-row `supabase.auth.admin.get_user_by_id(...)` call. On Render this 403'd with GoTrue's `User not allowed` — the Admin Auth API enforces its own `service_role`-JWT check independent of ordinary table grants, so the same key succeeding on regular Postgrest calls (which only need RLS to allow it, or no RLS at all) didn't actually prove it had admin rights. Replaced with a `SECURITY DEFINER` SQL function that does the `auth.users` join server-side, called via `supabase.rpc(...)` — the same Postgrest channel every other query already uses successfully, with no dependency on the Admin API or elevated key privileges. Run before this deploys:
+```sql
+create or replace function get_project_member_emails(p_project_id uuid)
+returns table (email text)
+language sql
+security definer
+set search_path = public, auth
+as $$
+  select au.email
+  from project_members pm
+  join auth.users au on au.id = pm.user_id
+  where pm.project_id = p_project_id;
+$$;
+
+grant execute on function get_project_member_emails(uuid) to service_role;
+```
 - `cell.average` and `condition.mean` are computed in JS at query time from `counts` rows where `type = 'hand'`, not stored
 - `condition.icc` is written by the Python pipeline and stored as a column, also computed only over `type = 'hand'` rows
 - `counts.type` is `'hand'` for a manual count, or a detection algorithm slug for a machine-generated one. Add Photos never writes a machine-generated row — it only saves the converted image. Auto-count is opt-in per cell afterward, triggered from the Cells screen's Auto count section, which lets the researcher run either or both of two algorithms (`api/detection.py`'s `detect_droplets(plane, algorithm=...)`, called via `PUT /cells/{id}/auto-count`) against that already-saved image; running the second doesn't erase the first, so a cell can hold one machine-generated `counts` row per algorithm (up to two total) at once (`counted_by` is the researcher who triggered that run, not necessarily the original uploader):

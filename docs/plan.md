@@ -2844,3 +2844,28 @@ Reproduce first, guess later (project convention). Re-read the Phase 18 fix: it 
 ## Final step (per project convention)
 
 Updated the existing Phase 18 section of `docs/tasks.md` in place. Matching entry appended to `docs/activity.md`.
+
+---
+
+# Bug root cause + fix — Projects Members list empty (Admin Auth API 403)
+
+**Request:** user shared the actual Render traceback after the earlier diagnostic-logging pass, plus the observation "it worked on a render fresh start but it probably wont work again."
+
+## Approach
+
+The traceback was unambiguous: `supabase_auth.errors.AuthApiError: User not allowed` from a 403 on `.../auth/v1/admin/users/...`, on all 3 rows, both times reproduced — not flaky. That's GoTrue's specific rejection when the caller's JWT lacks the `service_role` claim on the Admin Auth API specifically, which is a stricter/independent check from ordinary Postgrest table access. So "the key already works for Postgrest calls" (used earlier to rule out a wrong-key theory) was never actually evidence of `service_role` — Postgrest doesn't care about that claim if RLS isn't enforced on the table.
+
+Rather than have the user hunt for the exact right key value on Render (which they could still try, but doesn't fix the underlying fragility of depending on an elevated, separately-permissioned API just to read emails), redesigned around it: moved the `auth.users` lookup into a `SECURITY DEFINER` Postgres function, called over the same RPC/Postgrest channel every other query already uses successfully with this key.
+
+## What was built
+
+- `CLAUDE.md`: added the `get_project_member_emails(p_project_id uuid)` migration (SQL function + `grant execute ... to service_role`), documented as not-yet-applied, matching this project's existing convention for pending migrations. Also corrected the adjacent `projects`/`project_members` migration note, which had gone stale — it still said "not yet applied" despite the live traceback proving those tables and rows already exist.
+- `api/main.py` (`project_member_emails`): replaced the per-row `supabase.auth.admin.get_user_by_id(...)` loop with a single `supabase.rpc("get_project_member_emails", {"p_project_id": project_id}).execute()` call.
+
+## Verification
+
+`py_compile` clean. Can't run the RPC end-to-end without the migration applied to the live project and without live credentials in this environment. Handed back to the user: run the migration, redeploy, confirm the Members panel populates.
+
+## Final step (per project convention)
+
+Updated the existing Phase 18 section of `docs/tasks.md` in place. Matching entry appended to `docs/activity.md`.
