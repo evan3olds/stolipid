@@ -657,10 +657,12 @@ const TEST_EXPERIMENTS = [
 // collaborators via an invite code — see docs/tasks.md Phase 14). The real
 // backend/schema isn't implemented yet, so local test accounts wrap the
 // existing TEST_EXPERIMENTS fixture as one project's experiment list; a
-// second, empty project exercises the empty state.
+// second, empty project exercises the empty state. otherMembers exercises
+// the Projects screen's member list (see initProjects) — always shown,
+// alongside the current user, even when there are no collaborators.
 const TEST_PROJECTS = [
-  { id: 'test-project-001', name: 'Lipid Droplet Study', inviteCode: 'LDROP-4821', experiments: TEST_EXPERIMENTS },
-  { id: 'test-project-002', name: 'Starvation Timecourse', inviteCode: 'STARV-1090', experiments: [] },
+  { id: 'test-project-001', name: 'Lipid Droplet Study', inviteCode: 'LDROP-4821', experiments: TEST_EXPERIMENTS, otherMembers: ['jsmith@stolaf.edu', 'rlopez@stolaf.edu'] },
+  { id: 'test-project-002', name: 'Starvation Timecourse', inviteCode: 'STARV-1090', experiments: [], otherMembers: [] },
 ];
 
 function currentProjectExperiments() {
@@ -958,6 +960,7 @@ async function initProjects() {
       name: p.name,
       invite_code: p.inviteCode,
       experiment_count: p.experiments.length,
+      members: [currentUser(), ...(p.otherMembers || [])],
     }));
   }
 
@@ -1017,6 +1020,7 @@ function wireProjects(projects) {
     if (card) card.classList.add('selected');
 
     const expCount = p.experiment_count ?? 0;
+    const members = p.members || [];
     panel.innerHTML = `
       <div class="detail-name">${escHtml(p.name)}</div>
       <div class="detail-row">
@@ -1026,6 +1030,12 @@ function wireProjects(projects) {
       <div class="detail-row">
         <span class="detail-label">Experiments</span>
         <span class="detail-value">${expCount}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Members</span>
+        ${members.length
+          ? `<ul class="detail-members">${members.map(m => `<li class="detail-member">${escHtml(m)}</li>`).join('')}</ul>`
+          : '<span class="detail-value">—</span>'}
       </div>
       <button class="detail-open-btn" id="detail-open">Open project</button>
     `;
