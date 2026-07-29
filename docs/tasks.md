@@ -251,6 +251,13 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ---
 
+## Phase 19 — Settings screen (theme + avatar)
+
+- [x] Built out the previously-stub Settings screen (`initSettings`/`renderSettingsHTML`/`wireSettings` in `app.js`): a "Theme" section with Light/Dark buttons and a "Avatar" section with a 5-image picker grid, both persisted to `localStorage` (`theme`, `avatar`) and applied immediately without a full page reload
+- [x] Theme toggle removed from the top bar (`topbarHTML()`/`wireTopbarChrome()`) — Settings (reachable via the profile dropdown from anywhere) is now the only place to switch it. User-facing labels renamed "Paper"/"Sage" → "Light"/"Dark"; the underlying `data-theme="paper"|"sage"` attribute values and `-paper`-suffixed CSS custom property names in `style.css` are unchanged internal implementation detail, not renamed
+- [x] `AVATARS` array (`app.js`) added — 5 uniformly-named placeholders, `assets/avatar-1.png` through `avatar-5.png` (`avatar-1.png` is the renamed former `DefaultProfile.png`; `avatar-2..5.png` generated to match its silhouette style, recolored). `profileMenuHTML()`'s avatar `<img>` now reflects the selected avatar everywhere it's rendered (top bar and the Home screen's corner account menu). All 5 are throwaway placeholders — the eventual real artwork (lab-animal mascots, per user) drops in over these same 5 filenames with no code change required
+- [x] `SCREENS.settings` gained `back: true` and the shell's back-button handler routes it to Home, matching the existing About/Help pattern
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table
