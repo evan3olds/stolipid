@@ -285,6 +285,17 @@ def project_member_emails(project_id: str) -> list[str]:
     return [row["email"] for row in result.data if row.get("email")]
 
 
+def project_member_directory(project_id: str) -> dict[str, str]:
+    """Maps each project member's user_id to their email, for attributing
+    counts.counted_by to a reader-facing name on the Cells screen (see app.js
+    wireCells, which shows the local part of the email next to each hand
+    count). Same auth.users-join problem as project_member_emails above and
+    the same SECURITY DEFINER RPC fix — see get_project_member_directory in
+    the migration in CLAUDE.md."""
+    result = supabase.rpc("get_project_member_directory", {"p_project_id": project_id}).execute()
+    return {row["user_id"]: row["email"] for row in result.data if row.get("email")}
+
+
 @app.get("/projects")
 def list_projects(user=Depends(get_current_user)):
     # Experiments are fetched with a direct query rather than a doubly-nested
@@ -523,13 +534,25 @@ class CellUpdateBody(BaseModel):
 
 @app.get("/conditions/{condition_id}/cells")
 def list_cells(condition_id: str, user=Depends(get_current_user)):
-    owned_condition(condition_id, user.id)
+    condition = owned_condition(condition_id, user.id)
     response = (
         supabase.table("cells")
         .select("*, counts(*)")
         .eq("condition_id", condition_id)
         .execute()
     )
+
+    # Resolve each count's counted_by (a bare user_id) to an email so the
+    # Cells screen can show who did each hand count (app.js wireCells) —
+    # counts itself only stores the id, per CLAUDE.md's schema.
+    experiment = (
+        supabase.table("experiments").select("project_id").eq("id", condition["experiment_id"]).execute()
+    ).data[0]
+    directory = project_member_directory(experiment["project_id"])
+    for cell in response.data:
+        for count in cell.get("counts") or []:
+            count["counted_by_email"] = directory.get(count["counted_by"])
+
     return response.data
 
 

@@ -288,11 +288,24 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [ ] Not verified with a screenshot — no browser-automation tooling available in this environment this session; the change is confined to `hierarchyCrumbs`/`breadcrumbHTML`/`navigate()`/the Back-button handler in `app.js`, all pure-JS string/state logic with no new markup or CSS
 - [x] Follow-up: user pointed out Settings opened while on Graph or Raw data still showed `.../Graph/Settings` or `.../Raw data/Settings` — since those two are just a detour tab, not a real hierarchy stop, Settings shouldn't hang its crumb off of them. `navigate()`'s `settingsReturnScreen` capture now collapses through: if the screen being left is `graph`/`rawdata`, it stores `state.returnScreen` (the Experiments/Conditions/Cells screen underneath) instead of `'graph'`/`'rawdata'` itself, so both the breadcrumb and Settings' Back button land on that underlying screen directly
 
+---
+
+## Phase 22 — Cells detail panel: smaller preview, source file/average side-by-side, hand count rater attribution
+
+- [x] Cells screen detail panel (`wireCells`/`renderDetail` in `app.js`): the preview image shrunk (`.detail-panel--large .detail-thumbnail` height `220px` → `170px`, `style.css`), and Source file + Average hand count merged into one row via a new `.detail-row-split` flex wrapper instead of stacking as two separate rows
+- [x] Each hand count now shows who counted it, as the local part of their email (e.g. `jsmith`) next to the value — new `usernameFromEmail()` helper (`app.js`), mirroring the existing `currentUserName()` convention. New `.count-meta`/`.count-rater` CSS classes group the value+rater together on the left of each `.count-list-item`, leaving Edit/Delete on the right
+- [x] `counts.counted_by` is a bare `user_id`, not an email, so resolving it needed the same `auth.users`-join problem `get_project_member_emails` (Phase 18) already solved. Added `get_project_member_directory(p_project_id)` — a second `SECURITY DEFINER` RPC returning `(user_id, email)` pairs instead of just `email` — documented as a **migration not yet applied to the live Supabase project** in `CLAUDE.md`, same pending state as `get_project_member_emails`. `api/main.py`'s new `project_member_directory()` calls it; `list_cells` now looks up the condition's `project_id` (via its `experiment_id`) and stamps every count's `counted_by_email` before returning
+- [x] `TEST_CONDITIONS` mock fixture and `finishCount`'s `local:`-mode branch (`app.js`) updated to set `counted_by_email` (rotating through the three `TEST_PROJECTS` members, or `currentUser()` for a freshly-added count) so the feature is demoable without a live backend
+- [x] Verified with Playwright screenshots against the `local:` fixture (no `chromium-cli`/Node in this environment, Python + `playwright` were available): confirmed the shrunk preview, the Source file/Average side-by-side row, and `jsmith`/`rlopez` rendering next to Cell 3's two hand counts. No console errors
+- [ ] Not yet verified against the live backend — needs the `get_project_member_directory` migration run in Supabase's SQL editor (see `CLAUDE.md`) before `counted_by_email` will populate for real (non-`local:`) accounts
+
+---
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table
 - [x] Automated droplet detection via `cellpose` or `skimage` — **partially done**: Phase 11c added a `skimage`-based count suggestion (`cells.auto_count`), computed automatically and shown on the Cells screen detail panel; a later Phase 11c follow-up added marker/location coordinates (`cells.auto_points`) — still open: `cellpose`
-- [ ] Named inter-rater workflow (assign counts to specific researchers)
+- [x] Named inter-rater workflow (assign counts to specific researchers) — **partially done**: Phase 22 shows who did each hand count on the Cells screen detail panel (resolved from `counted_by` via `get_project_member_directory`); still open: no explicit assignment step (a researcher isn't told "you're responsible for counting cell X"), it only attributes counts after the fact
 - [ ] Per-cell ICC breakdowns and outlier flagging
 - [ ] Supabase Edge Function to trigger Python pipeline on `.tif` upload
 - [ ] Admin panel for user and experiment management

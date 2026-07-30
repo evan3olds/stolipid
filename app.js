@@ -711,6 +711,13 @@ function currentUserName() {
   return currentUser().split('@')[0];
 }
 
+// Same local-part-of-email convention, applied to whoever counted a cell
+// (count.counted_by_email, resolved server-side from counts.counted_by —
+// see list_cells in api/main.py) rather than the logged-in user.
+function usernameFromEmail(email) {
+  return email ? email.split('@')[0] : null;
+}
+
 function renderShell(screen) {
   const meta = SCREENS[screen] || {};
   app.innerHTML = `
@@ -982,16 +989,16 @@ const TEST_CONDITIONS = {
           { id: 'test-cnt-001-auto1', value: 3, type: 'otsu_watershed', points: [{ x: 22, y: 30 }, { x: 58, y: 45 }, { x: 71, y: 68 }] },
           { id: 'test-cnt-001-auto2', value: 4, type: 'fm_edge_overlay', points: [{ x: 20, y: 28 }, { x: 40, y: 44 }, { x: 60, y: 46 }, { x: 72, y: 66 }] },
         ], source_filename: 'Image_43391.tif' },
-        { id: 'test-cell-002', name: 'Cell 2', counts: [{ id: 'test-cnt-002-1', value: 4, type: 'hand' }] },
+        { id: 'test-cell-002', name: 'Cell 2', counts: [{ id: 'test-cnt-002-1', value: 4, type: 'hand', counted_by_email: 'test@example.com' }] },
         { id: 'test-cell-003', name: 'Cell 3', counts: [
-          { id: 'test-cnt-003-1', value: 3, type: 'hand', points: [{ x: 16, y: 22 }, { x: 34, y: 51 }, { x: 69, y: 61 }] },
-          { id: 'test-cnt-003-2', value: 2, type: 'hand', points: [{ x: 20, y: 25 }, { x: 53, y: 29 }] },
+          { id: 'test-cnt-003-1', value: 3, type: 'hand', counted_by_email: 'jsmith@stolaf.edu', points: [{ x: 16, y: 22 }, { x: 34, y: 51 }, { x: 69, y: 61 }] },
+          { id: 'test-cnt-003-2', value: 2, type: 'hand', counted_by_email: 'rlopez@stolaf.edu', points: [{ x: 20, y: 25 }, { x: 53, y: 29 }] },
           { id: 'test-cnt-003-auto', value: 5, type: 'fm_edge_overlay', points: [{ x: 15, y: 20 }, { x: 33, y: 50 }, { x: 52, y: 28 }, { x: 68, y: 60 }, { x: 82, y: 40 }] },
         ], source_filename: 'Image_43391.tif' },
         { id: 'test-cell-011', name: 'Cell 4', counts: [
-          { id: 'test-cnt-011-1', value: 3, type: 'hand', points: [{ x: 25, y: 30 }, { x: 50, y: 45 }, { x: 70, y: 65 }] },
-          { id: 'test-cnt-011-2', value: 4, type: 'hand', points: [{ x: 27, y: 33 }, { x: 48, y: 42 }, { x: 65, y: 60 }, { x: 80, y: 35 }] },
-          { id: 'test-cnt-011-3', value: 3, type: 'hand', points: [{ x: 30, y: 28 }, { x: 52, y: 48 }, { x: 72, y: 62 }] },
+          { id: 'test-cnt-011-1', value: 3, type: 'hand', counted_by_email: 'test@example.com', points: [{ x: 25, y: 30 }, { x: 50, y: 45 }, { x: 70, y: 65 }] },
+          { id: 'test-cnt-011-2', value: 4, type: 'hand', counted_by_email: 'jsmith@stolaf.edu', points: [{ x: 27, y: 33 }, { x: 48, y: 42 }, { x: 65, y: 60 }, { x: 80, y: 35 }] },
+          { id: 'test-cnt-011-3', value: 3, type: 'hand', counted_by_email: 'rlopez@stolaf.edu', points: [{ x: 30, y: 28 }, { x: 52, y: 48 }, { x: 72, y: 62 }] },
         ] },
       ],
     },
@@ -1001,10 +1008,10 @@ const TEST_CONDITIONS = {
       notes: '',
       icc: 0.93,
       cells: [
-        { id: 'test-cell-004', name: 'Cell 1', counts: [{ id: 'test-cnt-004-1', value: 6, type: 'hand' }, { id: 'test-cnt-004-2', value: 6, type: 'hand' }, { id: 'test-cnt-004-3', value: 7, type: 'hand' }] },
-        { id: 'test-cell-005', name: 'Cell 2', counts: [{ id: 'test-cnt-005-1', value: 7, type: 'hand' }, { id: 'test-cnt-005-2', value: 8, type: 'hand' }, { id: 'test-cnt-005-3', value: 7, type: 'hand' }] },
-        { id: 'test-cell-006', name: 'Cell 3', counts: [{ id: 'test-cnt-006-1', value: 6, type: 'hand' }, { id: 'test-cnt-006-2', value: 6, type: 'hand' }, { id: 'test-cnt-006-3', value: 6, type: 'hand' }] },
-        { id: 'test-cell-007', name: 'Cell 4', counts: [{ id: 'test-cnt-007-1', value: 7, type: 'hand' }, { id: 'test-cnt-007-2', value: 7, type: 'hand' }, { id: 'test-cnt-007-3', value: 7, type: 'hand' }] },
+        { id: 'test-cell-004', name: 'Cell 1', counts: [{ id: 'test-cnt-004-1', value: 6, type: 'hand', counted_by_email: 'test@example.com' }, { id: 'test-cnt-004-2', value: 6, type: 'hand', counted_by_email: 'jsmith@stolaf.edu' }, { id: 'test-cnt-004-3', value: 7, type: 'hand', counted_by_email: 'rlopez@stolaf.edu' }] },
+        { id: 'test-cell-005', name: 'Cell 2', counts: [{ id: 'test-cnt-005-1', value: 7, type: 'hand', counted_by_email: 'test@example.com' }, { id: 'test-cnt-005-2', value: 8, type: 'hand', counted_by_email: 'jsmith@stolaf.edu' }, { id: 'test-cnt-005-3', value: 7, type: 'hand', counted_by_email: 'rlopez@stolaf.edu' }] },
+        { id: 'test-cell-006', name: 'Cell 3', counts: [{ id: 'test-cnt-006-1', value: 6, type: 'hand', counted_by_email: 'test@example.com' }, { id: 'test-cnt-006-2', value: 6, type: 'hand', counted_by_email: 'jsmith@stolaf.edu' }, { id: 'test-cnt-006-3', value: 6, type: 'hand', counted_by_email: 'rlopez@stolaf.edu' }] },
+        { id: 'test-cell-007', name: 'Cell 4', counts: [{ id: 'test-cnt-007-1', value: 7, type: 'hand', counted_by_email: 'test@example.com' }, { id: 'test-cnt-007-2', value: 7, type: 'hand', counted_by_email: 'jsmith@stolaf.edu' }, { id: 'test-cnt-007-3', value: 7, type: 'hand', counted_by_email: 'rlopez@stolaf.edu' }] },
       ],
     },
     {
@@ -1013,9 +1020,9 @@ const TEST_CONDITIONS = {
       notes: 'High variance between raters on Cell 2.',
       icc: 0.61,
       cells: [
-        { id: 'test-cell-008', name: 'Cell 1', counts: [{ id: 'test-cnt-008-1', value: 9, type: 'hand' }, { id: 'test-cnt-008-2', value: 9, type: 'hand' }, { id: 'test-cnt-008-3', value: 10, type: 'hand' }] },
-        { id: 'test-cell-009', name: 'Cell 2', counts: [{ id: 'test-cnt-009-1', value: 8, type: 'hand' }, { id: 'test-cnt-009-2', value: 14, type: 'hand' }, { id: 'test-cnt-009-3', value: 15, type: 'hand' }] },
-        { id: 'test-cell-010', name: 'Cell 3', counts: [{ id: 'test-cnt-010-1', value: 7, type: 'hand' }, { id: 'test-cnt-010-2', value: 8, type: 'hand' }] },
+        { id: 'test-cell-008', name: 'Cell 1', counts: [{ id: 'test-cnt-008-1', value: 9, type: 'hand', counted_by_email: 'test@example.com' }, { id: 'test-cnt-008-2', value: 9, type: 'hand', counted_by_email: 'jsmith@stolaf.edu' }, { id: 'test-cnt-008-3', value: 10, type: 'hand', counted_by_email: 'rlopez@stolaf.edu' }] },
+        { id: 'test-cell-009', name: 'Cell 2', counts: [{ id: 'test-cnt-009-1', value: 8, type: 'hand', counted_by_email: 'test@example.com' }, { id: 'test-cnt-009-2', value: 14, type: 'hand', counted_by_email: 'jsmith@stolaf.edu' }, { id: 'test-cnt-009-3', value: 15, type: 'hand', counted_by_email: 'rlopez@stolaf.edu' }] },
+        { id: 'test-cell-010', name: 'Cell 3', counts: [{ id: 'test-cnt-010-1', value: 7, type: 'hand', counted_by_email: 'test@example.com' }, { id: 'test-cnt-010-2', value: 8, type: 'hand', counted_by_email: 'jsmith@stolaf.edu' }] },
       ],
     },
   ],
@@ -1026,8 +1033,8 @@ const TEST_CONDITIONS = {
       notes: '',
       icc: 0.79,
       cells: [
-        { id: 'test-cell-012', name: 'Cell 1', counts: [{ id: 'test-cnt-012-1', value: 5, type: 'hand' }, { id: 'test-cnt-012-2', value: 4, type: 'hand' }] },
-        { id: 'test-cell-013', name: 'Cell 2', counts: [{ id: 'test-cnt-013-1', value: 6, type: 'hand' }, { id: 'test-cnt-013-2', value: 5, type: 'hand' }, { id: 'test-cnt-013-3', value: 6, type: 'hand' }] },
+        { id: 'test-cell-012', name: 'Cell 1', counts: [{ id: 'test-cnt-012-1', value: 5, type: 'hand', counted_by_email: 'test@example.com' }, { id: 'test-cnt-012-2', value: 4, type: 'hand', counted_by_email: 'jsmith@stolaf.edu' }] },
+        { id: 'test-cell-013', name: 'Cell 2', counts: [{ id: 'test-cnt-013-1', value: 6, type: 'hand', counted_by_email: 'test@example.com' }, { id: 'test-cnt-013-2', value: 5, type: 'hand', counted_by_email: 'jsmith@stolaf.edu' }, { id: 'test-cnt-013-3', value: 6, type: 'hand', counted_by_email: 'rlopez@stolaf.edu' }] },
       ],
     },
     {
@@ -1036,8 +1043,8 @@ const TEST_CONDITIONS = {
       notes: 'Robust droplet accumulation observed across all cells.',
       icc: 0.95,
       cells: [
-        { id: 'test-cell-014', name: 'Cell 1', counts: [{ id: 'test-cnt-014-1', value: 18, type: 'hand' }, { id: 'test-cnt-014-2', value: 17, type: 'hand' }, { id: 'test-cnt-014-3', value: 19, type: 'hand' }] },
-        { id: 'test-cell-015', name: 'Cell 2', counts: [{ id: 'test-cnt-015-1', value: 21, type: 'hand' }, { id: 'test-cnt-015-2', value: 20, type: 'hand' }] },
+        { id: 'test-cell-014', name: 'Cell 1', counts: [{ id: 'test-cnt-014-1', value: 18, type: 'hand', counted_by_email: 'test@example.com' }, { id: 'test-cnt-014-2', value: 17, type: 'hand', counted_by_email: 'jsmith@stolaf.edu' }, { id: 'test-cnt-014-3', value: 19, type: 'hand', counted_by_email: 'rlopez@stolaf.edu' }] },
+        { id: 'test-cell-015', name: 'Cell 2', counts: [{ id: 'test-cnt-015-1', value: 21, type: 'hand', counted_by_email: 'test@example.com' }, { id: 'test-cnt-015-2', value: 20, type: 'hand', counted_by_email: 'jsmith@stolaf.edu' }] },
       ],
     },
   ],
@@ -2278,15 +2285,17 @@ function wireCells(cells) {
     panel.innerHTML = `
       <div class="detail-name">${escHtml(cell.name)}</div>
       <div class="detail-thumbnail">${preview}</div>
-      ${cell.source_filename ? `
+      <div class="detail-row-split">
+        ${cell.source_filename ? `
+          <div class="detail-row">
+            <span class="detail-label">Source file</span>
+            <span class="detail-value">${escHtml(cell.source_filename)}</span>
+          </div>
+        ` : ''}
         <div class="detail-row">
-          <span class="detail-label">Source file</span>
-          <span class="detail-value">${escHtml(cell.source_filename)}</span>
+          <span class="detail-label">Average hand count</span>
+          <span class="detail-average">${avg != null ? avg.toFixed(1) : '—'}</span>
         </div>
-      ` : ''}
-      <div class="detail-row">
-        <span class="detail-label">Average hand count</span>
-        <span class="detail-average">${avg != null ? avg.toFixed(1) : '—'}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Auto count</span>
@@ -2317,7 +2326,10 @@ function wireCells(cells) {
           ? '<span class="detail-value">No counts yet.</span>'
           : `<ul class="count-list">${counts.map(c => `
               <li class="count-list-item">
-                <span class="count-value">${c.value}</span>
+                <span class="count-meta">
+                  <span class="count-value">${c.value}</span>
+                  ${usernameFromEmail(c.counted_by_email) ? `<span class="count-rater">${escHtml(usernameFromEmail(c.counted_by_email))}</span>` : ''}
+                </span>
                 <span class="count-actions">
                   <button class="count-edit-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Edit count">Edit</button>
                   <button class="count-delete-btn" data-count-id="${escHtml(String(c.id))}" aria-label="Delete count">&times;</button>
@@ -3185,7 +3197,7 @@ async function finishCount() {
         cell.counts = (cell.counts || []).map(c =>
           String(c.id) === String(editingId) ? { ...c, value, points } : c);
       } else {
-        cell.counts = [...(cell.counts || []), { id: genLocalId('cnt'), value, points, type: 'hand' }];
+        cell.counts = [...(cell.counts || []), { id: genLocalId('cnt'), value, points, type: 'hand', counted_by_email: currentUser() }];
       }
     }
     navigate('cells');
