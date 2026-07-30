@@ -2270,3 +2270,41 @@ Reviewed the full diff and confirmed no remaining references to `modal-starvatio
 ## Final step (per project convention)
 
 Added a follow-up bullet to Phase 5 and a follow-up bullet to Phase 11c in `docs/tasks.md`. Plan appended to `docs/plan.md`.
+
+## Auto-select first item on Projects/Experiments/Conditions
+
+**Request:** clicking into Projects, into a project (Experiments screen), or into an experiment (Conditions screen) should auto-select the first card so the side panel is always populated, rather than staying blank until a card is clicked.
+
+### What changed
+
+- `app.js`: `wireProjects`, `wireExperiments`, and `wireConditions` each now call their existing `selectProject`/`selectExperiment`/`selectCondition` closure on the first item in the list (when non-empty) right after wiring the card click/keydown listeners. This mirrors the Cells screen's pre-existing `selectCell(cells[0].id)` call in `wireCells`, so all four folder-grid screens now behave consistently.
+
+### Verification
+
+No build step to compile; the change is a one-line addition per screen reusing already-exercised selection logic. Could not launch a browser in this pass to confirm the first card visually highlights and its detail panel renders immediately on Projects/Experiments/Conditions.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to Phase 14 in `docs/tasks.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Detail panel always visible, even with no cards
+
+**Request:** follow-up to the auto-select change — the side panel should be present even when a screen has zero cards (e.g. a brand-new project with no experiments yet), and should read "Detail panel" as a placeholder before anything is selected.
+
+### What changed
+
+- `app.js`: added `DETAIL_PANEL_EMPTY_HTML` (a shared `'<div class="detail-empty">Detail panel</div>'` constant) and baked it, plus a `visible` class, directly into the `<aside class="detail-panel">` markup in `renderProjectsHTML`, `renderExperimentsHTML`, `renderConditionsHTML`, and `renderCellsHTML`. Previously the panel had no `visible` class and no content in the initial template — CSS hides `.detail-panel` via `display: none` until `.visible` is added, which only happened inside `select*` after a card was picked, so on an empty list (no cards to auto-select) the panel never appeared at all.
+- `style.css`: added `.detail-empty` (muted, italic, using the existing `--text-label` token so it stays theme-aware in both Paper and Sage).
+- The `select*` closures (`selectProject`/`selectExperiment`/`selectCondition`/`selectCell`) are unchanged — they still overwrite `panel.innerHTML` with real detail content once a card is selected, so the placeholder is only ever seen on a truly empty list.
+
+### Verification
+
+No build step to compile; template-literal/CSS-only change. Could not launch a browser in this pass to confirm the panel renders "Detail panel" on an empty Experiments/Conditions list and is replaced correctly once a card exists.
+
+## Final step (per project convention)
+
+Added a second follow-up bullet to Phase 14 in `docs/tasks.md`. Plan appended to `docs/plan.md`.
+
+---

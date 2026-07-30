@@ -976,6 +976,11 @@ function renderHome() {
   document.getElementById('home-box-about').addEventListener('click', () => navigate('about'));
 }
 
+// Placeholder shown in every folder-grid screen's detail panel before a card
+// is selected — the panel itself (`.detail-panel.visible`) is always present
+// so its position/size doesn't shift once a card populates it.
+const DETAIL_PANEL_EMPTY_HTML = '<div class="detail-empty">Detail panel</div>';
+
 // ---- Projects screen ----
 // Mirrors initExperiments/renderExperimentsHTML/wireExperiments below —
 // same .folder-layout two-column grid + detail panel, one level up the
@@ -1059,7 +1064,7 @@ function renderProjectsHTML(projects) {
   return `
     <div class="folder-layout">
       <div class="folder-grid" id="folder-grid">${cards}</div>
-      <aside class="detail-panel" id="detail-panel" aria-label="Project details"></aside>
+      <aside class="detail-panel visible" id="detail-panel" aria-label="Project details">${DETAIL_PANEL_EMPTY_HTML}</aside>
     </div>
   `;
 }
@@ -1129,6 +1134,8 @@ function wireProjects(projects) {
       if (e.key === 'Enter') selectProject(card.dataset.id);
     });
   });
+
+  if (projects.length) selectProject(projects[0].id);
 
   wireProjectsAction();
 }
@@ -1278,7 +1285,7 @@ function renderExperimentsHTML(experiments) {
   return `
     <div class="folder-layout">
       <div class="folder-grid" id="folder-grid">${cards}</div>
-      <aside class="detail-panel" id="detail-panel" aria-label="Experiment details"></aside>
+      <aside class="detail-panel visible" id="detail-panel" aria-label="Experiment details">${DETAIL_PANEL_EMPTY_HTML}</aside>
     </div>
   `;
 }
@@ -1335,6 +1342,8 @@ function wireExperiments(experiments) {
       if (e.key === 'Enter') selectExperiment(card.dataset.id);
     });
   });
+
+  if (experiments.length) selectExperiment(experiments[0].id);
 
   wireCardMenus(grid, {
     onOpen: id => {
@@ -1624,7 +1633,7 @@ function renderConditionsHTML(conditions) {
   return `
     <div class="folder-layout">
       <div class="folder-grid" id="folder-grid">${cards}</div>
-      <aside class="detail-panel" id="detail-panel" aria-label="Condition details"></aside>
+      <aside class="detail-panel visible" id="detail-panel" aria-label="Condition details">${DETAIL_PANEL_EMPTY_HTML}</aside>
     </div>
   `;
 }
@@ -1683,6 +1692,8 @@ function wireConditions(conditions) {
       if (e.key === 'Enter') selectCondition(card.dataset.id);
     });
   });
+
+  if (conditions.length) selectCondition(conditions[0].id);
 
   wireCardMenus(grid, {
     onOpen: id => {
@@ -1961,7 +1972,7 @@ function renderCellsHTML(cells) {
   return `
     <div class="folder-layout">
       <div class="folder-grid folder-grid--compact" id="folder-grid">${cards}</div>
-      <aside class="detail-panel detail-panel--large" id="detail-panel" aria-label="Cell details"></aside>
+      <aside class="detail-panel detail-panel--large visible" id="detail-panel" aria-label="Cell details">${DETAIL_PANEL_EMPTY_HTML}</aside>
     </div>
   `;
 }

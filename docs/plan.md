@@ -2895,3 +2895,48 @@ No build step to compile; changes are template-literal/CSS only. Could not launc
 ## Final step (per project convention)
 
 Added a new follow-up bullet to Phase 5 (`docs/tasks.md`) for the Starvation-field removal + rename, and a new follow-up bullet to Phase 11c for the auto-count delete button. This entry appended to `docs/plan.md`; matching entry appended to `docs/activity.md`.
+
+---
+
+# Plan — Auto-select first item on Projects/Experiments/Conditions
+
+**Request:** user asked that clicking into Projects, into a project (Experiments screen), or into an experiment (Conditions screen) should auto-select the first card so the detail side panel is always populated on load, instead of starting blank until a card is clicked.
+
+## Approach
+
+The Cells screen already did this (`wireCells` calls `selectCell(cells[0].id)` after wiring card listeners). Projects/Experiments/Conditions were the three screens missing the same behavior. Each screen's `wireProjects`/`wireExperiments`/`wireConditions` (`app.js`) already defines a local `selectProject`/`selectExperiment`/`selectCondition` closure that highlights a card and renders its detail panel — just added one line after the card click/keydown listeners are wired, calling that closure on the first item in the list when non-empty.
+
+## What was built
+
+- `app.js`: `wireProjects` calls `selectProject(projects[0].id)` if any projects exist; `wireExperiments` calls `selectExperiment(experiments[0].id)`; `wireConditions` calls `selectCondition(conditions[0].id)`. No new functions, CSS, or state — reuses each screen's existing selection/highlight/detail-panel logic.
+
+## Verification
+
+No build step to compile; change is a one-line addition per screen using already-exercised functions. Could not launch a browser in this pass to click through Projects/Experiments/Conditions and confirm the first card highlights and its detail panel renders on load.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to Phase 14 in `docs/tasks.md`. Matching entry appended to `docs/activity.md`.
+
+---
+
+# Plan — Detail panel always visible, even with no cards
+
+**Request:** the detail side panel on Projects/Experiments/Conditions/Cells should be present even when a list has zero cards, and should show placeholder text reading "Detail panel" before anything is selected.
+
+## Approach
+
+`.detail-panel` is `display: none` by default and only becomes `display: block` via a `.visible` class, which was previously only added inside each screen's `select*` closure once a card was picked. On an empty list there's nothing to auto-select, so the panel never appeared. Fixed by baking the `visible` class and a placeholder `<div class="detail-empty">Detail panel</div>` directly into each screen's `render*HTML` initial template, so the panel is always present; `select*` still overwrites its content once a real selection happens.
+
+## What was built
+
+- `app.js`: new shared constant `DETAIL_PANEL_EMPTY_HTML`, used as the initial `<aside class="detail-panel visible">` content in `renderProjectsHTML`, `renderExperimentsHTML`, `renderConditionsHTML`, and `renderCellsHTML`.
+- `style.css`: new `.detail-empty` style (muted/italic, theme-aware via `--text-label`).
+
+## Verification
+
+No build step to compile. Could not launch a browser in this pass — recommend confirming the panel shows "Detail panel" on a project/experiment/condition with an empty child list, and that it's correctly replaced by real detail content as soon as a card exists and is selected.
+
+## Final step (per project convention)
+
+Added a second follow-up bullet to Phase 14 in `docs/tasks.md`. Matching entry appended to `docs/activity.md`.
