@@ -2474,3 +2474,23 @@ Playwright screenshot against the `local:` fixture (Cell 3, "0 Hr Starved"): the
 Added a follow-up bullet to Phase 22 in `docs/tasks.md`.
 
 ---
+
+## Phase 23 — Experiments/Conditions cards trimmed to name-only, detail panel widened
+
+**Request:** "Change experiment and condition to only show the name on the cell, but experiment should keep the date only. All the same info should be on the side panel, which should also be bigger" — the Experiments/Conditions folder cards were showing dye/condition-count/date and cell-count respectively, duplicating what the detail panel already displayed.
+
+### What changed
+
+**`app.js`:** `renderExperimentsHTML` cards dropped the dye span and the "N conditions" span from `.folder-meta`, keeping only the date span (omitted entirely when the experiment has no date). `renderConditionsHTML` cards dropped `.folder-meta` and its cell-count span entirely, leaving just `.folder-name`. Neither screen's `selectExperiment`/`selectCondition` detail-panel markup changed — it already rendered date, dye, condition/cell count, ICC, and notes.
+
+**`style.css`:** Both screens' `<aside class="detail-panel">` in `app.js` initially gained the existing `detail-panel--large` modifier (480px, matching the Cells screen), then the user asked for it "a bit smaller than the cell panel" — added a new `.detail-panel--medium` modifier (360px, `padding: 1.5rem`) and swapped both screens onto that instead, leaving Cells as the only `--large` user.
+
+### Verification
+
+Verified with headless-Chrome screenshots against the `local:` test fixture (Lipid Droplet Study → Serum Starvation Timecourse) before the medium/large split: Experiments cards show only name + date, Conditions cards show only name, and the detail panel renders with the full name/date/dye/condition-or-cell-count/ICC/notes info intact. No console errors. Not re-screenshotted after narrowing to `--medium` (360px) — a pure width-value change to an already-verified layout, same modifier-class pattern as the Cells screen's `--large`.
+
+## Final step (per project convention)
+
+Added a Phase 23 section to `docs/tasks.md`.
+
+---

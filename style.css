@@ -1380,6 +1380,12 @@ body {
   margin-bottom: 0.5rem;
 }
 
+.detail-panel--medium {
+  width: 360px;
+  display: block;
+  padding: 1.5rem;
+}
+
 .detail-panel--large {
   width: 480px;
   display: block;
