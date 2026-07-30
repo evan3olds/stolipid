@@ -148,34 +148,42 @@ function setProjectColor(projectId, colorId) {
 // Static Help screen content — one card per workflow step (PRD 5.9)
 const HELP_CONTENT = [
   {
+    key: 'projects',
     title: 'Projects',
     body: 'A project is the top-level container for a group of experiments, shared with collaborators via an invite code. From Home, click "Create/Join project" to start a new project or join one a labmate already created by entering their invite code. Open a project\'s detail panel to copy its invite code and share it.',
   },
   {
+    key: 'experiments',
     title: 'Experiments',
     body: 'An experiment is a folder for one experimental run within a project (e.g. a serum starvation timecourse). Click "Add experiment" to record its name, date, dye, and notes. Open an experiment to see its conditions.',
   },
   {
+    key: 'conditions',
     title: 'Conditions',
     body: 'A condition is a treatment group within an experiment (e.g. "6 Hr Starved"). Each condition tracks its own ICC score once its cells have hand counts — ICC measures how well the hand counts agree with each other.',
   },
   {
+    key: 'cells-add-photos',
     title: 'Cells & Add Photos',
     body: 'Use "Add photos" to upload .tif microscopy images and draw a box around each cell you want to track. One cell record is created per box. From a cell’s detail panel, run "Standard" or "FM_edge_overlay (ALDQ)" under Auto count to get an automatic droplet count suggestion — this is not a hand count and does not factor into the average or ICC.',
   },
   {
+    key: 'counting',
     title: 'Counting',
     body: 'Open a cell and click "Add Hand Count" to record a blind hand count. Click anywhere on the image to place a marker on a droplet, or click a marker to remove it. Use the zoom controls to separate small, closely-clustered droplets. Each cell supports up to three hand counts.',
   },
   {
+    key: 'graph',
     title: 'Graph',
     body: 'Pick an experiment and condition (or "All conditions") in the sidebar and add it to the chart to compare counts visually. Choose a chart type — scatter (each dot is one cell, the bar marks the condition mean), bar chart (mean ± standard deviation), or box plot (min/median/max quartiles) — and hover any point, bar, or box for the full breakdown, including hand counts.',
   },
   {
+    key: 'raw-data',
     title: 'Raw data',
     body: 'A flat table of every cell across every experiment and condition, including all three hand counts, the average, the auto count, and the source .tif filename. Click a column header to sort, or use the filter box to search by name.',
   },
   {
+    key: 'reliability-icc',
     title: 'Reliability (ICC)',
     body: 'ICC (Intraclass Correlation Coefficient) quantifies agreement across a condition\'s hand counts — higher is better. It is computed automatically whenever hand counts are added or removed, so counting a cell a second or third time will update it.',
   },
@@ -280,19 +288,63 @@ function navigate(screen, params = {}) {
 
 function initHelp() {
   document.querySelector('.content').innerHTML = renderHelpHTML();
+  wireHelp();
 }
 
 function renderHelpHTML() {
   return `
-    <div class="help-grid">
-      ${HELP_CONTENT.map(card => `
-        <div class="help-card">
-          <h3 class="help-card-title">${card.title}</h3>
-          <p class="help-card-body">${card.body}</p>
-        </div>
-      `).join('')}
+    <div class="wiki-layout">
+      <aside class="wiki-sidebar">
+        <input type="search" class="wiki-search-input" id="help-search" placeholder="Search help..." aria-label="Search help topics">
+        <nav class="wiki-toc" aria-label="Table of contents" id="help-toc">
+          <div class="wiki-toc-title">Contents</div>
+          <ul class="wiki-toc-list">
+            ${HELP_CONTENT.map(card => `
+              <li class="wiki-toc-item" data-key="${card.key}"><a class="wiki-toc-link" href="#help-${card.key}">${card.title}</a></li>
+            `).join('')}
+          </ul>
+        </nav>
+      </aside>
+      <div class="wiki-article">
+        ${HELP_CONTENT.map(card => `
+          <section class="wiki-section" id="help-${card.key}" data-key="${card.key}">
+            <h3 class="wiki-section-title">${card.title}</h3>
+            <p class="wiki-section-body">${card.body}</p>
+          </section>
+        `).join('')}
+        <p class="wiki-no-results" id="help-no-results" hidden>No help topics match your search.</p>
+      </div>
     </div>
   `;
+}
+
+function updateWikiFirstVisible() {
+  const sections = Array.from(document.querySelectorAll('.wiki-section'));
+  sections.forEach(s => s.classList.remove('wiki-section-first-visible'));
+  const first = sections.find(s => !s.hidden);
+  if (first) first.classList.add('wiki-section-first-visible');
+}
+
+function wireHelp() {
+  const searchInput = document.getElementById('help-search');
+  const noResults = document.getElementById('help-no-results');
+
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.trim().toLowerCase();
+    let matchCount = 0;
+
+    HELP_CONTENT.forEach(card => {
+      const match = !q || card.title.toLowerCase().includes(q) || card.body.toLowerCase().includes(q);
+      if (match) matchCount++;
+      document.getElementById(`help-${card.key}`).hidden = !match;
+      document.querySelector(`.wiki-toc-item[data-key="${card.key}"]`).hidden = !match;
+    });
+
+    noResults.hidden = matchCount > 0;
+    updateWikiFirstVisible();
+  });
+
+  updateWikiFirstVisible();
 }
 
 function initAbout() {
