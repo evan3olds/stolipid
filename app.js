@@ -16,6 +16,64 @@ async function api(path, options = {}) {
 
 const app = document.getElementById('app');
 
+// ---- Preview mode ----
+// Set by the login screen's "Preview app" button (logs in as the shared
+// local test account — see docs/test-accounts.json — with an extra flag)
+// so a visitor can click through real screens with sample data without
+// creating, editing, or deleting anything. Every mutating control across
+// the app is wired independently per-screen (no shared form/submit
+// pipeline to hook into), so this is enforced by a single capture-phase
+// listener keyed on a selector allowlist rather than per-button guards.
+function isPreviewMode() {
+  return localStorage.getItem('previewMode') === 'true';
+}
+
+const PREVIEW_BLOCKED_SELECTOR = [
+  '#primary-action',                              // + New Experiment/Condition, + Add Photos, Create/Join project
+  '#modal-save',                                   // every create/edit modal's submit
+  '.card-menu-dropdown [data-action="edit"]',
+  '.card-menu-dropdown [data-action="remove"]',
+  '.count-delete-btn',
+  '.count-edit-btn:not(.auto-count-view-btn)',      // real "Edit count"; auto-count's "View" reuses this class but is read-only
+  '.auto-count-run-btn',
+  '#count-cta',                                    // "Add Hand Count" — the only entry into an editable Count screen
+  '#count-done',
+  '#canvas-frame',                                  // draws a box on Add Photos
+  '.photo-box',                                     // drag to move a box
+  '.photo-box-handle',                              // drag to resize a box
+  '.photo-box-remove',
+  '#addphotos-create',
+  '#addphotos-choose',
+  '#addphotos-add-files',
+].join(', ');
+
+let previewToastTimer = null;
+function showPreviewToast() {
+  let toast = document.getElementById('preview-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'preview-toast';
+    toast.className = 'preview-toast';
+    toast.textContent = 'Preview mode is read-only — log in to make changes.';
+    document.body.appendChild(toast);
+  }
+  toast.classList.add('visible');
+  clearTimeout(previewToastTimer);
+  previewToastTimer = setTimeout(() => toast.classList.remove('visible'), 2200);
+}
+
+function initPreviewGuard() {
+  const intercept = e => {
+    if (!isPreviewMode()) return;
+    if (!e.target.closest(PREVIEW_BLOCKED_SELECTOR)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    showPreviewToast();
+  };
+  document.addEventListener('click', intercept, true);
+  document.addEventListener('mousedown', intercept, true);
+}
+
 // Runtime-configurable props (see CLAUDE.md / PRD §10). appTitle and
 // prototypeBadge are developer-set constants; theme has a user-facing
 // toggle (top bar) and persists to localStorage, overriding this default.
@@ -275,7 +333,6 @@ function wireSettings() {
 function renderLogin(mode = 'login') {
   const copy = {
     login:  { submit: 'Log in',        error: 'Login failed. Check your email and password.' },
-    signup: { submit: 'Create account', error: 'Could not create account.' },
     forgot: { submit: 'Send reset link', error: 'Could not send reset link.' },
   }[mode];
 
@@ -291,7 +348,7 @@ function renderLogin(mode = 'login') {
         ${mode !== 'forgot' ? `
         <div class="login-field">
           <label for="login-password">Password</label>
-          <input id="login-password" name="password" type="password" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}" required>
+          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
         </div>` : ''}
         <button class="login-submit" type="submit">${copy.submit}</button>
         <div class="login-message" id="login-message"></div>
@@ -304,6 +361,11 @@ function renderLogin(mode = 'login') {
             <button type="button" class="login-link" id="login-back-link">Back to log in</button>
           `}
         </div>
+        ${mode === 'login' ? `
+        <div class="login-divider"><span>or</span></div>
+        <button type="button" class="login-preview-btn" id="login-preview-btn">Preview app</button>
+        <div class="login-preview-hint">Explore with sample data — no account, view only.</div>
+        ` : ''}
       </form>
     </div>
   `;
@@ -314,7 +376,12 @@ function renderLogin(mode = 'login') {
 
   if (mode === 'login') {
     document.getElementById('login-forgot-link').addEventListener('click', () => renderLogin('forgot'));
-    document.getElementById('login-signup-link').addEventListener('click', () => renderLogin('signup'));
+    document.getElementById('login-signup-link').addEventListener('click', () => openSignupModal());
+    document.getElementById('login-preview-btn').addEventListener('click', () => {
+      localStorage.setItem('token', 'local:test@example.com');
+      localStorage.setItem('previewMode', 'true');
+      navigate('home');
+    });
   } else {
     document.getElementById('login-back-link').addEventListener('click', () => renderLogin('login'));
   }
@@ -362,24 +429,6 @@ function renderLogin(mode = 'login') {
       return;
     }
 
-    if (mode === 'signup') {
-      try {
-        const result = await api('/auth/signup', {
-          method: 'POST',
-          body: JSON.stringify({ email, password }),
-        });
-        if (result.token) {
-          localStorage.setItem('token', result.token);
-          navigate('home');
-        } else {
-          messageEl.textContent = 'Check your email to confirm your account, then log in.';
-        }
-      } catch (err) {
-        errorEl.textContent = copy.error;
-      }
-      return;
-    }
-
     if (mode === 'forgot') {
       try {
         await api('/auth/reset-password', {
@@ -390,6 +439,71 @@ function renderLogin(mode = 'login') {
       } catch (err) {
         errorEl.textContent = copy.error;
       }
+    }
+  });
+}
+
+// ---- Create account (popup) ----
+// A modal rather than a full-screen swap, so it visually reads as a distinct
+// "create account" action layered on top of the login screen instead of
+// just another mode of the same page.
+
+function openSignupModal() {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">Create account</div>
+      <form class="modal-form" id="signup-form">
+        <div class="modal-field">
+          <label for="signup-email">Email</label>
+          <input id="signup-email" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="modal-field">
+          <label for="signup-password">Password</label>
+          <input id="signup-password" name="password" type="password" autocomplete="new-password" required>
+        </div>
+        <div class="login-message" id="signup-message"></div>
+        <div class="modal-error" id="signup-error"></div>
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" id="signup-cancel">Cancel</button>
+          <button type="submit" class="modal-save" id="signup-submit">Create account</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const removeModal = () => backdrop.remove();
+  backdrop.addEventListener('click', e => { if (e.target === backdrop) removeModal(); });
+  document.getElementById('signup-cancel').addEventListener('click', removeModal);
+
+  const form = document.getElementById('signup-form');
+  const errorEl = document.getElementById('signup-error');
+  const messageEl = document.getElementById('signup-message');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.textContent = '';
+    messageEl.textContent = '';
+
+    const email = document.getElementById('signup-email').value;
+    const password = document.getElementById('signup-password').value;
+
+    try {
+      const result = await api('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      if (result.token) {
+        localStorage.setItem('token', result.token);
+        removeModal();
+        navigate('home');
+      } else {
+        messageEl.textContent = 'Check your email to confirm your account, then log in.';
+      }
+    } catch (err) {
+      errorEl.textContent = 'Could not create account.';
     }
   });
 }
@@ -504,6 +618,7 @@ function topbarHTML() {
         </button>
         <span class="topbar-title">${CONFIG.appTitle}</span>
         ${CONFIG.prototypeBadge ? '<span class="badge">Prototype</span>' : ''}
+        ${isPreviewMode() ? '<span class="badge badge-preview">Preview mode &middot; read only</span>' : ''}
       </div>
       <div class="topbar-right">
         ${profileMenuHTML()}
@@ -660,6 +775,7 @@ function wireProfileMenu() {
 
   document.getElementById('profile-logout').addEventListener('click', () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('previewMode');
     state.project = null;
     navigate('login');
   });
@@ -2486,6 +2602,7 @@ function uploadPhotoPreview(entry, file) {
 // the process. Entries show up in the sidebar immediately (all "loading"),
 // but the actual uploads run one at a time.
 async function queuePhotoFiles(files) {
+  if (isPreviewMode()) { showPreviewToast(); return; }
   const queued = files.map(file => ({ file, entry: registerPhotoFile(file) }));
   refreshAddPhotos();
   for (const { entry, file } of queued) {
@@ -3985,6 +4102,7 @@ function wireRawData() {
 (function boot() {
   document.title = CONFIG.appTitle;
   applyTheme(localStorage.getItem('theme') || CONFIG.theme);
+  initPreviewGuard();
 
   const hashParams = Object.fromEntries(new URLSearchParams(window.location.hash.slice(1)).entries());
   if (hashParams.access_token) {
