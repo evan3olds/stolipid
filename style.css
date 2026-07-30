@@ -2541,6 +2541,51 @@ body {
   border-radius: 0.375rem;
 }
 
+.graph-selected-label {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.graph-selected-name {
+  overflow-wrap: anywhere;
+}
+
+.graph-selected-sep {
+  color: var(--text-secondary);
+}
+
+.graph-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.125rem;
+  border-radius: 0.25rem;
+  flex-shrink: 0;
+}
+
+.graph-edit-btn:hover {
+  color: var(--accent);
+}
+
+.graph-label-input {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  padding: 0.125rem 0.3rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.25rem;
+  background: var(--surface-input);
+  color: inherit;
+  min-width: 0;
+  width: 8rem;
+}
+
 .graph-selected-remove {
   border: none;
   background: none;
@@ -2562,11 +2607,55 @@ body {
   position: relative;
 }
 
+.graph-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.graph-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .graph-chart-title {
   font-family: var(--font-heading);
   font-size: 1.25rem;
   font-weight: 600;
-  margin-bottom: 1rem;
+}
+
+.graph-title-input {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.375rem;
+  background: var(--surface-input);
+  color: inherit;
+  width: min(28rem, 100%);
+}
+
+.graph-export-btn {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.375rem;
+  background: var(--surface-card);
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.graph-export-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .graph-legend {
