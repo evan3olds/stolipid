@@ -145,7 +145,7 @@ Biology researchers at St. Olaf routinely count lipid droplets in fluorescence m
 Experiment
   id, name, date, dye, notes
   └── Condition[]
-        id, name, starvation (hours), notes
+        id, name, notes
         └── Cell[]
               id, name
               └── counts: number[]   // up to 3 hand counts
@@ -193,7 +193,7 @@ experiments
   id uuid PK, name text, date date, dye text, notes text, created_by uuid FK
 
 conditions
-  id uuid PK, experiment_id uuid FK, name text, starvation text, notes text
+  id uuid PK, experiment_id uuid FK, name text, notes text
 
 cells
   id uuid PK, condition_id uuid FK, name text, image_url text, source_filename text

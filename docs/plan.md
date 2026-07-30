@@ -2940,3 +2940,27 @@ No build step to compile. Could not launch a browser in this pass — recommend 
 ## Final step (per project convention)
 
 Added a second follow-up bullet to Phase 14 in `docs/tasks.md`. Matching entry appended to `docs/activity.md`.
+
+---
+
+# Plan — Bug fix: condition create/update broken after starvation column dropped from live DB
+
+**Request:** conditions can no longer be created; Render's error confirms the `starvation` column is genuinely gone from the live Supabase `conditions` table now.
+
+## Approach
+
+An earlier pass dropped the Starvation field from the UI but left `conditions.starvation` in place in Supabase (no migration run, no live credentials at the time). That column has since actually been dropped, but `api/main.py` was never updated to match — it still sends `starvation: None` on every condition create/update, which Postgrest now rejects since the column doesn't exist. Fix is to remove `starvation` from the API's `ConditionBody` model and from both the insert and update payloads, matching what the frontend already stopped sending.
+
+## What was built
+
+- `api/main.py`: dropped `starvation` from `ConditionBody`, `create_condition`'s insert dict, and `update_condition`'s update dict.
+- `app.js`: removed the now-fully-dead `starvation` key from the local-account `TEST_CONDITIONS` fixtures.
+- `CLAUDE.md`, `architecture.md`, `docs/PRD.md`: fixed schema listings that still showed a `starvation` column.
+
+## Verification
+
+`python -m py_compile api/main.py` compiles clean. No live Supabase credentials in this environment to exercise a real create/update — recommend the user confirm against the deployed Render API.
+
+## Final step (per project convention)
+
+Added a bug-fix bullet to Phase 5 in `docs/tasks.md`. Matching entry appended to `docs/activity.md`.

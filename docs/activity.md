@@ -2308,3 +2308,27 @@ No build step to compile; template-literal/CSS-only change. Could not launch a b
 Added a second follow-up bullet to Phase 14 in `docs/tasks.md`. Plan appended to `docs/plan.md`.
 
 ---
+
+## Bug fix: condition create/update broken after starvation column dropped from live DB
+
+**Request:** user reported conditions could no longer be created, and Render's error confirmed the `starvation` column is gone from the live Supabase `conditions` table.
+
+### Root cause
+
+A prior pass removed the Starvation field from the UI but deliberately left the `conditions.starvation` Supabase column in place (unused, no migration run) since there were no live credentials to drop it at the time. The column has since actually been dropped in the live project, but `api/main.py` never got the matching fix — `ConditionBody` still declared `starvation: Optional[float] = None`, and `create_condition`/`update_condition` still sent `"starvation": body.starvation` in every insert/update payload. Since the frontend never sends that field, it was always `None`, but Postgrest rejects the request outright once the target column doesn't exist — so every condition create or edit failed.
+
+### What changed
+
+- `api/main.py`: removed `starvation` from `ConditionBody` and from both the `create_condition` insert payload and the `update_condition` update payload.
+- `app.js`: removed the dead `starvation` key from the local-account `TEST_CONDITIONS` fixtures (unused now that nothing reads `cond.starvation`, same cleanup as the earlier `dye` removal).
+- `CLAUDE.md`, `architecture.md`, `docs/PRD.md`: corrected schema listings that still showed a `starvation` column on `conditions`.
+
+### Verification
+
+`python -m py_compile api/main.py` compiles clean. Could not exercise a live create/update against Supabase in this environment — recommend the user confirm creating and editing a condition now succeeds against the deployed Render API.
+
+## Final step (per project convention)
+
+Added a new bug-fix bullet to Phase 5 in `docs/tasks.md`. Plan appended to `docs/plan.md`.
+
+---
