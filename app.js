@@ -714,9 +714,11 @@ function currentUserName() {
 function renderShell(screen) {
   const meta = SCREENS[screen] || {};
   app.innerHTML = `
-    <div class="shell">
-      ${topbarHTML()}
-      ${subheaderHTML(screen, meta)}
+    <div class="shell${screen === 'help' ? ' shell-sticky-header' : ''}">
+      <div class="shell-header-group">
+        ${topbarHTML()}
+        ${subheaderHTML(screen, meta)}
+      </div>
       <main class="content">${screenStub(screen, meta)}</main>
       ${bottomBarHTML(screen)}
     </div>

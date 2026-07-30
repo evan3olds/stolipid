@@ -442,6 +442,16 @@ body {
   min-height: 100dvh;
 }
 
+.shell-sticky-header .shell-header-group {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+}
+
+.shell-sticky-header .subheader {
+  background: var(--surface-page);
+}
+
 /* Top bar */
 .topbar {
   display: flex;
@@ -719,7 +729,7 @@ body {
   width: 14rem;
   flex-shrink: 0;
   position: sticky;
-  top: 1.5rem;
+  top: 8.5rem; /* clears the sticky top bar + subheader (see .shell-sticky-header) */
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -782,7 +792,7 @@ body {
 }
 
 .wiki-section {
-  scroll-margin-top: 1.5rem;
+  scroll-margin-top: 7.5rem; /* clears the sticky top bar + subheader when jumped to via the TOC */
   padding-top: 1.5rem;
   border-top: 1px solid var(--border-default);
 }
