@@ -40,7 +40,7 @@ Biology researchers at St. Olaf routinely count lipid droplets in fluorescence m
 | Term | Definition |
 |---|---|
 | **Experiment** | A top-level folder representing one experimental run (e.g., serum starvation timecourse). Has a name, date, dye, and notes. |
-| **Condition** | A sub-folder within an experiment representing one treatment group (e.g., "6 Hr Starved"). Has a starvation length; dye is set once at the experiment level and shown here for reference. |
+| **Condition** | A sub-folder within an experiment representing one treatment group. Has only a name (e.g., "6 hours starved") and notes; dye is set once at the experiment level and shown here for reference. |
 | **Cell** | One individual cell extracted from a microscopy image. Belongs to a condition. |
 | **Hand count** | A single manual count of lipid droplets in a cell image. Up to 3 per cell (for blinded inter-rater reliability). |
 | **Average** | The mean of a cell's hand counts. Used for all summary statistics. |
@@ -69,19 +69,19 @@ Biology researchers at St. Olaf routinely count lipid droplets in fluorescence m
 - Grid of condition folder cards showing name and metadata
 - Single-click to select; double-click to open
 - Detail panel shows:
-  - Condition name, dye (inherited from the parent experiment), starvation length, cell count
+  - Condition name, dye (inherited from the parent experiment), cell count
   - ICC value + quality label (e.g., "Good", "Excellent")
   - Mini scatter chart: one column per condition, dots = per-cell averages, bar = condition mean
-- "New slide" button opens a modal to create a condition
+- "New Condition" button opens a modal to create a condition
 
-**Add Condition Modal fields:** Name, Starvation length (hours), Notes
+**Add Condition Modal fields:** Name (hint text below: "e.g. 6 hours starved"), Notes
 
 ### 5.4 Cells (Screen 5)
 - Breadcrumb: Experiments / [Experiment] / [Condition]
 - Grid of cell cards showing name and count status tag (e.g., "2 counts", "needs count")
 - Select a cell to view its details in the right panel:
   - "Average hand count" displayed prominently
-  - "Auto count" section: shows a "Standard" and/or "FM_edge_overlay (ALDQ)" button for whichever algorithm(s) haven't been run yet on this cell — picking one runs that detection algorithm against the cell's saved image and stores the result without disturbing the other algorithm's result if it already exists. Each computed result shows its count, a "View" button (opens that algorithm's marker grid on the Count screen), and which model produced it. A cell can carry both a Standard and an ALDQ auto count at once.
+  - "Auto count" section: shows a "Standard" and/or "FM_edge_overlay (ALDQ)" button for whichever algorithm(s) haven't been run yet on this cell — picking one runs that detection algorithm against the cell's saved image and stores the result without disturbing the other algorithm's result if it already exists. Each computed result shows its count, a "View" button (opens that algorithm's marker grid on the Count screen), a delete (×) button, and which model produced it. A cell can carry both a Standard and an ALDQ auto count at once; deleting one lets that algorithm be re-run.
   - List of individual hand counts with delete (×) button per entry
   - "Add Hand Count" CTA button if the cell needs more counts
 - "Add photos" button navigates to the Add Photos screen

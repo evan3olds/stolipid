@@ -110,7 +110,7 @@ const state = {
 // Per-screen chrome metadata: subheader title, primary action label, back button
 const SCREENS = {
   experiments: { title: 'Experiments', action: 'Add experiment', back: true },
-  conditions:  { title: 'Conditions',  action: 'New slide',    back: true },
+  conditions:  { title: 'Conditions',  action: 'New Condition', back: true },
   cells:       { title: 'Cells',       action: 'Add photos',   back: true },
   graph:       { title: 'Graph',    back: true },
   rawdata:     { title: 'Raw data', back: true },
@@ -1607,7 +1607,7 @@ async function initConditions() {
 
 function renderConditionsHTML(conditions) {
   const cards = conditions.length === 0
-    ? '<p class="empty-state">No conditions yet. Click "New slide" to create one.</p>'
+    ? '<p class="empty-state">No conditions yet. Click "New Condition" to create one.</p>'
     : conditions.map(cond => {
         const cellCount = (cond.cells || []).length;
         return `
@@ -1615,7 +1615,6 @@ function renderConditionsHTML(conditions) {
             ${cardMenuHTML(cond.id, { showOpen: true })}
             <div class="folder-name">${escHtml(cond.name)}</div>
             <div class="folder-meta">
-              ${cond.starvation != null ? `<span class="folder-meta-item">${cond.starvation} hr</span>` : ''}
               <span class="folder-meta-item">${cellCount} cell${cellCount !== 1 ? 's' : ''}</span>
             </div>
           </div>
@@ -1650,10 +1649,6 @@ function wireConditions(conditions) {
       <div class="detail-row">
         <span class="detail-label">Dye</span>
         <span class="detail-value">${state.experiment?.dye ? escHtml(state.experiment.dye) : '—'}</span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Starvation</span>
-        <span class="detail-value">${cond.starvation != null ? `${cond.starvation} hr` : '—'}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Cells</span>
@@ -1735,15 +1730,12 @@ function openAddConditionModal(onSuccess) {
   backdrop.className = 'modal-backdrop';
   backdrop.innerHTML = `
     <div class="modal" role="dialog" aria-modal="true">
-      <div class="modal-header">New slide</div>
+      <div class="modal-header">New Condition</div>
       <form class="modal-form" id="modal-form">
         <div class="modal-field">
           <label for="modal-name">Name</label>
           <input id="modal-name" type="text" required autocomplete="off">
-        </div>
-        <div class="modal-field">
-          <label for="modal-starvation">Starvation length (hours)</label>
-          <input id="modal-starvation" type="number" min="0" step="1">
+          <span class="modal-field-hint">e.g. 6 hours starved</span>
         </div>
         <div class="modal-field">
           <label for="modal-notes">Notes</label>
@@ -1772,15 +1764,12 @@ function openAddConditionModal(onSuccess) {
     saveBtn.textContent = 'Saving…';
     errEl.textContent = '';
 
-    const starvationVal = document.getElementById('modal-starvation').value;
-
     try {
       await api(`/experiments/${state.experiment.id}/conditions`, {
         method: 'POST',
         body: JSON.stringify({
-          name:       document.getElementById('modal-name').value,
-          starvation: starvationVal === '' ? null : Number(starvationVal),
-          notes:      document.getElementById('modal-notes').value,
+          name:  document.getElementById('modal-name').value,
+          notes: document.getElementById('modal-notes').value,
         }),
       });
       removeModal();
@@ -1805,10 +1794,7 @@ function openEditConditionModal(cond, onSuccess) {
         <div class="modal-field">
           <label for="modal-name">Name</label>
           <input id="modal-name" type="text" required autocomplete="off" value="${escHtml(cond.name || '')}">
-        </div>
-        <div class="modal-field">
-          <label for="modal-starvation">Starvation length (hours)</label>
-          <input id="modal-starvation" type="number" min="0" step="1" value="${cond.starvation != null ? escHtml(String(cond.starvation)) : ''}">
+          <span class="modal-field-hint">e.g. 6 hours starved</span>
         </div>
         <div class="modal-field">
           <label for="modal-notes">Notes</label>
@@ -1837,11 +1823,9 @@ function openEditConditionModal(cond, onSuccess) {
     saveBtn.textContent = 'Saving…';
     errEl.textContent = '';
 
-    const starvationVal = document.getElementById('modal-starvation').value;
     const updated = {
-      name:       document.getElementById('modal-name').value,
-      starvation: starvationVal === '' ? null : Number(starvationVal),
-      notes:      document.getElementById('modal-notes').value,
+      name:  document.getElementById('modal-name').value,
+      notes: document.getElementById('modal-notes').value,
     };
 
     try {
@@ -2020,6 +2004,7 @@ function wireCells(cells) {
                 <span class="count-value">${row.value}</span>
                 <span class="count-actions">
                   <button class="count-edit-btn auto-count-view-btn" data-algorithm="${algo}" aria-label="View ${escHtml(autoAlgorithmLabel(algo))} auto count grid">View</button>
+                  <button class="count-delete-btn" data-count-id="${escHtml(String(row.id))}" aria-label="Delete ${escHtml(autoAlgorithmLabel(algo))} auto count">&times;</button>
                 </span>
               </li>
             </ul>
