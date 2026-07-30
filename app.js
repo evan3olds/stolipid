@@ -1371,7 +1371,7 @@ function openCreateJoinProjectModal(onSuccess) {
       <form class="modal-form" id="modal-form">
         <div class="modal-field" id="field-create">
           <label for="modal-project-name">Project name</label>
-          <input id="modal-project-name" type="text" required autocomplete="off">
+          <input id="modal-project-name" type="text" required autocomplete="off" placeholder="e.g. Lipid Droplet Study">
         </div>
         <div class="modal-field" id="field-join" hidden>
           <label for="modal-invite-code">Invite code</label>
@@ -1956,8 +1956,7 @@ function openAddConditionModal(onSuccess) {
       <form class="modal-form" id="modal-form">
         <div class="modal-field">
           <label for="modal-name">Name</label>
-          <input id="modal-name" type="text" required autocomplete="off">
-          <span class="modal-field-hint">e.g. 6 hours starved</span>
+          <input id="modal-name" type="text" required autocomplete="off" placeholder="e.g. 6 hours starved">
         </div>
         <div class="modal-field">
           <label for="modal-notes">Notes</label>
