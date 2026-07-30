@@ -316,6 +316,8 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Count screen's compare-all-counts view (`countState.compareGroups`, `app.js`) gained a "Download" button next to Close in `.count-topbar-actions`, shown only in that mode
 - [x] `downloadCountOverlay()` (`app.js`) re-fetches the displayed image via a fresh `crossOrigin="anonymous"` `Image` (the on-screen `<img>` itself isn't CORS-tagged, so drawing straight from it would taint the canvas), draws it onto a canvas at its native resolution, then draws every compare group's markers on top in the same color the on-screen legend renders (read via `getComputedStyle` on the actual `.count-legend-swatch` elements, not a duplicated color list) before exporting as a PNG download named `<cell-name>-compare-counts.png`
 - [x] Relies on `api/main.py`'s existing `allow_origins=["*"]` CORS config on the Render API for the cross-origin re-fetch to succeed
+- [x] Follow-up: marker circles shrunk (radius formula `width * 0.01`/min `4` → `width * 0.003`/min `2`, stroke scaled to match) after they were too large to tell apart
+- [x] Follow-up: the exported PNG looked low quality because cell crops are often small in raw pixels — the on-screen `<img>` masks this with smooth CSS upscaling, but the export previously rendered at raw native size with no such smoothing. `downloadCountOverlay()` now upscales sources smaller than `DOWNLOAD_TARGET_DIMENSION` (1600px on the long edge) with `ctx.imageSmoothingQuality = 'high'`, leaving already-large sources at native resolution rather than downscaling them; marker radius scales off the final (post-upscale) canvas width so circle size stays consistent
 
 ## Future (Out of Scope for v1)
 

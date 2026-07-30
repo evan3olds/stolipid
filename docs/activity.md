@@ -2519,3 +2519,23 @@ No browser-automation tooling available this session. Traced by hand against `re
 Added a Phase 24 section to `docs/tasks.md`.
 
 ---
+
+## Phase 24 follow-ups — smaller markers, higher-quality export
+
+**Request 1:** "Make the circles way smaller, can't distinguish them currently." **Request 2:** "The quality of the png is very low."
+
+### What changed
+
+**Marker size (`app.js`):** `downloadCountOverlay()`'s radius formula went from `Math.max(4, width * 0.01)` to `Math.max(2, width * 0.003)`, with the white outline's `lineWidth` scaled down to match (`radius * 0.25`, floor lowered from `1` to `0.5`) — the circles had been drawn far too large relative to the image to tell apart when several counts' markers landed near each other.
+
+**Export resolution (`app.js`):** the real cause of the "low quality" PNG wasn't compression (PNG export is already lossless) — it's that lipid-droplet cell crops are frequently small in raw pixel dimensions (a cropped box around one cell, not a full slide), and the on-screen `<img>` hides that by letting the browser's normal CSS upscaling smooth it out when displayed larger. The download path was drawing the source at its exact native pixel size with no such smoothing, so opening the PNG at 100% in a real viewer revealed the crop's actual low pixel count as blockiness. `downloadCountOverlay()` now computes `scale = Math.max(1, 1600 / Math.max(source.naturalWidth, source.naturalHeight))` (`DOWNLOAD_TARGET_DIMENSION = 1600`), sizes the canvas to `naturalWidth/Height * scale`, and sets `ctx.imageSmoothingEnabled = true` / `ctx.imageSmoothingQuality = 'high'` before `drawImage` — small crops get smoothly upscaled to a legible size, while sources already at or above 1600px on their long edge are left at native resolution (never downscaled). Marker radius is computed from the final (post-scale) canvas width, so circle size stays visually consistent whether or not upscaling kicked in.
+
+### Verification
+
+No browser-automation tooling available this session; changes traced by hand against the formulas above. Still recommend the manual click-through noted in Phase 24 (open Compare all counts on a cell with ≥2 counts, click Download, inspect the PNG at 100%) to confirm the markers are now distinguishable and the image looks acceptably sharp — particularly worth checking on both a small crop (upscale path) and a large one (native-resolution path) since this session couldn't drive a real browser to compare against actual image dimensions from a live cell record.
+
+## Final step (per project convention)
+
+Added follow-up bullets to Phase 24 in `docs/tasks.md`.
+
+---
