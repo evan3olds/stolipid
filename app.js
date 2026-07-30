@@ -107,6 +107,44 @@ function avatarSrcById(id) {
   return (AVATARS.find(a => a.id === id) || AVATARS[0]).src;
 }
 
+// Project color tags (Projects screen). Purely a client-side label — picked
+// per project via the swatch button on its folder-card, persisted to
+// localStorage['projectColors'] (id -> color id), not synced to other
+// project members or the backend.
+const PROJECT_COLORS = [
+  { id: 'rose',   value: 'oklch(0.62 0.16 15)',  label: 'Rose' },
+  { id: 'amber',  value: 'oklch(0.68 0.15 70)',  label: 'Amber' },
+  { id: 'olive',  value: 'oklch(0.62 0.12 120)', label: 'Olive' },
+  { id: 'teal',   value: 'oklch(0.60 0.09 190)', label: 'Teal' },
+  { id: 'blue',   value: 'oklch(0.58 0.12 250)', label: 'Blue' },
+  { id: 'violet', value: 'oklch(0.58 0.14 300)', label: 'Violet' },
+  { id: 'plum',   value: 'oklch(0.55 0.13 335)', label: 'Plum' },
+  { id: 'slate',  value: 'oklch(0.55 0.02 260)', label: 'Slate' },
+];
+
+function projectColorMap() {
+  try {
+    return JSON.parse(localStorage.getItem('projectColors') || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function getProjectColor(projectId) {
+  const colorId = projectColorMap()[projectId];
+  return PROJECT_COLORS.find(c => c.id === colorId) || null;
+}
+
+function setProjectColor(projectId, colorId) {
+  const map = projectColorMap();
+  if (colorId) {
+    map[projectId] = colorId;
+  } else {
+    delete map[projectId];
+  }
+  localStorage.setItem('projectColors', JSON.stringify(map));
+}
+
 // Static Help screen content — one card per workflow step (PRD 5.9)
 const HELP_CONTENT = [
   {
@@ -1137,6 +1175,7 @@ async function initProjects() {
       name: p.name,
       invite_code: p.inviteCode,
       experiment_count: p.experiments.length,
+      experiment_names: p.experiments.map(e => e.name),
       members: [currentUser(), ...(p.otherMembers || [])],
     }));
   }
@@ -1161,8 +1200,12 @@ function renderProjectsHTML(projects) {
     : projects.map(p => {
         const expCount = p.experiment_count ?? 0;
         const expLabel = `${expCount} experiment${expCount !== 1 ? 's' : ''}`;
+        const color = getProjectColor(p.id);
+        const cardStyle = color ? ` style="--project-color: ${color.value}"` : '';
+        const swatchStyle = color ? ` style="--swatch-color: ${color.value}"` : '';
         return `
-          <div class="folder-card" data-id="${escHtml(String(p.id))}" role="button" tabindex="0">
+          <div class="folder-card folder-card--project" data-id="${escHtml(String(p.id))}" role="button" tabindex="0"${cardStyle}>
+            <button type="button" class="project-color-btn" data-project-id="${escHtml(String(p.id))}" aria-label="Choose color for ${escHtml(p.name)}" aria-haspopup="true"${swatchStyle}></button>
             <div class="folder-name">${escHtml(p.name)}</div>
             <div class="folder-meta">
               <span class="folder-meta-item">${expLabel}</span>
@@ -1175,7 +1218,7 @@ function renderProjectsHTML(projects) {
   return `
     <div class="folder-layout">
       <div class="folder-grid" id="folder-grid">${cards}</div>
-      <aside class="detail-panel visible" id="detail-panel" aria-label="Project details">${DETAIL_PANEL_EMPTY_HTML}</aside>
+      <aside class="detail-panel detail-panel--half visible" id="detail-panel" aria-label="Project details">${DETAIL_PANEL_EMPTY_HTML}</aside>
     </div>
   `;
 }
@@ -1197,6 +1240,7 @@ function wireProjects(projects) {
     if (card) card.classList.add('selected');
 
     const expCount = p.experiment_count ?? 0;
+    const expNames = p.experiment_names || [];
     const members = p.members || [];
     panel.innerHTML = `
       <div class="detail-name">${escHtml(p.name)}</div>
@@ -1205,13 +1249,15 @@ function wireProjects(projects) {
         <span class="detail-value detail-code">${escHtml(p.invite_code || '—')}${p.invite_code ? '<button class="detail-copy-btn" id="detail-copy" type="button">Copy</button>' : ''}</span>
       </div>
       <div class="detail-row">
-        <span class="detail-label">Experiments</span>
-        <span class="detail-value">${expCount}</span>
+        <span class="detail-label">Experiments${expCount ? ` (${expCount})` : ''}</span>
+        ${expNames.length
+          ? `<ul class="detail-list">${expNames.map(n => `<li class="detail-list-item">${escHtml(n)}</li>`).join('')}</ul>`
+          : '<span class="detail-value">None yet</span>'}
       </div>
       <div class="detail-row">
         <span class="detail-label">Members</span>
         ${members.length
-          ? `<ul class="detail-members">${members.map(m => `<li class="detail-member">${escHtml(m)}</li>`).join('')}</ul>`
+          ? `<ul class="detail-list">${members.map(m => `<li class="detail-list-item">${escHtml(m)}</li>`).join('')}</ul>`
           : '<span class="detail-value">—</span>'}
       </div>
       <button class="detail-open-btn" id="detail-open">Open project</button>
@@ -1246,10 +1292,52 @@ function wireProjects(projects) {
     });
   });
 
+  grid.querySelectorAll('.project-color-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const card = btn.closest('.folder-card');
+      const wasOpen = !!card.querySelector('.color-picker-popover');
+      grid.querySelectorAll('.color-picker-popover').forEach(el => el.remove());
+      if (wasOpen) return;
+
+      const projectId = btn.dataset.projectId;
+      const current = getProjectColor(projectId);
+      const popover = document.createElement('div');
+      popover.className = 'color-picker-popover';
+      popover.innerHTML = `
+        <button type="button" class="color-swatch-btn color-swatch-btn--none${!current ? ' active' : ''}" data-color-id="" aria-label="No color" title="No color"></button>
+        ${PROJECT_COLORS.map(c => `
+          <button type="button" class="color-swatch-btn${current?.id === c.id ? ' active' : ''}" data-color-id="${c.id}" style="--swatch-color: ${c.value}" aria-label="${escHtml(c.label)}" title="${escHtml(c.label)}"></button>
+        `).join('')}
+      `;
+      popover.addEventListener('click', e2 => e2.stopPropagation());
+      popover.querySelectorAll('.color-swatch-btn').forEach(sw => {
+        sw.addEventListener('click', () => {
+          const colorId = sw.dataset.colorId || null;
+          setProjectColor(projectId, colorId);
+          const newColor = colorId ? PROJECT_COLORS.find(c => c.id === colorId) : null;
+          card.style.setProperty('--project-color', newColor ? newColor.value : '');
+          btn.style.setProperty('--swatch-color', newColor ? newColor.value : '');
+          popover.remove();
+        });
+      });
+      card.appendChild(popover);
+    });
+  });
+
   if (projects.length) selectProject(projects[0].id);
 
   wireProjectsAction();
 }
+
+// Dismiss an open project color-picker popover on any click outside it —
+// wired once globally (not inside wireProjects, which reruns every time the
+// Projects screen renders) since the popover it targets can outlive a single
+// render pass.
+document.addEventListener('click', e => {
+  if (e.target.closest('.project-color-btn, .color-picker-popover')) return;
+  document.querySelectorAll('.color-picker-popover').forEach(el => el.remove());
+});
 
 function wireProjectsAction() {
   const actionBtn = document.getElementById('primary-action');

@@ -2332,3 +2332,27 @@ A prior pass removed the Starvation field from the UI but deliberately left the 
 Added a new bug-fix bullet to Phase 5 in `docs/tasks.md`. Plan appended to `docs/plan.md`.
 
 ---
+
+## Phase 20 — Projects screen: wider sidebar, experiment names, project color tags
+
+**Request:** user asked for the Projects screen sidebar to be half the screen, list experiment names instead of just a count, add a color selector for the project cell, and make project cells look visually distinct from the other folder layers.
+
+### What changed
+
+- `app.js`:
+  - `PROJECT_COLORS` (8-color preset palette) plus `projectColorMap()`/`getProjectColor()`/`setProjectColor()` helpers added near the existing `AVATARS`/avatar helpers, persisting a project-id → color-id map to `localStorage['projectColors']`.
+  - `renderProjectsHTML` — project cards gained a `folder-card--project` modifier class and a `.project-color-btn` swatch button; the detail panel `<aside>` gained a `detail-panel--half` modifier.
+  - `wireProjects` — added click wiring for `.project-color-btn` to open/close a `.color-picker-popover` of swatch buttons, applying the chosen color to the card via a `--project-color` inline custom property; a single global (not per-render) `document` click listener dismisses any open popover on an outside click. The "Experiments" detail row now renders a name list (`p.experiment_names`) instead of just the count, alongside the existing Members list — both now share one renamed `.detail-list`/`.detail-list-item` class pair (previously `.detail-members`/`.detail-member`, members-only).
+  - `initProjects` — local `local:` test accounts now also emit `experiment_names` (mapped from `TEST_PROJECTS[].experiments[].name`) alongside the existing `experiment_count`.
+- `api/main.py`: `list_projects` (`GET /projects`) and `join_project` (`POST /projects/join`) now select `experiments(name)` instead of `experiments(count)` and derive `experiment_count`/`experiment_names` from the returned rows; `create_project` (`POST /projects`) now also seeds `experiment_names: []` for a freshly created (necessarily empty) project.
+- `style.css`: `.detail-panel--half` (50% width, Projects screen only); `.folder-card--project`/`.folder-card--project::before`/`.folder-card--project.selected::before` (full-width rounded top color bar instead of the shared `.folder-card`'s small notch tab, sourced from `--project-color` with a `--border-default`/`--accent` fallback); `.project-color-btn`, `.color-picker-popover`, `.color-swatch-btn`/`.color-swatch-btn--none`/`.color-swatch-btn.active` for the swatch button and its popover; renamed `.detail-members`/`.detail-member` to generic `.detail-list`/`.detail-list-item`.
+
+### Verification
+
+No `chromium-cli` or Node/Playwright-for-JS in this environment, but Python's `playwright` package was available. Started the static site with `python -m http.server`, drove it with a Python Playwright script logged in via the `local:` test account (`docs/test-accounts.json`), and screenshotted: the Projects screen (half-width sidebar showing both experiment names for "Lipid Droplet Study"), the color popover opening, a card after picking "teal" (full-width top bar recolored, swatch button filled), and the Experiments screen for contrast (small top-left notch tab, unchanged). `console --errors` equivalent (a Playwright `console`/`pageerror` listener) reported no errors across the whole pass.
+
+## Final step (per project convention)
+
+Added a new Phase 20 to `docs/tasks.md`.
+
+---

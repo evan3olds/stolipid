@@ -289,7 +289,7 @@ def project_member_emails(project_id: str) -> list[str]:
 def list_projects(user=Depends(get_current_user)):
     response = (
         supabase.table("project_members")
-        .select("projects(*, experiments(count))")
+        .select("projects(*, experiments(name))")
         .eq("user_id", user.id)
         .execute()
     )
@@ -299,7 +299,8 @@ def list_projects(user=Depends(get_current_user)):
         if not project:
             continue
         experiments = project.pop("experiments", None) or []
-        project["experiment_count"] = experiments[0]["count"] if experiments else 0
+        project["experiment_count"] = len(experiments)
+        project["experiment_names"] = [e["name"] for e in experiments]
         project["members"] = project_member_emails(project["id"])
         projects.append(project)
     return projects
@@ -322,13 +323,14 @@ def create_project(body: ProjectBody, user=Depends(get_current_user)):
         "user_id": user.id,
     }).execute()
     project["experiment_count"] = 0
+    project["experiment_names"] = []
     return project
 
 
 @app.post("/projects/join")
 def join_project(body: JoinProjectBody, user=Depends(get_current_user)):
     code = body.invite_code.strip().upper()
-    response = supabase.table("projects").select("*, experiments(count)").eq("invite_code", code).execute()
+    response = supabase.table("projects").select("*, experiments(name)").eq("invite_code", code).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Invalid invite code")
     project = response.data[0]
@@ -347,7 +349,8 @@ def join_project(body: JoinProjectBody, user=Depends(get_current_user)):
         }).execute()
 
     experiments = project.pop("experiments", None) or []
-    project["experiment_count"] = experiments[0]["count"] if experiments else 0
+    project["experiment_count"] = len(experiments)
+    project["experiment_names"] = [e["name"] for e in experiments]
     return project
 
 
