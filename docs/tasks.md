@@ -266,6 +266,16 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] `AVATARS` array (`app.js`) added — 5 uniformly-named placeholders, `assets/avatar-1.png` through `avatar-5.png` (`avatar-1.png` is the renamed former `DefaultProfile.png`; `avatar-2..5.png` generated to match its silhouette style, recolored). `profileMenuHTML()`'s avatar `<img>` now reflects the selected avatar everywhere it's rendered (top bar and the Home screen's corner account menu). All 5 are throwaway placeholders — the eventual real artwork (lab-animal mascots, per user) drops in over these same 5 filenames with no code change required
 - [x] `SCREENS.settings` gained `back: true` and the shell's back-button handler routes it to Home, matching the existing About/Help pattern
 
+---
+
+## Phase 20 — Projects screen: wider sidebar, experiment names, project color tags
+
+- [x] Projects screen detail panel (`renderProjectsHTML`/`wireProjects` in `app.js`) widened to 50% of the `.folder-layout` flex container via a new `.detail-panel--half` modifier (`style.css`), applied only on the Projects screen — the shared `.detail-panel` width used by Experiments/Conditions/Cells is untouched
+- [x] Detail panel's "Experiments" row now lists each experiment's name (`p.experiment_names`) instead of just a count; `GET /projects` and `POST /projects/join` (`api/main.py`) changed to select `experiments(name)` instead of `experiments(count)` and derive both `experiment_count` and the new `experiment_names` list from that row set; local `local:` test accounts get the same field from `TEST_PROJECTS`' existing `experiments` fixture. Renamed the old `.detail-members`/`.detail-member` CSS classes to generic `.detail-list`/`.detail-list-item` so both the Members and new Experiments lists share one style
+- [x] Added a per-project color tag: a small circular swatch button (`.project-color-btn`) in each project card's top-right corner opens a swatch popover (`.color-picker-popover`, 8 preset `PROJECT_COLORS` + a "no color" option); picking one tints a full-width bar across the top of that card via a `--project-color` CSS custom property. Purely client-side — persisted to `localStorage['projectColors']` (project id → color id), not synced to other project members or the backend
+- [x] Project folder-cards (`.folder-card--project`) now look distinct from the Experiments/Conditions/Cells folder-cards: fully rounded corners and a full-width top color bar (doubling as the color-tag swatch) instead of the small top-left notch tab the other three layers use
+- [x] Verified with Playwright screenshots against the `local:` test-account fixture (no `chromium-cli`/Node available in this environment, but Python + `playwright` were): confirmed the half-width sidebar, the experiment-name list, the color popover opening and applying a color, and the visual contrast against the Experiments screen's notch-tab cards. No console errors.
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table

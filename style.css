@@ -1036,7 +1036,7 @@ body {
   filter: brightness(1.15);
 }
 
-.detail-members {
+.detail-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1045,10 +1045,100 @@ body {
   gap: 0.3rem;
 }
 
-.detail-member {
+.detail-list-item {
   font-size: 0.8125rem;
   color: var(--text-label);
   overflow-wrap: anywhere;
+}
+
+/* ---- Projects screen ---- */
+/* Sidebar is widened to half the layout so the experiment/member lists it
+   now carries have room, instead of the narrow fixed-width panel the other
+   folder layers use. */
+.detail-panel--half {
+  width: 50%;
+}
+
+/* Projects sit a level above experiments/conditions/cells, so their cards
+   drop the folder-tab notch for a full-width color bar instead — doubling
+   as the project color-tag swatch — plus fully rounded corners, to read as
+   a visually distinct top tier rather than another folder layer. */
+.folder-card--project {
+  border-radius: 0.5rem;
+  padding-top: 1.25rem;
+}
+
+.folder-card--project::before {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0.3rem;
+  border-radius: 0.5rem 0.5rem 0 0;
+  background: var(--project-color, var(--border-default));
+}
+
+.folder-card--project.selected::before {
+  background: var(--project-color, var(--accent));
+}
+
+.project-color-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-emphasis);
+  background: var(--swatch-color, transparent);
+  padding: 0;
+  cursor: pointer;
+}
+
+.project-color-btn:hover {
+  border-color: var(--accent);
+}
+
+.color-picker-popover {
+  position: absolute;
+  top: 2.1rem;
+  right: 0.75rem;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.375rem;
+  padding: 0.5rem;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 16px oklch(0.2 0.02 75 / 0.18);
+}
+
+.color-swatch-btn {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-default);
+  background: var(--swatch-color, var(--surface-card));
+  padding: 0;
+  cursor: pointer;
+}
+
+.color-swatch-btn--none {
+  background: linear-gradient(
+    to top right,
+    transparent calc(50% - 1px),
+    var(--danger) calc(50% - 1px),
+    var(--danger) calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+}
+
+.color-swatch-btn.active {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.color-swatch-btn:hover {
+  filter: brightness(1.08);
 }
 
 /* Feedback states */
