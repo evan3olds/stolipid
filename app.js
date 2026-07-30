@@ -1558,17 +1558,15 @@ function renderExperimentsHTML(experiments) {
   const cards = experiments.length === 0
     ? '<p class="empty-state">No experiments yet. Click "Add experiment" to create one.</p>'
     : experiments.map(exp => {
-        const condCount = exp.condition_count ?? 0;
-        const condLabel = `${condCount} condition${condCount !== 1 ? 's' : ''}`;
         return `
           <div class="folder-card" data-id="${escHtml(String(exp.id))}" role="button" tabindex="0">
             ${cardMenuHTML(exp.id, { showOpen: true })}
             <div class="folder-name">${escHtml(exp.name)}</div>
-            <div class="folder-meta">
-              ${exp.dye ? `<span class="folder-meta-item">${escHtml(exp.dye)}</span>` : ''}
-              <span class="folder-meta-item">${condLabel}</span>
-              ${exp.date ? `<span class="folder-meta-item">${formatDate(exp.date)}</span>` : ''}
-            </div>
+            ${exp.date ? `
+              <div class="folder-meta">
+                <span class="folder-meta-item">${formatDate(exp.date)}</span>
+              </div>
+            ` : ''}
           </div>
         `;
       }).join('');
@@ -1576,7 +1574,7 @@ function renderExperimentsHTML(experiments) {
   return `
     <div class="folder-layout">
       <div class="folder-grid" id="folder-grid">${cards}</div>
-      <aside class="detail-panel visible" id="detail-panel" aria-label="Experiment details">${DETAIL_PANEL_EMPTY_HTML}</aside>
+      <aside class="detail-panel detail-panel--large visible" id="detail-panel" aria-label="Experiment details">${DETAIL_PANEL_EMPTY_HTML}</aside>
     </div>
   `;
 }
@@ -1909,14 +1907,10 @@ function renderConditionsHTML(conditions) {
   const cards = conditions.length === 0
     ? '<p class="empty-state">No conditions yet. Click "New Condition" to create one.</p>'
     : conditions.map(cond => {
-        const cellCount = (cond.cells || []).length;
         return `
           <div class="folder-card" data-id="${escHtml(String(cond.id))}" role="button" tabindex="0">
             ${cardMenuHTML(cond.id, { showOpen: true })}
             <div class="folder-name">${escHtml(cond.name)}</div>
-            <div class="folder-meta">
-              <span class="folder-meta-item">${cellCount} cell${cellCount !== 1 ? 's' : ''}</span>
-            </div>
           </div>
         `;
       }).join('');
@@ -1924,7 +1918,7 @@ function renderConditionsHTML(conditions) {
   return `
     <div class="folder-layout">
       <div class="folder-grid" id="folder-grid">${cards}</div>
-      <aside class="detail-panel visible" id="detail-panel" aria-label="Condition details">${DETAIL_PANEL_EMPTY_HTML}</aside>
+      <aside class="detail-panel detail-panel--large visible" id="detail-panel" aria-label="Condition details">${DETAIL_PANEL_EMPTY_HTML}</aside>
     </div>
   `;
 }

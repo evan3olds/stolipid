@@ -2474,3 +2474,23 @@ Playwright screenshot against the `local:` fixture (Cell 3, "0 Hr Starved"): the
 Added a follow-up bullet to Phase 22 in `docs/tasks.md`.
 
 ---
+
+## Phase 23 — Experiments/Conditions cards trimmed to name-only, detail panel widened
+
+**Request:** "Change experiment and condition to only show the name on the cell, but experiment should keep the date only. All the same info should be on the side panel, which should also be bigger" — the Experiments/Conditions folder cards were showing dye/condition-count/date and cell-count respectively, duplicating what the detail panel already displayed.
+
+### What changed
+
+**`app.js`:** `renderExperimentsHTML` cards dropped the dye span and the "N conditions" span from `.folder-meta`, keeping only the date span (omitted entirely when the experiment has no date). `renderConditionsHTML` cards dropped `.folder-meta` and its cell-count span entirely, leaving just `.folder-name`. Neither screen's `selectExperiment`/`selectCondition` detail-panel markup changed — it already rendered date, dye, condition/cell count, ICC, and notes.
+
+**`style.css`:** No new CSS — both screens' `<aside class="detail-panel">` in `app.js` gained the existing `detail-panel--large` modifier class (480px, already used by the Cells screen) in place of the shared 260px default, so Experiments/Conditions are no longer the odd ones out on panel width.
+
+### Verification
+
+Verified with headless-Chrome screenshots against the `local:` test fixture (Lipid Droplet Study → Serum Starvation Timecourse): Experiments cards show only name + date, Conditions cards show only name, and both detail panels render at the wider 480px with the full name/date/dye/condition-or-cell-count/ICC/notes info intact. No console errors.
+
+## Final step (per project convention)
+
+Added a Phase 23 section to `docs/tasks.md`.
+
+---

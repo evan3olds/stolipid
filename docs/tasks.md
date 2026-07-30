@@ -302,6 +302,13 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 
 ---
 
+---
+
+## Phase 23 — Experiments/Conditions cards trimmed to name-only, detail panel widened
+
+- [x] Experiment cards (`renderExperimentsHTML` in `app.js`) now show only the name plus the date (dye and condition count dropped from the card, still on the detail panel); condition cards (`renderConditionsHTML`) show only the name (cell count dropped from the card). The detail panel for both screens already carried all of this info (date, dye, condition/cell count, ICC, notes), so no panel content changed
+- [x] Both screens' `<aside class="detail-panel">` gained the `detail-panel--large` modifier (`style.css`, same 480px width the Cells screen already used), replacing the shared 260px default — Experiments/Conditions were the last two folder-layout screens still on the narrow width
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table
