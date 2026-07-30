@@ -3114,6 +3114,7 @@ function renderCountHTML() {
           ${compareGroups ? '' : `<div class="count-total">Total: ${markers.length}</div>`}
         </div>
         <div class="count-topbar-actions">
+          ${compareGroups ? '<button class="count-cancel-btn" id="count-download">Download</button>' : ''}
           <button class="count-cancel-btn" id="count-cancel">${readOnly ? 'Close' : 'Cancel'}</button>
           ${readOnly ? '' : '<button class="primary-action" id="count-done">Done</button>'}
         </div>
@@ -3222,6 +3223,66 @@ async function finishCount() {
   }
 }
 
+// "Compare all counts" only: flattens the on-screen overlay (base image +
+// every group's colored markers, matched to the legend's actual rendered
+// colors rather than a duplicated color list) onto a canvas at the image's
+// native resolution and saves it as a PNG, so a rater can keep/share the
+// comparison outside the app.
+async function downloadCountOverlay() {
+  const { cell, compareGroups } = countState;
+  const img = document.querySelector('#count-frame .photo-preview-img');
+  if (!compareGroups || !img) return;
+
+  const btn = document.getElementById('count-download');
+  btn.disabled = true;
+
+  try {
+    const source = new Image();
+    source.crossOrigin = 'anonymous';
+    await new Promise((resolve, reject) => {
+      source.onload = resolve;
+      source.onerror = reject;
+      source.src = img.src;
+    });
+
+    const width = source.naturalWidth;
+    const height = source.naturalHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(source, 0, 0, width, height);
+
+    const swatches = document.querySelectorAll('.count-legend-swatch');
+    const radius = Math.max(4, width * 0.01);
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = Math.max(1, radius * 0.25);
+    compareGroups.forEach((g, i) => {
+      ctx.fillStyle = swatches[i] ? getComputedStyle(swatches[i]).backgroundColor : '#fff';
+      g.markers.forEach(m => {
+        ctx.beginPath();
+        ctx.arc((m.x / 100) * width, (m.y / 100) * height, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      });
+    });
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${cell.name.replace(/[^\w.-]+/g, '_')}-compare-counts.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch {
+    document.getElementById('count-error').textContent = 'Could not download the overlay image.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function wireCount() {
   document.getElementById('count-cancel').addEventListener('click', () => {
     navigate('cells');
@@ -3229,6 +3290,9 @@ function wireCount() {
 
   const doneBtn = document.getElementById('count-done');
   if (doneBtn) doneBtn.addEventListener('click', finishCount);
+
+  const downloadBtn = document.getElementById('count-download');
+  if (downloadBtn) downloadBtn.addEventListener('click', downloadCountOverlay);
 
   const frame = document.getElementById('count-frame');
 
