@@ -3008,3 +3008,23 @@ User request: put a download button on the Compare all counts screen for the ove
 ## Verification
 
 No browser-automation tooling used this session; verified by tracing `renderCountHTML`/`wireCount` by hand — button only renders/wires under `compareGroups`. Recommended follow-up: manual click-through in a live browser (open Compare all counts on a cell with ≥2 counts, click Download, confirm the PNG shows the base image with correctly colored/positioned markers matching the on-screen legend) since this session couldn't drive an actual browser.
+
+
+---
+
+# Plan: Phase 24 follow-ups — smaller markers, higher-quality export
+
+## Context
+
+Two quick corrections after Phase 24 shipped the Compare-all-counts download button: (1) the marker circles were too large to tell apart when counts landed near each other, and (2) the exported PNG looked low quality.
+
+For (2), the cause isn't lossy compression — PNG export via `canvas.toBlob` is lossless. The real issue is resolution: lipid-droplet cell crops are often small in raw pixels (a cropped box around one cell), and the on-screen `<img>` hides that because the browser smooths it via normal CSS upscaling when displayed larger. `downloadCountOverlay()` had been drawing the source at its exact native pixel size, so opening the PNG at 100% in a real image viewer (no such smoothing) revealed the crop's actual low pixel count as blockiness.
+
+## Approach
+
+- Shrink the radius formula (`width * 0.01` → `width * 0.003`, min `4` → `2`) and scale the stroke width down to match.
+- Upscale small sources to a `DOWNLOAD_TARGET_DIMENSION` of 1600px on the long edge with `ctx.imageSmoothingQuality = 'high'`, leaving sources already ≥1600px at native resolution (never downscale). Compute marker radius off the final (post-scale) canvas width so circle size stays consistent whether or not upscaling kicked in.
+
+## Verification
+
+No browser-automation tooling available this session. Recommended manual click-through: open Compare all counts on a cell with ≥2 counts, download, and inspect the PNG at 100% zoom — check both a small crop (exercises the upscale path) and a large one (exercises the native-resolution path) if test data with both sizes is available.

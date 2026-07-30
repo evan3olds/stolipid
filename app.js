@@ -3245,12 +3245,23 @@ async function downloadCountOverlay() {
       source.src = img.src;
     });
 
-    const width = source.naturalWidth;
-    const height = source.naturalHeight;
+    // Cell crops are often small in raw pixels (a cropped box around one
+    // cell, not a full slide) — on screen that's masked by the browser's
+    // smooth CSS upscaling of the <img>, but exporting at the raw native
+    // size made the PNG look blocky/pixelated once opened at 100% in a
+    // viewer with no such smoothing applied. Upscale small sources up to a
+    // reasonable target with high-quality smoothing; leave already-large
+    // sources alone rather than downscaling them.
+    const DOWNLOAD_TARGET_DIMENSION = 1600;
+    const scale = Math.max(1, DOWNLOAD_TARGET_DIMENSION / Math.max(source.naturalWidth, source.naturalHeight));
+    const width = source.naturalWidth * scale;
+    const height = source.naturalHeight * scale;
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(source, 0, 0, width, height);
 
     const swatches = document.querySelectorAll('.count-legend-swatch');
