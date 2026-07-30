@@ -1574,7 +1574,7 @@ function renderExperimentsHTML(experiments) {
   return `
     <div class="folder-layout">
       <div class="folder-grid" id="folder-grid">${cards}</div>
-      <aside class="detail-panel detail-panel--large visible" id="detail-panel" aria-label="Experiment details">${DETAIL_PANEL_EMPTY_HTML}</aside>
+      <aside class="detail-panel detail-panel--medium visible" id="detail-panel" aria-label="Experiment details">${DETAIL_PANEL_EMPTY_HTML}</aside>
     </div>
   `;
 }
@@ -1918,7 +1918,7 @@ function renderConditionsHTML(conditions) {
   return `
     <div class="folder-layout">
       <div class="folder-grid" id="folder-grid">${cards}</div>
-      <aside class="detail-panel detail-panel--large visible" id="detail-panel" aria-label="Condition details">${DETAIL_PANEL_EMPTY_HTML}</aside>
+      <aside class="detail-panel detail-panel--medium visible" id="detail-panel" aria-label="Condition details">${DETAIL_PANEL_EMPTY_HTML}</aside>
     </div>
   `;
 }
