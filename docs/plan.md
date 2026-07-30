@@ -2988,3 +2988,23 @@ The first two are pure CSS/markup changes. The third needs data plumbing: `count
 ## Verification
 
 Screenshotted Cell 3 in the "0 Hr Starved" condition (Preview mode → Lipid Droplet Study → Serum Starvation Timecourse) — confirmed the shrunk preview, the merged Source file/Average row, and `jsmith`/`rlopez` next to their respective hand counts. No console errors. Live-backend behavior (real, non-`local:` accounts) is unverified pending the `get_project_member_directory` migration being run in Supabase.
+
+
+---
+
+# Plan: Phase 24 — Download button on the "Compare all counts" overlay
+
+## Context
+
+User request: put a download button on the Compare all counts screen for the overlay. That screen is the Count screen (`app.js`) rendered with `countState.compareGroups` populated — it draws the base fluorescence image plus every saved hand count's marker grid and any auto-count grids, each in its own color, with a legend (`.count-legend`/`.count-legend-swatch`) mapping color to label. There was no existing way to export that composited view; the only prior download precedent in the app was CSV export (`downloadRawDataCSV`/`downloadRawDataSummaryCSV`), not image export.
+
+## Approach
+
+- Add a "Download" button to `.count-topbar-actions` in `renderCountHTML`, gated on `compareGroups` so it only appears in this mode (not plain hand-counting or single auto-count viewing).
+- New `downloadCountOverlay()`: re-fetch the displayed image via a `crossOrigin="anonymous"` `Image` (needed since the on-screen `<img>` isn't CORS-tagged and would taint the canvas on export), draw it onto an off-DOM canvas at native resolution, then draw each `compareGroups` entry's markers as circles colored by reading the live legend swatches' computed `background-color` (avoids hardcoding a second copy of the `.count-marker-group-*` oklch colors already in `style.css`).
+- Export via `canvas.toBlob('image/png')` and trigger a download named `<cell-name>-compare-counts.png`, following the existing Blob/ObjectURL/anchor download pattern.
+- Relies on the Render API's existing `allow_origins=["*"]` CORS config (`api/main.py`) for the cross-origin image re-fetch to succeed without tainting the canvas.
+
+## Verification
+
+No browser-automation tooling used this session; verified by tracing `renderCountHTML`/`wireCount` by hand — button only renders/wires under `compareGroups`. Recommended follow-up: manual click-through in a live browser (open Compare all counts on a cell with ≥2 counts, click Download, confirm the PNG shows the base image with correctly colored/positioned markers matching the on-screen legend) since this session couldn't drive an actual browser.

@@ -2494,3 +2494,28 @@ Verified with headless-Chrome screenshots against the `local:` test fixture (Lip
 Added a Phase 23 section to `docs/tasks.md`.
 
 ---
+
+## Phase 24 — Download button on the "Compare all counts" overlay
+
+**Request:** put a download button on the Compare all counts screen for the overlay.
+
+### What changed
+
+**`app.js`:** `renderCountHTML`'s `.count-topbar-actions` now renders a `<button id="count-download">Download</button>` (reusing the existing `.count-cancel-btn` secondary style) whenever `countState.compareGroups` is set, i.e. only in the "Compare all counts" view — hand-counting and auto-count-viewing modes are unaffected. New `downloadCountOverlay()`, wired in `wireCount()`:
+
+1. Re-fetches the currently displayed image through a fresh `Image` tagged `crossOrigin = 'anonymous'` rather than drawing from the on-screen `<img>` directly — the visible `<img>` has no CORS attribute, so `canvas.toBlob` would throw on a tainted canvas.
+2. Draws that image onto an off-DOM canvas sized to the image's native resolution (not the zoomed on-screen size), so the download quality doesn't depend on the current zoom level.
+3. Draws each `compareGroups` entry's markers as filled, white-outlined circles, colored by reading the *actual rendered* `background-color` off the corresponding `.count-legend-swatch` element (`getComputedStyle`) rather than hardcoding a second copy of the oklch color list already defined in `style.css` for `.count-marker-group-*` — keeps the two guaranteed in sync.
+4. Exports the canvas via `toBlob('image/png')` and triggers a download named `<cell-name>-compare-counts.png`, following the same Blob/ObjectURL/anchor pattern as `downloadRawDataCSV`.
+
+Relies on `api/main.py`'s Render API already sending `Access-Control-Allow-Origin: *` (`allow_origins=["*"]`, unchanged) — the cross-origin re-fetch of `/cells/{id}/display-image` needs that to succeed without tainting the canvas.
+
+### Verification
+
+No browser-automation tooling available this session. Traced by hand against `renderCountHTML`/`wireCount`: the button only renders/wires when `compareGroups` is truthy (i.e. entered via "Compare all counts", not plain hand-counting or single auto-count view), matching the ask. Not yet verified in a live browser — worth a manual click-through (open Compare all counts on a cell with ≥2 counts, click Download, confirm the PNG has the base image plus correctly colored/positioned markers matching the on-screen legend) before considering this fully done.
+
+## Final step (per project convention)
+
+Added a Phase 24 section to `docs/tasks.md`.
+
+---

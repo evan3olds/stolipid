@@ -309,6 +309,14 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Experiment cards (`renderExperimentsHTML` in `app.js`) now show only the name plus the date (dye and condition count dropped from the card, still on the detail panel); condition cards (`renderConditionsHTML`) show only the name (cell count dropped from the card). The detail panel for both screens already carried all of this info (date, dye, condition/cell count, ICC, notes), so no panel content changed
 - [x] Both screens' `<aside class="detail-panel">` gained a new `detail-panel--medium` modifier (`style.css`, 360px), replacing the shared 260px default — wider than before but narrower than the Cells screen's `detail-panel--large` (480px), since Experiments/Conditions detail rows carry less content than a Cells preview+counts panel
 
+---
+
+## Phase 24 — Download button on the "Compare all counts" overlay
+
+- [x] Count screen's compare-all-counts view (`countState.compareGroups`, `app.js`) gained a "Download" button next to Close in `.count-topbar-actions`, shown only in that mode
+- [x] `downloadCountOverlay()` (`app.js`) re-fetches the displayed image via a fresh `crossOrigin="anonymous"` `Image` (the on-screen `<img>` itself isn't CORS-tagged, so drawing straight from it would taint the canvas), draws it onto a canvas at its native resolution, then draws every compare group's markers on top in the same color the on-screen legend renders (read via `getComputedStyle` on the actual `.count-legend-swatch` elements, not a duplicated color list) before exporting as a PNG download named `<cell-name>-compare-counts.png`
+- [x] Relies on `api/main.py`'s existing `allow_origins=["*"]` CORS config on the Render API for the cross-origin re-fetch to succeed
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table
