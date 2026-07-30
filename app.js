@@ -3288,7 +3288,11 @@ function wireCount() {
 // the rest of the screen's session (graphState.colorAssignments persists
 // across add/remove within one visit; a full reset only happens on remount).
 
-let graphState = null; // { conditionsCache, selectedExperimentId, selected, colorAssignments, metric }
+let graphState = null; // { conditionsCache, selectedExperimentId, selected, colorAssignments, metric, title, editingTitle, editingLabel }
+
+const GRAPH_DEFAULT_TITLE = 'Lipid droplet counts by condition';
+
+const GRAPH_PENCIL_ICON = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
 
 // Metric shown on the y-axis: 'auto' (machine-suggested auto count, default
 // — averaged across whichever algorithm(s) have a counts row for that cell,
@@ -3380,7 +3384,11 @@ async function initGraph() {
     }
   }
 
-  graphState = { conditionsCache: {}, selectedExperimentId: null, selected: [], colorAssignments: {}, metric: 'combined', chartType: 'scatter' };
+  graphState = {
+    conditionsCache: {}, selectedExperimentId: null, selected: [], colorAssignments: {},
+    metric: 'combined', chartType: 'scatter',
+    title: GRAPH_DEFAULT_TITLE, editingTitle: false, editingLabel: null,
+  };
   content.innerHTML = renderGraphHTML(experiments);
   wireGraph(experiments);
 }
@@ -3436,11 +3444,73 @@ function renderGraphHTML(experiments) {
         </div>
       </aside>
       <div class="graph-main">
-        <h2 class="graph-chart-title">Lipid droplet counts by condition</h2>
+        <div class="graph-header">
+          <div class="graph-title-row" id="graph-title-row">${renderGraphTitleRowHTML()}</div>
+          <button type="button" class="graph-export-btn" id="graph-export-btn">Download graph</button>
+        </div>
         <div id="graph-chart-area">${renderGraphChartArea()}</div>
         <div class="graph-tooltip" id="graph-tooltip" hidden></div>
       </div>
     </div>
+  `;
+}
+
+function renderGraphTitleRowHTML() {
+  if (graphState.editingTitle) {
+    return `<input type="text" class="graph-title-input" id="graph-title-input" value="${escHtml(graphState.title)}" maxlength="120" />`;
+  }
+  return `
+    <h2 class="graph-chart-title">${escHtml(graphState.title)}</h2>
+    <button type="button" class="graph-edit-btn" id="graph-title-edit-btn" aria-label="Edit graph title" title="Edit graph title">${GRAPH_PENCIL_ICON}</button>
+  `;
+}
+
+function refreshGraphTitleRow() {
+  document.getElementById('graph-title-row').innerHTML = renderGraphTitleRowHTML();
+  wireGraphTitleRow();
+}
+
+function wireGraphTitleRow() {
+  if (graphState.editingTitle) {
+    const input = document.getElementById('graph-title-input');
+    input.focus();
+    input.select();
+    let cancelled = false;
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') input.blur();
+      else if (e.key === 'Escape') { cancelled = true; input.blur(); }
+    });
+    input.addEventListener('blur', () => {
+      if (!cancelled) {
+        const value = input.value.trim();
+        if (value) graphState.title = value;
+      }
+      graphState.editingTitle = false;
+      refreshGraphTitleRow();
+    });
+    return;
+  }
+  document.getElementById('graph-title-edit-btn').addEventListener('click', () => {
+    graphState.editingTitle = true;
+    refreshGraphTitleRow();
+  });
+}
+
+// Each selected item's experiment/condition display labels (experimentLabel/
+// conditionLabel) start out equal to the real names but can be edited
+// independently per item — a display-only rename that feeds the x-axis
+// column labels and legend (see renderGraphColumnLabelSVG call sites) without
+// touching the underlying experiment/condition records.
+function renderGraphSelectedLabelHTML(s, field) {
+  const editing = graphState.editingLabel;
+  const value = s[field];
+  if (editing && String(editing.conditionId) === String(s.conditionId) && editing.field === field) {
+    return `<input type="text" class="graph-label-input" data-condition-id="${escHtml(String(s.conditionId))}" data-field="${field}" value="${escHtml(value)}" maxlength="60" />`;
+  }
+  const fieldTitle = field === 'experimentLabel' ? 'experiment' : 'condition';
+  return `
+    <span class="graph-selected-name">${escHtml(value)}</span>
+    <button type="button" class="graph-edit-btn graph-edit-btn-sm" data-condition-id="${escHtml(String(s.conditionId))}" data-field="${field}" aria-label="Edit ${fieldTitle} label" title="Edit ${fieldTitle} label">${GRAPH_PENCIL_ICON}</button>
   `;
 }
 
@@ -3450,8 +3520,12 @@ function renderGraphSelectedListHTML() {
     <ul class="graph-selected-list-items">
       ${graphState.selected.map(s => `
         <li class="graph-selected-item">
-          <span>${escHtml(s.experimentName)} &rsaquo; ${escHtml(s.conditionName)}</span>
-          <button class="graph-selected-remove" data-condition-id="${escHtml(String(s.conditionId))}" aria-label="Remove ${escHtml(s.conditionName)} from graph">&times;</button>
+          <span class="graph-selected-label">
+            ${renderGraphSelectedLabelHTML(s, 'experimentLabel')}
+            <span class="graph-selected-sep">&rsaquo;</span>
+            ${renderGraphSelectedLabelHTML(s, 'conditionLabel')}
+          </span>
+          <button class="graph-selected-remove" data-condition-id="${escHtml(String(s.conditionId))}" aria-label="Remove ${escHtml(s.conditionLabel)} from graph">&times;</button>
         </li>
       `).join('')}
     </ul>
@@ -3467,6 +3541,36 @@ function wireGraphSelectedList() {
   document.querySelectorAll('.graph-selected-remove').forEach(btn => {
     btn.addEventListener('click', () => {
       graphState.selected = graphState.selected.filter(s => String(s.conditionId) !== btn.dataset.conditionId);
+      refreshGraphSelectedList();
+      refreshGraphChartArea();
+    });
+  });
+
+  document.querySelectorAll('.graph-edit-btn-sm').forEach(btn => {
+    btn.addEventListener('click', () => {
+      graphState.editingLabel = { conditionId: btn.dataset.conditionId, field: btn.dataset.field };
+      refreshGraphSelectedList();
+    });
+  });
+
+  document.querySelectorAll('.graph-label-input').forEach(input => {
+    input.focus();
+    input.select();
+    let cancelled = false;
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') input.blur();
+      else if (e.key === 'Escape') { cancelled = true; input.blur(); }
+    });
+    input.addEventListener('blur', () => {
+      const { conditionId, field } = graphState.editingLabel;
+      if (!cancelled) {
+        const value = input.value.trim();
+        if (value) {
+          const item = graphState.selected.find(s => String(s.conditionId) === String(conditionId));
+          if (item) item[field] = value;
+        }
+      }
+      graphState.editingLabel = null;
       refreshGraphSelectedList();
       refreshGraphChartArea();
     });
@@ -3516,7 +3620,7 @@ function renderGraphChartArea() {
           return `
             <span class="graph-legend-item">
               <span class="graph-legend-swatch" style="background:${color}"></span>
-              ${escHtml(item.experimentName)}
+              ${escHtml(item.experimentLabel)}
             </span>
           `;
         }).join('')}
@@ -3594,7 +3698,7 @@ function renderGraphScatterSVG(selected, metric) {
       const countsStr = handCounts(cell).map(c => c.value).join(', ') || '—';
       const autoStr = cellAutoCounts(cell).map(r => `${autoAlgorithmLabel(r.type)}: ${r.value}`).join(', ') || '—';
       return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" class="graph-dot" style="fill:${color}"
-        data-experiment="${escHtml(s.experimentName)}" data-condition="${escHtml(s.conditionName)}"
+        data-experiment="${escHtml(s.experimentLabel)}" data-condition="${escHtml(s.conditionLabel)}"
         data-cell="${escHtml(cell.name)}" data-counts="${escHtml(countsStr)}" data-average="${autoStr}"
         data-plotted="${avg.toFixed(1)}" data-metric-key="${metric}" data-metric="${escHtml(GRAPH_METRICS[metric].label)}" />`;
     }).join('');
@@ -3606,14 +3710,14 @@ function renderGraphScatterSVG(selected, metric) {
     // (rendered last, pointer-events: none) needs to stay visually on top.
     const meanHit = mean != null
       ? `<rect x="${(cx - barHalf).toFixed(1)}" y="${(yFor(mean) - 6).toFixed(1)}" width="${(barHalf * 2).toFixed(1)}" height="12" class="graph-mean-hit"
-          data-experiment="${escHtml(s.experimentName)}" data-condition="${escHtml(s.conditionName)}"
+          data-experiment="${escHtml(s.experimentLabel)}" data-condition="${escHtml(s.conditionLabel)}"
           data-mean="${mean.toFixed(1)}" data-metric="${escHtml(GRAPH_METRICS[metric].label)}" />`
       : '';
     const meanTick = mean != null
       ? `<line x1="${(cx - barHalf).toFixed(1)}" y1="${yFor(mean).toFixed(1)}" x2="${(cx + barHalf).toFixed(1)}" y2="${yFor(mean).toFixed(1)}" class="graph-mean-tick" style="stroke:${color}" />`
       : '';
 
-    const label = renderGraphColumnLabelSVG(cx, height, s.conditionName, s.experimentName);
+    const label = renderGraphColumnLabelSVG(cx, height, s.conditionLabel, s.experimentLabel);
 
     return meanHit + dots + meanTick + label;
   }).join('');
@@ -3653,7 +3757,7 @@ function renderGraphBarSVG(selected, metric) {
 
   const columns = bars.map(({ s, mean, sd, n: cellCount }, i) => {
     const cx = padLeft + colWidth * (i + 0.5);
-    const label = renderGraphColumnLabelSVG(cx, height, s.conditionName, s.experimentName);
+    const label = renderGraphColumnLabelSVG(cx, height, s.conditionLabel, s.experimentLabel);
     if (mean == null) return label;
 
     const color = seriesColorForExperiment(s.experimentId);
@@ -3667,7 +3771,7 @@ function renderGraphBarSVG(selected, metric) {
     // mean-hit rect: the visible bar/whisker stay pointer-events:none so a
     // single hover target covers the whole column instead of just the bar.
     const barHit = `<rect x="${(cx - barHalf).toFixed(1)}" y="${padTop}" width="${(barHalf * 2).toFixed(1)}" height="${plotHeight.toFixed(1)}" class="graph-bar-hit"
-      data-experiment="${escHtml(s.experimentName)}" data-condition="${escHtml(s.conditionName)}"
+      data-experiment="${escHtml(s.experimentLabel)}" data-condition="${escHtml(s.conditionLabel)}"
       data-mean="${mean.toFixed(1)}" data-sd="${sd != null ? sd.toFixed(1) : '—'}" data-n="${cellCount}" data-metric="${escHtml(GRAPH_METRICS[metric].label)}" />`;
 
     const bar = `<rect x="${(cx - barHalf).toFixed(1)}" y="${barTop.toFixed(1)}" width="${(barHalf * 2).toFixed(1)}" height="${barHeight.toFixed(1)}" class="graph-bar" style="fill:${color}" />`;
@@ -3717,7 +3821,7 @@ function renderGraphBoxSVG(selected, metric) {
 
   const columns = boxes.map(({ s, stats }, i) => {
     const cx = padLeft + colWidth * (i + 0.5);
-    const label = renderGraphColumnLabelSVG(cx, height, s.conditionName, s.experimentName);
+    const label = renderGraphColumnLabelSVG(cx, height, s.conditionLabel, s.experimentLabel);
     if (!stats) return label;
 
     const { min, q1, median, q3, max, n: cellCount } = stats;
@@ -3725,7 +3829,7 @@ function renderGraphBoxSVG(selected, metric) {
     const boxHalf = colWidth * 0.3;
 
     const boxHit = `<rect x="${(cx - boxHalf).toFixed(1)}" y="${padTop}" width="${(boxHalf * 2).toFixed(1)}" height="${plotHeight.toFixed(1)}" class="graph-box-hit"
-      data-experiment="${escHtml(s.experimentName)}" data-condition="${escHtml(s.conditionName)}"
+      data-experiment="${escHtml(s.experimentLabel)}" data-condition="${escHtml(s.conditionLabel)}"
       data-min="${min.toFixed(1)}" data-q1="${q1.toFixed(1)}" data-median="${median.toFixed(1)}" data-q3="${q3.toFixed(1)}" data-max="${max.toFixed(1)}"
       data-n="${cellCount}" data-metric="${escHtml(GRAPH_METRICS[metric].label)}" />`;
 
@@ -3925,8 +4029,10 @@ function wireGraph(experiments) {
       graphState.selected.push({
         conditionId: cond.id,
         conditionName: cond.name,
+        conditionLabel: cond.name,
         experimentId: exp.id,
         experimentName: exp.name,
+        experimentLabel: exp.name,
         cells: cond.cells || [],
       });
     });
@@ -3936,7 +4042,131 @@ function wireGraph(experiments) {
   });
 
   wireGraphSelectedList();
+  wireGraphTitleRow();
   wireGraphTooltip();
+
+  document.getElementById('graph-export-btn').addEventListener('click', downloadGraphImage);
+}
+
+// ---- Graph screen: image export ----
+// The live chart's colors are all `var(--accent)` / `var(--series-N)` / etc.
+// — inline on shapes and via .graph-* classes in style.css — which only
+// resolve through the app shell's :root cascade. A cloned <svg> rasterized
+// on its own (new Image()) is a separate document with no access to that
+// cascade, so it needs its own literal copy of every custom property and
+// .graph-* rule the chart depends on. Values below are hardcoded from the
+// Paper (light) theme in style.css so an exported figure always renders on
+// a plain white background regardless of which theme is active on screen.
+const GRAPH_EXPORT_COLORS = {
+  '--accent': 'oklch(0.56 0.10 45)',
+  '--series-1': '#2a78d6', '--series-2': '#1baf7a', '--series-3': '#eda100', '--series-4': '#008300',
+  '--series-5': '#4a3aa7', '--series-6': '#e34948', '--series-7': '#e87ba4', '--series-8': '#eb6834',
+};
+
+const GRAPH_EXPORT_SVG_STYLE = `
+  :root {
+    ${Object.entries(GRAPH_EXPORT_COLORS).map(([k, v]) => `${k}: ${v};`).join('\n    ')}
+    --text-primary: oklch(0.2 0.02 75);
+    --text-heading-fill: oklch(0.25 0.02 75);
+    --text-secondary: oklch(0.5 0.03 75);
+    --border-default: oklch(0.88 0.01 75);
+  }
+  text { font-family: 'IBM Plex Sans', 'IBM Plex Mono', sans-serif; }
+  .graph-gridline { stroke: var(--border-default); stroke-width: 1; }
+  .graph-axis-tick { font-family: 'IBM Plex Mono', monospace; font-size: 10px; fill: var(--text-secondary); }
+  .graph-axis-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; fill: var(--text-secondary); }
+  .graph-col-label { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; fill: var(--text-heading-fill); }
+  .graph-col-sublabel { font-family: 'IBM Plex Mono', monospace; font-size: 10px; fill: var(--text-secondary); }
+  .graph-dot { opacity: 0.8; }
+  .graph-mean-tick { stroke-width: 3; }
+  .graph-mean-hit, .graph-bar-hit, .graph-box-hit { fill: transparent; }
+  .graph-error-whisker { stroke: var(--text-primary); stroke-width: 2; }
+  .graph-box { fill-opacity: 0.25; stroke-width: 2; }
+  .graph-box-whisker { stroke-width: 2; }
+  .graph-box-median { stroke-width: 3; }
+`;
+
+// Rebuilds the title + legend + chart as a fresh canvas drawing (not a DOM
+// screenshot), so the pencil/edit-label icons — which only ever exist in the
+// sidebar and title-row HTML, never in this drawing code — can't end up in
+// the exported file.
+async function downloadGraphImage() {
+  const liveSvg = document.querySelector('#graph-chart-area .graph-scatter-svg');
+  if (!liveSvg) return;
+
+  const btn = document.getElementById('graph-export-btn');
+  btn.disabled = true;
+  try {
+    const svgClone = liveSvg.cloneNode(true);
+    svgClone.setAttribute('width', String(GRAPH_CHART_WIDTH));
+    svgClone.setAttribute('height', String(GRAPH_CHART_HEIGHT));
+    svgClone.insertAdjacentHTML('afterbegin',
+      `<rect x="0" y="0" width="${GRAPH_CHART_WIDTH}" height="${GRAPH_CHART_HEIGHT}" fill="#ffffff"/><style>${GRAPH_EXPORT_SVG_STYLE}</style>`);
+    const svgString = new XMLSerializer().serializeToString(svgClone);
+    const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+
+    await document.fonts.ready;
+    const chartImg = new Image();
+    await new Promise((resolve, reject) => {
+      chartImg.onload = resolve;
+      chartImg.onerror = reject;
+      chartImg.src = svgDataUrl;
+    });
+
+    const distinctIds = [...new Set(graphState.selected.map(s => s.experimentId))];
+    const legendItems = distinctIds.length > 1
+      ? distinctIds.map(expId => ({
+          label: graphState.selected.find(s => s.experimentId === expId).experimentLabel,
+          color: seriesColorForExperiment(expId),
+        }))
+      : [];
+
+    const pad = 24;
+    const titleHeight = 36;
+    const legendHeight = legendItems.length ? 28 : 0;
+    const canvas = document.createElement('canvas');
+    canvas.width = GRAPH_CHART_WIDTH + pad * 2;
+    canvas.height = titleHeight + legendHeight + GRAPH_CHART_HEIGHT + pad * 2;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#3f3529';
+    ctx.font = '600 20px "Newsreader", serif';
+    ctx.fillText(graphState.title, pad, pad);
+
+    let y = pad + titleHeight;
+    if (legendItems.length) {
+      ctx.font = '11px "IBM Plex Mono", monospace';
+      let x = pad;
+      legendItems.forEach(({ label, color }) => {
+        const resolved = /^var\(/.test(color) ? GRAPH_EXPORT_COLORS[color.slice(4, -1)] : color;
+        ctx.fillStyle = resolved;
+        ctx.fillRect(x, y + 3, 10, 10);
+        ctx.fillStyle = '#3f3529';
+        const textWidth = ctx.measureText(label).width;
+        ctx.fillText(label, x + 16, y);
+        x += 16 + textWidth + 24;
+      });
+      y += legendHeight;
+    }
+
+    ctx.drawImage(chartImg, pad, y, GRAPH_CHART_WIDTH, GRAPH_CHART_HEIGHT);
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${graphState.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'graph'}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ---- Raw Data screen ----
