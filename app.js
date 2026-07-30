@@ -245,9 +245,15 @@ function navigate(screen, params = {}) {
   // where the user came from (kept separate from returnScreen above, since
   // opening Settings from Graph/Raw data must not clobber the origin those
   // still need for their own Back button) so Back and the breadcrumb return
-  // there instead of always bouncing to Home.
+  // there instead of always bouncing to Home. Graph/Raw data are themselves
+  // just a detour tab, not a real hierarchy stop, so opening Settings from
+  // one of them collapses through to the Experiments/Conditions/Cells
+  // screen underneath rather than showing "Graph"/"Raw data" as the crumb
+  // Settings hangs off of.
   if (screen === 'settings' && state.screen !== 'settings') {
-    state.settingsReturnScreen = state.screen;
+    state.settingsReturnScreen = (state.screen === 'graph' || state.screen === 'rawdata')
+      ? (state.returnScreen || 'experiments')
+      : state.screen;
   }
 
   state.screen = screen;
