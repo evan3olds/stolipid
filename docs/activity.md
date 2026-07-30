@@ -2412,3 +2412,21 @@ No browser-automation tooling available in this environment this session, so thi
 Added Phase 21 to `docs/tasks.md`.
 
 ---
+
+## Phase 21 follow-up — Settings shouldn't hang off Graph/Raw data
+
+**Request:** user pointed out that opening Settings while on Graph or Raw data still showed those as the crumb Settings was appended to (e.g. `.../Graph/Settings`), which felt wrong since Graph/Raw data are just a detour tab, not a real place in the hierarchy.
+
+### What changed
+
+`navigate()`'s `state.settingsReturnScreen` capture (`app.js`) now collapses through Graph/Raw data: if the screen being left when Settings opens is `'graph'` or `'rawdata'`, it stores `state.returnScreen` (the actual Experiments/Conditions/Cells screen underneath that detour) instead of `'graph'`/`'rawdata'` itself. Since both the breadcrumb (via `hierarchyCrumbs`) and the shell's Back-button handler already key off `settingsReturnScreen`, this one change fixes both at once — Settings opened from Graph/Raw data now shows and returns to the underlying hierarchy screen directly, never showing "Graph" or "Raw data" as a crumb.
+
+### Verification
+
+No browser-automation tooling available this session; traced by hand: Settings opened from Cells while on Graph → breadcrumb `Home / Projects / Project / Experiment / Condition / Settings`, Back returns to Cells (not Graph). Settings opened directly from Cells (no detour) is unaffected — same as before this follow-up.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to Phase 21 in `docs/tasks.md`.
+
+---
