@@ -177,6 +177,10 @@
   padding: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--bg);
   font-family: var(--font-body);
@@ -701,33 +705,111 @@ body {
   font-size: 0.9375rem;
 }
 
-/* Help screen */
-.help-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1rem;
+/* Help screen — wiki-style layout: sticky TOC + search sidebar, flowing
+   article of anchored sections. */
+.wiki-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 2rem;
   max-width: 60rem;
   margin: 0 auto;
 }
 
-.help-card {
-  background: var(--surface-card);
-  border: 1px solid var(--border-default);
-  border-radius: 0.5rem;
-  padding: 1.125rem;
+.wiki-sidebar {
+  width: 14rem;
+  flex-shrink: 0;
+  position: sticky;
+  top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.help-card-title {
+.wiki-search-input {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.375rem;
+  background: var(--surface-input);
+  color: inherit;
+  width: 100%;
+}
+
+.wiki-search-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.wiki-toc-title {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.wiki-toc-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  border-left: 2px solid var(--border-default);
+}
+
+.wiki-toc-link {
+  display: block;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0 0.3rem 0.75rem;
+  margin-left: -2px;
+  border-left: 2px solid transparent;
+  color: var(--text-body);
+}
+
+.wiki-toc-link:hover {
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+.wiki-article {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.wiki-section {
+  scroll-margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-default);
+}
+
+.wiki-section.wiki-section-first-visible {
+  padding-top: 0;
+  border-top: none;
+}
+
+.wiki-section-title {
   font-family: var(--font-heading);
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
 }
 
-.help-card-body {
-  font-size: 0.875rem;
-  line-height: 1.5;
+.wiki-section-body {
+  font-size: 0.9375rem;
+  line-height: 1.6;
   color: var(--text-body);
+}
+
+.wiki-no-results {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 2rem 0;
 }
 
 /* About screen */
