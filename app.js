@@ -3254,9 +3254,9 @@ async function downloadCountOverlay() {
     ctx.drawImage(source, 0, 0, width, height);
 
     const swatches = document.querySelectorAll('.count-legend-swatch');
-    const radius = Math.max(4, width * 0.01);
+    const radius = Math.max(2, width * 0.003);
     ctx.strokeStyle = 'white';
-    ctx.lineWidth = Math.max(1, radius * 0.25);
+    ctx.lineWidth = Math.max(0.5, radius * 0.25);
     compareGroups.forEach((g, i) => {
       ctx.fillStyle = swatches[i] ? getComputedStyle(swatches[i]).backgroundColor : '#fff';
       g.markers.forEach(m => {
