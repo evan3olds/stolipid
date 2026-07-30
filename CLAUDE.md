@@ -69,6 +69,22 @@ $$;
 
 grant execute on function get_project_member_emails(uuid) to service_role;
 ```
+- **`get_project_member_directory` RPC — migration not yet applied to the live Supabase project:** the Cells screen shows who did each hand count (the local part of their email, next to the count value — `app.js` `usernameFromEmail`/`wireCells`), which needs `counts.counted_by` (a bare `user_id`) resolved to an email. Same `auth.users`-join constraint as `get_project_member_emails` above, so `project_member_directory()` (`api/main.py`) uses the same `SECURITY DEFINER` RPC pattern, just returning `user_id` alongside `email` so the result can be used as a lookup table; `list_cells` calls it once per request (keyed off the condition's `project_id`) and stamps each count with `counted_by_email`. Run before this deploys:
+```sql
+create or replace function get_project_member_directory(p_project_id uuid)
+returns table (user_id uuid, email text)
+language sql
+security definer
+set search_path = public, auth
+as $$
+  select pm.user_id, au.email
+  from project_members pm
+  join auth.users au on au.id = pm.user_id
+  where pm.project_id = p_project_id;
+$$;
+
+grant execute on function get_project_member_directory(uuid) to service_role;
+```
 - `cell.average` and `condition.mean` are computed in JS at query time from `counts` rows where `type = 'hand'`, not stored
 - `condition.icc` is written by the Python pipeline and stored as a column, also computed only over `type = 'hand'` rows
 - `counts.type` is `'hand'` for a manual count, or a detection algorithm slug for a machine-generated one. Add Photos never writes a machine-generated row — it only saves the converted image. Auto-count is opt-in per cell afterward, triggered from the Cells screen's Auto count section, which lets the researcher run either or both of two algorithms (`api/detection.py`'s `detect_droplets(plane, algorithm=...)`, called via `PUT /cells/{id}/auto-count`) against that already-saved image; running the second doesn't erase the first, so a cell can hold one machine-generated `counts` row per algorithm (up to two total) at once (`counted_by` is the researcher who triggered that run, not necessarily the original uploader):

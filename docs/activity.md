@@ -2430,3 +2430,29 @@ No browser-automation tooling available this session; traced by hand: Settings o
 Added a follow-up bullet to Phase 21 in `docs/tasks.md`.
 
 ---
+
+## Phase 22 — Cells detail panel: smaller preview, source file/average side-by-side, hand count rater attribution
+
+**Request:** on the Cells screen's side panel, make the preview image slightly smaller, move the average hand count to the right of the source file, and show who did each hand count (the username portion of their email) instead of just the raw value.
+
+### What changed
+
+**CSS (`style.css`):** `.detail-panel--large .detail-thumbnail` height dropped `220px` → `170px`. A new `.detail-row-split` flex wrapper (with `.detail-row-split .detail-row { flex: 1; margin-bottom: 0 }`) lets two `.detail-row`s sit side by side instead of stacking. New `.count-meta` (flex row grouping a count's value + rater) and `.count-rater` (small monospace, `text-secondary`, ellipsis-truncated) classes.
+
+**`app.js`:** `wireCells`'s `renderDetail` wraps the Source file and Average hand count rows in `.detail-row-split`. Each hand-count `<li>` now nests value + rater in a `.count-meta` span ahead of the existing Edit/Delete actions. New `usernameFromEmail(email)` helper — same "local part of the email" convention as the existing `currentUserName()` — reads a new `count.counted_by_email` field.
+
+**Backend (`api/main.py`):** `counts.counted_by` is a bare `user_id` (see `CLAUDE.md`'s schema), not an email, so the frontend needed it resolved server-side — the same `auth.users`-join problem `get_project_member_emails` (Phase 18) already solved for the Projects screen's member list. Rather than reuse that function (which only returns bare emails, no `user_id` to key by, and might already be live in production), added a second RPC, `get_project_member_directory(p_project_id)`, returning `(user_id, email)` pairs. New `project_member_directory()` Python helper calls it and returns a `dict[user_id, email]`. `list_cells` now fetches the condition's `experiment_id` → `project_id`, builds that directory once per request, and stamps `counted_by_email` onto every count before returning. Documented as a **migration not yet applied to the live Supabase project** in `CLAUDE.md`, right after the `get_project_member_emails` migration it mirrors.
+
+**Mock data (`app.js`):** `TEST_CONDITIONS`'s hand-count fixtures gained `counted_by_email`, rotating through the three `TEST_PROJECTS` members (`test@example.com`, `jsmith@stolaf.edu`, `rlopez@stolaf.edu`) so the feature is visible without a live backend. `finishCount`'s `local:`-mode branch stamps a freshly-added count with `counted_by_email: currentUser()`.
+
+### Verification
+
+Python + `playwright` were available in this environment (no `chromium-cli`/Node). Served the static site with `python -m http.server`, drove it with a Playwright script through Preview mode → Lipid Droplet Study → Serum Starvation Timecourse → 0 Hr Starved → Cell 3, and screenshotted the detail panel: preview visibly shorter, Source file and Average hand count on one row, and the two hand counts showing `jsmith` / `rlopez` next to their values. No console errors at any step.
+
+Not yet verified against the live backend — needs the `get_project_member_directory` migration run in Supabase's SQL editor before `counted_by_email` populates for real (non-`local:`) accounts.
+
+## Final step (per project convention)
+
+Added a Phase 22 section to `docs/tasks.md`, marked the matching "Named inter-rater workflow" line under Future/Out-of-scope as partially done. Plan appended to `docs/plan.md`.
+
+---

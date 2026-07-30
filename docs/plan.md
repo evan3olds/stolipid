@@ -2964,3 +2964,27 @@ An earlier pass dropped the Starvation field from the UI but left `conditions.st
 ## Final step (per project convention)
 
 Added a bug-fix bullet to Phase 5 in `docs/tasks.md`. Matching entry appended to `docs/activity.md`.
+
+
+---
+
+# Plan: Phase 22 — Cells detail panel: smaller preview, source file/average side-by-side, hand count rater attribution
+
+## Context
+
+User request: on the Cells screen's side panel (`wireCells`/`renderDetail` in `app.js`), make the preview image slightly smaller, move the average hand count to sit to the right of the source file instead of stacked below it, and show who did each hand count — the username portion of their email — rather than just a bare value.
+
+The first two are pure CSS/markup changes. The third needs data plumbing: `counts.counted_by` (per `CLAUDE.md`'s schema) is a bare `user_id`, and nothing in `app.js` or `api/main.py` currently resolves that to anything display-worthy. The closest precedent is Phase 18's `get_project_member_emails` — a `SECURITY DEFINER` RPC added to work around the Admin Auth API 403ing on Render — but it only returns a flat list of emails with no `user_id` to key by, so it can't be reused directly for a per-count lookup.
+
+## Approach
+
+- CSS: shrink `.detail-panel--large .detail-thumbnail`, add a `.detail-row-split` flex wrapper for the Source file/Average pairing.
+- Add a second RPC, `get_project_member_directory(p_project_id)`, mirroring `get_project_member_emails` but returning `(user_id, email)` pairs instead of just `email` — documented in `CLAUDE.md` as **not yet applied to the live Supabase project**, same as its sibling.
+- `api/main.py`: `project_member_directory()` helper calls the new RPC; `list_cells` resolves the condition's `project_id` and stamps `counted_by_email` onto every returned count.
+- `app.js`: `usernameFromEmail()` helper (mirrors `currentUserName()`), rendered next to each hand count's value in a new `.count-meta` wrapper.
+- Update `TEST_CONDITIONS` mock fixtures and `finishCount`'s `local:` branch so the feature demos without a live backend.
+- Verify with Playwright (Python) against the `local:` fixture, since no `chromium-cli`/Node was available this session.
+
+## Verification
+
+Screenshotted Cell 3 in the "0 Hr Starved" condition (Preview mode → Lipid Droplet Study → Serum Starvation Timecourse) — confirmed the shrunk preview, the merged Source file/Average row, and `jsmith`/`rlopez` next to their respective hand counts. No console errors. Live-backend behavior (real, non-`local:` accounts) is unverified pending the `get_project_member_directory` migration being run in Supabase.
