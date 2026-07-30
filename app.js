@@ -188,6 +188,8 @@ const ABOUT_CONTENT = {
   origin: 'Built for biology researchers and students at St. Olaf College quantifying cellular lipid accumulation (BODIPY, Nile Red staining) under different experimental treatments, where the previous process had no link between counts and source images and no way to check inter-rater reliability.',
   status: 'Working prototype. Core workflow (shared projects, experiments, conditions, cells, hand counting, auto-count suggestions, graphing, and raw data export) is functional; see the Prototype badge in the top bar.',
   links: [],
+  creators: ["Brooke Barenz, '27", "Evan Olds, '27"],
+  credits: [],
 };
 
 // Navigation state — persists across the authenticated shell
@@ -311,6 +313,16 @@ function renderAboutHTML() {
           </ul>
         </div>
       ` : ''}
+      <div class="about-footer-row">
+        <div class="about-mini-box">
+          <h4 class="about-mini-title">Creators</h4>
+          ${c.creators.length ? `<ul class="about-mini-list">${c.creators.map(name => `<li>${escHtml(name)}</li>`).join('')}</ul>` : ''}
+        </div>
+        <div class="about-mini-box">
+          <h4 class="about-mini-title">Credits</h4>
+          ${c.credits.length ? `<ul class="about-mini-list">${c.credits.map(name => `<li>${escHtml(name)}</li>`).join('')}</ul>` : ''}
+        </div>
+      </div>
     </div>
   `;
 }
@@ -1595,7 +1607,7 @@ function openAddExperimentModal(onSuccess) {
       <form class="modal-form" id="modal-form">
         <div class="modal-field">
           <label for="modal-name">Name</label>
-          <input id="modal-name" type="text" required autocomplete="off">
+          <input id="modal-name" type="text" required autocomplete="off" placeholder="e.g. Serum Starvation Timecourse">
         </div>
         <div class="modal-field">
           <label for="modal-date">Date</label>
