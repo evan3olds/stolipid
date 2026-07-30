@@ -2535,22 +2535,6 @@ body {
   border-radius: 0.375rem;
 }
 
-.graph-selected-label {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.graph-selected-name {
-  overflow-wrap: anywhere;
-}
-
-.graph-selected-sep {
-  color: var(--text-secondary);
-}
-
 .graph-edit-btn {
   display: inline-flex;
   align-items: center;
@@ -2568,16 +2552,26 @@ body {
   color: var(--accent);
 }
 
-.graph-label-input {
+.graph-axis-edit-btn {
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.graph-axis-edit-btn:hover {
+  color: var(--accent);
+}
+
+.graph-axis-label-editor {
+  position: fixed;
+  z-index: 40;
   font-family: var(--font-body);
   font-size: 0.8125rem;
-  padding: 0.125rem 0.3rem;
+  padding: 0.25rem 0.4rem;
   border: 1px solid var(--accent);
   border-radius: 0.25rem;
   background: var(--surface-input);
   color: inherit;
-  min-width: 0;
-  width: 8rem;
+  width: 11rem;
 }
 
 .graph-selected-remove {

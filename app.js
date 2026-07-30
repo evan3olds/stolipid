@@ -3288,7 +3288,7 @@ function wireCount() {
 // the rest of the screen's session (graphState.colorAssignments persists
 // across add/remove within one visit; a full reset only happens on remount).
 
-let graphState = null; // { conditionsCache, selectedExperimentId, selected, colorAssignments, metric, title, editingTitle, editingLabel }
+let graphState = null; // { conditionsCache, selectedExperimentId, selected, colorAssignments, metric, title, editingTitle }
 
 const GRAPH_DEFAULT_TITLE = 'Lipid droplet counts by condition';
 
@@ -3387,7 +3387,7 @@ async function initGraph() {
   graphState = {
     conditionsCache: {}, selectedExperimentId: null, selected: [], colorAssignments: {},
     metric: 'combined', chartType: 'scatter',
-    title: GRAPH_DEFAULT_TITLE, editingTitle: false, editingLabel: null,
+    title: GRAPH_DEFAULT_TITLE, editingTitle: false,
   };
   content.innerHTML = renderGraphHTML(experiments);
   wireGraph(experiments);
@@ -3498,33 +3498,17 @@ function wireGraphTitleRow() {
 
 // Each selected item's experiment/condition display labels (experimentLabel/
 // conditionLabel) start out equal to the real names but can be edited
-// independently per item — a display-only rename that feeds the x-axis
-// column labels and legend (see renderGraphColumnLabelSVG call sites) without
-// touching the underlying experiment/condition records.
-function renderGraphSelectedLabelHTML(s, field) {
-  const editing = graphState.editingLabel;
-  const value = s[field];
-  if (editing && String(editing.conditionId) === String(s.conditionId) && editing.field === field) {
-    return `<input type="text" class="graph-label-input" data-condition-id="${escHtml(String(s.conditionId))}" data-field="${field}" value="${escHtml(value)}" maxlength="60" />`;
-  }
-  const fieldTitle = field === 'experimentLabel' ? 'experiment' : 'condition';
-  return `
-    <span class="graph-selected-name">${escHtml(value)}</span>
-    <button type="button" class="graph-edit-btn graph-edit-btn-sm" data-condition-id="${escHtml(String(s.conditionId))}" data-field="${field}" aria-label="Edit ${fieldTitle} label" title="Edit ${fieldTitle} label">${GRAPH_PENCIL_ICON}</button>
-  `;
-}
-
+// independently per item via the pencil icons on the chart's x-axis (see
+// graphAxisEditIconSVG/openGraphAxisLabelEditor below) — a display-only
+// rename that feeds these list rows, the column labels, and the legend
+// without touching the underlying experiment/condition records.
 function renderGraphSelectedListHTML() {
   if (graphState.selected.length === 0) return '';
   return `
     <ul class="graph-selected-list-items">
       ${graphState.selected.map(s => `
         <li class="graph-selected-item">
-          <span class="graph-selected-label">
-            ${renderGraphSelectedLabelHTML(s, 'experimentLabel')}
-            <span class="graph-selected-sep">&rsaquo;</span>
-            ${renderGraphSelectedLabelHTML(s, 'conditionLabel')}
-          </span>
+          <span>${escHtml(s.experimentLabel)} &rsaquo; ${escHtml(s.conditionLabel)}</span>
           <button class="graph-selected-remove" data-condition-id="${escHtml(String(s.conditionId))}" aria-label="Remove ${escHtml(s.conditionLabel)} from graph">&times;</button>
         </li>
       `).join('')}
@@ -3545,41 +3529,66 @@ function wireGraphSelectedList() {
       refreshGraphChartArea();
     });
   });
+}
 
-  document.querySelectorAll('.graph-edit-btn-sm').forEach(btn => {
-    btn.addEventListener('click', () => {
-      graphState.editingLabel = { conditionId: btn.dataset.conditionId, field: btn.dataset.field };
-      refreshGraphSelectedList();
-    });
+// A small pencil <svg> nested inside the chart's own <svg> (valid SVG,
+// scaled/positioned via its own x/y/width/height like an <image>), reusing
+// GRAPH_PENCIL_ICON's path data. Stripped out of the clone in
+// downloadGraphImage before rasterizing, so it never appears in the export.
+function graphAxisEditIconSVG(x, y, conditionId, field) {
+  return `<svg x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="11" height="11" viewBox="0 0 24 24" class="graph-axis-edit-btn" data-condition-id="${escHtml(String(conditionId))}" data-field="${field}" role="button" tabindex="0" aria-label="Edit label"><rect width="24" height="24" fill="transparent"/><path d="M12 20h9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+// Positions a floating <input> under whichever axis pencil was clicked
+// (same "anchor to the clicked element's own rect" approach the graph
+// tooltip uses for its own positioning, just anchored instead of following
+// the mouse) and commits the edited label back onto the matching selected
+// item on blur/Enter.
+function openGraphAxisLabelEditor(btn) {
+  const { conditionId, field } = btn.dataset;
+  const item = graphState.selected.find(s => String(s.conditionId) === String(conditionId));
+  if (!item) return;
+
+  document.querySelector('.graph-axis-label-editor')?.remove();
+
+  const rect = btn.getBoundingClientRect();
+  const editor = document.createElement('input');
+  editor.type = 'text';
+  editor.className = 'graph-axis-label-editor';
+  editor.maxLength = 60;
+  editor.value = item[field];
+  editor.style.left = `${rect.left}px`;
+  editor.style.top = `${rect.bottom + 4}px`;
+  document.body.appendChild(editor);
+  editor.focus();
+  editor.select();
+
+  let cancelled = false;
+  editor.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') editor.blur();
+    else if (e.key === 'Escape') { cancelled = true; editor.blur(); }
   });
+  editor.addEventListener('blur', () => {
+    if (!cancelled) {
+      const value = editor.value.trim();
+      if (value) item[field] = value;
+    }
+    editor.remove();
+    refreshGraphSelectedList();
+    refreshGraphChartArea();
+  });
+}
 
-  document.querySelectorAll('.graph-label-input').forEach(input => {
-    input.focus();
-    input.select();
-    let cancelled = false;
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') input.blur();
-      else if (e.key === 'Escape') { cancelled = true; input.blur(); }
-    });
-    input.addEventListener('blur', () => {
-      const { conditionId, field } = graphState.editingLabel;
-      if (!cancelled) {
-        const value = input.value.trim();
-        if (value) {
-          const item = graphState.selected.find(s => String(s.conditionId) === String(conditionId));
-          if (item) item[field] = value;
-        }
-      }
-      graphState.editingLabel = null;
-      refreshGraphSelectedList();
-      refreshGraphChartArea();
-    });
+function wireGraphAxisEdit() {
+  document.querySelectorAll('.graph-axis-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => openGraphAxisLabelEditor(btn));
   });
 }
 
 function refreshGraphChartArea() {
   document.getElementById('graph-chart-area').innerHTML = renderGraphChartArea();
   wireGraphTooltip();
+  wireGraphAxisEdit();
 }
 
 // Series = experiment. A single represented experiment stays in the plain
@@ -3660,10 +3669,14 @@ function renderGraphGridlinesSVG(niceMax, tickStep, yFor, padLeft, plotWidth) {
   }).join('');
 }
 
-function renderGraphColumnLabelSVG(cx, height, conditionName, experimentName) {
+function renderGraphColumnLabelSVG(cx, height, conditionLabel, experimentLabel, conditionId) {
+  const mainY = height - 34;
+  const subY = height - 18;
   return `
-    <text x="${cx.toFixed(1)}" y="${height - 34}" class="graph-col-label" text-anchor="middle">${escHtml(truncateLabel(conditionName, 14))}</text>
-    <text x="${cx.toFixed(1)}" y="${height - 18}" class="graph-col-sublabel" text-anchor="middle">${escHtml(truncateLabel(experimentName, 16))}</text>
+    <text x="${cx.toFixed(1)}" y="${mainY}" class="graph-col-label" text-anchor="middle">${escHtml(truncateLabel(conditionLabel, 14))}</text>
+    ${graphAxisEditIconSVG(cx + 46, mainY - 9, conditionId, 'conditionLabel')}
+    <text x="${cx.toFixed(1)}" y="${subY}" class="graph-col-sublabel" text-anchor="middle">${escHtml(truncateLabel(experimentLabel, 16))}</text>
+    ${graphAxisEditIconSVG(cx + 48, subY - 8, conditionId, 'experimentLabel')}
   `;
 }
 
@@ -3717,7 +3730,7 @@ function renderGraphScatterSVG(selected, metric) {
       ? `<line x1="${(cx - barHalf).toFixed(1)}" y1="${yFor(mean).toFixed(1)}" x2="${(cx + barHalf).toFixed(1)}" y2="${yFor(mean).toFixed(1)}" class="graph-mean-tick" style="stroke:${color}" />`
       : '';
 
-    const label = renderGraphColumnLabelSVG(cx, height, s.conditionLabel, s.experimentLabel);
+    const label = renderGraphColumnLabelSVG(cx, height, s.conditionLabel, s.experimentLabel, s.conditionId);
 
     return meanHit + dots + meanTick + label;
   }).join('');
@@ -3757,7 +3770,7 @@ function renderGraphBarSVG(selected, metric) {
 
   const columns = bars.map(({ s, mean, sd, n: cellCount }, i) => {
     const cx = padLeft + colWidth * (i + 0.5);
-    const label = renderGraphColumnLabelSVG(cx, height, s.conditionLabel, s.experimentLabel);
+    const label = renderGraphColumnLabelSVG(cx, height, s.conditionLabel, s.experimentLabel, s.conditionId);
     if (mean == null) return label;
 
     const color = seriesColorForExperiment(s.experimentId);
@@ -3821,7 +3834,7 @@ function renderGraphBoxSVG(selected, metric) {
 
   const columns = boxes.map(({ s, stats }, i) => {
     const cx = padLeft + colWidth * (i + 0.5);
-    const label = renderGraphColumnLabelSVG(cx, height, s.conditionLabel, s.experimentLabel);
+    const label = renderGraphColumnLabelSVG(cx, height, s.conditionLabel, s.experimentLabel, s.conditionId);
     if (!stats) return label;
 
     const { min, q1, median, q3, max, n: cellCount } = stats;
@@ -4100,6 +4113,10 @@ async function downloadGraphImage() {
     const svgClone = liveSvg.cloneNode(true);
     svgClone.setAttribute('width', String(GRAPH_CHART_WIDTH));
     svgClone.setAttribute('height', String(GRAPH_CHART_HEIGHT));
+    // The axis-label pencils are real elements inside the live chart SVG
+    // (unlike the title pencil, which lives in separate title-row HTML) —
+    // strip them from the clone so they never reach the rasterized export.
+    svgClone.querySelectorAll('.graph-axis-edit-btn').forEach(el => el.remove());
     svgClone.insertAdjacentHTML('afterbegin',
       `<rect x="0" y="0" width="${GRAPH_CHART_WIDTH}" height="${GRAPH_CHART_HEIGHT}" fill="#ffffff"/><style>${GRAPH_EXPORT_SVG_STYLE}</style>`);
     const svgString = new XMLSerializer().serializeToString(svgClone);
