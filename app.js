@@ -203,6 +203,7 @@ const state = {
   viewingAutoPoints: null, // points[] when read-only viewing a cell's auto-count grid, else null
   viewingAllCounts: null,  // counts[] when read-only viewing every hand count's grid overlaid, else null
   returnScreen: null,      // screen to restore on Back from Graph/Raw data — see navigate()
+  settingsReturnScreen: null, // screen to restore on Back from Settings — see navigate()
 };
 
 // Per-screen chrome metadata: subheader title, primary action label, back button
@@ -238,6 +239,15 @@ function navigate(screen, params = {}) {
   // hierarchy. Hopping between Graph and Raw data doesn't overwrite it.
   if ((screen === 'graph' || screen === 'rawdata') && !['graph', 'rawdata'].includes(state.screen)) {
     state.returnScreen = state.screen;
+  }
+
+  // Settings is reachable from the profile menu on every screen — remember
+  // where the user came from (kept separate from returnScreen above, since
+  // opening Settings from Graph/Raw data must not clobber the origin those
+  // still need for their own Back button) so Back and the breadcrumb return
+  // there instead of always bouncing to Home.
+  if (screen === 'settings' && state.screen !== 'settings') {
+    state.settingsReturnScreen = state.screen;
   }
 
   state.screen = screen;
@@ -707,47 +717,48 @@ function subheaderHTML(screen, meta) {
   `;
 }
 
-// Breadcrumb reflects the full project → experiment → condition hierarchy
-// (Home / Projects / Project / Experiment / Condition) for folder screens,
-// mirrors that same hierarchy (via state.returnScreen) for the Graph/Raw data
-// detour so it matches exactly where the Back button leads, and is a single
-// label for the remaining flat screens (About, Help, Settings).
-function breadcrumbHTML(screen) {
-  const crumbs = [];
-  if (['experiments', 'conditions', 'cells', 'graph', 'rawdata'].includes(screen)) {
-    crumbs.push({ label: 'Home', target: 'home' });
-    crumbs.push({ label: 'Projects', target: 'projects' });
-    if (state.project) {
-      crumbs.push({ label: state.project.name, target: 'experiments' });
-    }
-  }
+// Full breadcrumb path leading to (and including) `screen`, as a list of
+// {label, target} crumbs — every crumb but the last is rendered clickable.
+// Reflects the project → experiment → condition hierarchy (Home / Projects /
+// Project / Experiment / Condition) for folder screens; mirrors that same
+// hierarchy for the Graph/Raw data detour (via state.returnScreen) and the
+// Settings detour (via state.settingsReturnScreen) by recursing into
+// whatever screen the detour was launched from, so the path — and the Back
+// button, which targets that same stored screen — always agree. Falls back
+// to a flat "Home / <title>" for screens with no recorded origin (About and
+// Help are only ever reached from Home; Settings reached directly from Home
+// behaves the same).
+function hierarchyCrumbs(screen) {
   if (['experiments', 'conditions', 'cells'].includes(screen)) {
+    const crumbs = [{ label: 'Home', target: 'home' }, { label: 'Projects', target: 'projects' }];
+    if (state.project) crumbs.push({ label: state.project.name, target: 'experiments' });
     if (screen === 'conditions' || screen === 'cells') {
       crumbs.push({ label: state.experiment?.name || 'Experiment', target: 'conditions' });
     }
     if (screen === 'cells') {
       crumbs.push({ label: state.condition?.name || 'Condition', target: 'cells' });
     }
-  } else if (screen === 'graph' || screen === 'rawdata') {
-    if (state.project) crumbs.push({ label: state.project.name, target: 'projects' });
-    const origin = state.returnScreen;
-    if (origin === 'conditions' || origin === 'cells') {
-      crumbs.push({ label: state.experiment?.name || 'Experiment', target: 'conditions' });
-    }
-    if (origin === 'cells') {
-      crumbs.push({ label: state.condition?.name || 'Condition', target: 'cells' });
-    }
-    crumbs.push({ label: SCREENS[screen]?.title || screen, target: screen });
-  } else {
-    // Flat screens (About/Help/Settings) aren't part of the project
-    // hierarchy — reachable from anywhere via the Home button/profile
-    // menu — so they never show the current project name, even if one
-    // happens to be open in state.
-    crumbs.push({ label: 'Home', target: 'home' });
-    crumbs.push({ label: SCREENS[screen]?.title || screen, target: screen });
+    return crumbs;
   }
-  return crumbs
-    .map((c, i) => {
+  if (screen === 'graph' || screen === 'rawdata') {
+    const crumbs = hierarchyCrumbs(state.returnScreen || 'experiments');
+    crumbs.push({ label: SCREENS[screen]?.title || screen, target: screen });
+    return crumbs;
+  }
+  if (screen === 'settings' && state.settingsReturnScreen && state.settingsReturnScreen !== 'home') {
+    const crumbs = hierarchyCrumbs(state.settingsReturnScreen);
+    crumbs.push({ label: 'Settings', target: 'settings' });
+    return crumbs;
+  }
+  return [
+    { label: 'Home', target: 'home' },
+    { label: screen === 'projects' ? 'Projects' : (SCREENS[screen]?.title || screen), target: screen },
+  ];
+}
+
+function breadcrumbHTML(screen) {
+  return hierarchyCrumbs(screen)
+    .map((c, i, crumbs) => {
       const last = i === crumbs.length - 1;
       return last
         ? `<span class="crumb crumb-current">${c.label}</span>`
@@ -849,7 +860,11 @@ function wireShell(screen) {
         navigate(state.returnScreen || 'experiments');
         return;
       }
-      if (screen === 'about' || screen === 'help' || screen === 'settings') {
+      if (screen === 'settings') {
+        navigate(state.settingsReturnScreen || 'home');
+        return;
+      }
+      if (screen === 'about' || screen === 'help') {
         navigate('home');
         return;
       }

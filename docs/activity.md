@@ -2386,3 +2386,29 @@ User confirmed the actual cause: Render simply hadn't redeployed yet. The Member
 Added two follow-up bullets (including this correction) to Phase 20 in `docs/tasks.md`.
 
 ---
+
+## Phase 21 — Breadcrumb bugs: Settings didn't preserve path, Graph/Raw data duplicated project name
+
+**Request:** user reported that navigating to Settings should extend the current breadcrumb path (so Back returns to where you were) instead of resetting it, and that Graph/Raw data's breadcrumb showed the project name twice.
+
+### Settings didn't preserve the path
+
+Settings is reachable via the profile dropdown from every screen in the app, but `breadcrumbHTML` (`app.js`) had no memory of where it was opened from — it always rendered a flat `Home / Settings`, and the shell's Back-button handler hardcoded `navigate('home')` for it. Both graph/rawdata already solved this exact problem for their own detour via `state.returnScreen`, so the same pattern was extended to Settings:
+
+- Added `state.settingsReturnScreen`, set in `navigate()` whenever entering `settings` from a screen other than itself. Kept as a separate field from `state.returnScreen` — reusing that field would have let opening Settings from Graph/Raw data clobber the origin those screens still need for their own Back button.
+- Refactored the old flat `breadcrumbHTML` into a recursive `hierarchyCrumbs(screen)`. Settings now appends its own crumb onto `hierarchyCrumbs(state.settingsReturnScreen)` — so e.g. opening Settings from Cells now renders `Home / Projects / Project_name / Experiment_name / Condition_name / Settings` — falling back to flat `Home / Settings` only when Settings was opened directly from Home (`settingsReturnScreen` unset or `'home'`).
+- The shell's Back-button handler now routes Settings to `state.settingsReturnScreen || 'home'` instead of always going Home.
+
+### Graph/Raw data duplicated the project name
+
+While rewriting `breadcrumbHTML`, found the actual cause of the second bug: the old function had one shared block that ran for every folder/detour screen (`experiments`/`conditions`/`cells`/`graph`/`rawdata`) and pushed the project name, then a second `graph`/`rawdata`-specific branch that pushed it again. In `hierarchyCrumbs`, Graph/Raw data now just recurse into `hierarchyCrumbs(state.returnScreen || 'experiments')` — which already includes the project name exactly once — and append only their own screen label, so the duplication is structurally impossible now rather than patched around.
+
+### Verification
+
+No browser-automation tooling available in this environment this session, so this wasn't screenshot-verified. The change is confined to `hierarchyCrumbs`/`breadcrumbHTML`/`navigate()`/the shell's Back-button handler in `app.js` — pure JS string/state logic, no new markup or CSS — and was traced through by hand for: Settings opened from Home, from a deep project screen, and from Graph/Raw data; and Graph/Raw data opened from each of Experiments/Conditions/Cells.
+
+## Final step (per project convention)
+
+Added Phase 21 to `docs/tasks.md`.
+
+---
