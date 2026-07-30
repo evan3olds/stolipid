@@ -2356,3 +2356,33 @@ No `chromium-cli` or Node/Playwright-for-JS in this environment, but Python's `p
 Added a new Phase 20 to `docs/tasks.md`.
 
 ---
+
+## Phase 20 follow-up — taller project cards + "None yet" experiments bug
+
+**Request:** user asked for project cards to be slightly taller so the color bar reads more clearly, and asked whether a project showing "None yet" under Experiments (despite actually having experiments) might be the same class of admin-auth bug as the Phase 18 members issue.
+
+### Taller cards / thicker color bar
+
+- `style.css`: `.folder-card--project` padding-top `1.25rem` → `1.5rem`, added `padding-bottom: 1.1rem`; the `::before` top bar `height: 0.3rem` → `0.55rem` (was barely visible at the old thickness); `.project-color-btn` top offset `0.75rem` → `0.95rem` and `.color-picker-popover` top offset `2.1rem` → `2.3rem` to stay aligned with the button now that the card is taller.
+
+### "None yet" experiments — diagnosis
+
+Confirmed this is plausible but **not** the same root cause as Phase 18 (that bug was GoTrue's Admin Auth API rejecting a non-`service_role` JWT on `get_user_by_id`; nothing here calls that API). The suspect instead: `list_projects` (`GET /projects`) fetched experiments through a PostgREST embed nested *two levels deep* — `project_members(user_id) -> projects(*) -> experiments(name)` — a shape not used or proven to work anywhere else in this codebase. `join_project` had a shallower but still embed-based version (`projects(*, experiments(name))`). Every other place in `api/main.py` that reads experiments (`list_experiments`, the working, already-deployed endpoint the Experiments screen itself calls) does it as a flat, single-table `supabase.table("experiments").select(...).eq("project_id", ...)` query — never through a nested embed. Since a doubly-nested embed through a join table is a meaningfully different code path (and this exact class of "looks equivalent, but PostgREST/RLS treats it differently" gap is what caused Phase 18), it's the leading suspect even without a captured traceback.
+
+### What changed
+
+- `api/main.py`: rewrote `list_projects` and `join_project` to fetch `projects(*)` (or nothing embedded, for `join_project`'s primary lookup) and then run one direct `supabase.table("experiments").select("name").eq("project_id", project["id"]).execute()` call per project — matching the proven-working `list_experiments` shape exactly. Added a comment on `list_projects` explaining why the embed was replaced, for the next person who's tempted to "simplify" it back.
+
+### Verification
+
+`python -m py_compile api/main.py` compiles clean. Could not exercise this against the live Supabase project in this environment (no live credentials) — this is a structural fix based on matching a proven-working query pattern, not a confirmed-via-traceback root cause the way the final Phase 18 fix was.
+
+### Correction
+
+User confirmed the actual cause: Render simply hadn't redeployed yet. The Members list worked because that code had already rolled out from an earlier deploy; the experiment-names change was newer and hadn't gone live, so the frontend correctly fell back to "None yet" against a backend that had never sent `experiment_names` at all — nothing was actually broken. Updated the code comment on `list_projects` (`api/main.py`) so it no longer states the embed bug as a confirmed finding, and corrected `docs/tasks.md`. The direct-query rewrite of `list_projects`/`join_project` is left in place — it's a harmless simplification matching the codebase's existing proven pattern — but it should not be remembered as "the fix" for anything, since there was nothing to fix.
+
+## Final step (per project convention)
+
+Added two follow-up bullets (including this correction) to Phase 20 in `docs/tasks.md`.
+
+---

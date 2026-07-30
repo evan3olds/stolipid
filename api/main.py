@@ -287,9 +287,16 @@ def project_member_emails(project_id: str) -> list[str]:
 
 @app.get("/projects")
 def list_projects(user=Depends(get_current_user)):
+    # Experiments are fetched with a direct query rather than a doubly-nested
+    # embed (project_members -> projects -> experiments), matching the flat
+    # single-table shape list_experiments already uses below. This was
+    # originally suspected as the cause of a "None yet" experiments bug, but
+    # that turned out to just be a stale Render deploy (see docs/tasks.md
+    # Phase 20 follow-up/correction) — this direct-query version is kept
+    # anyway since it's no more code and one less untested embed shape.
     response = (
         supabase.table("project_members")
-        .select("projects(*, experiments(name))")
+        .select("projects(*)")
         .eq("user_id", user.id)
         .execute()
     )
@@ -298,7 +305,12 @@ def list_projects(user=Depends(get_current_user)):
         project = row.get("projects")
         if not project:
             continue
-        experiments = project.pop("experiments", None) or []
+        experiments = (
+            supabase.table("experiments")
+            .select("name")
+            .eq("project_id", project["id"])
+            .execute()
+        ).data or []
         project["experiment_count"] = len(experiments)
         project["experiment_names"] = [e["name"] for e in experiments]
         project["members"] = project_member_emails(project["id"])
@@ -330,7 +342,7 @@ def create_project(body: ProjectBody, user=Depends(get_current_user)):
 @app.post("/projects/join")
 def join_project(body: JoinProjectBody, user=Depends(get_current_user)):
     code = body.invite_code.strip().upper()
-    response = supabase.table("projects").select("*, experiments(name)").eq("invite_code", code).execute()
+    response = supabase.table("projects").select("*").eq("invite_code", code).execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Invalid invite code")
     project = response.data[0]
@@ -348,7 +360,12 @@ def join_project(body: JoinProjectBody, user=Depends(get_current_user)):
             "user_id": user.id,
         }).execute()
 
-    experiments = project.pop("experiments", None) or []
+    experiments = (
+        supabase.table("experiments")
+        .select("name")
+        .eq("project_id", project["id"])
+        .execute()
+    ).data or []
     project["experiment_count"] = len(experiments)
     project["experiment_names"] = [e["name"] for e in experiments]
     return project

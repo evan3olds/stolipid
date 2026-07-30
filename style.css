@@ -1169,14 +1169,15 @@ body {
    a visually distinct top tier rather than another folder layer. */
 .folder-card--project {
   border-radius: 0.5rem;
-  padding-top: 1.25rem;
+  padding-top: 1.5rem;
+  padding-bottom: 1.1rem;
 }
 
 .folder-card--project::before {
   top: 0;
   left: 0;
   width: 100%;
-  height: 0.3rem;
+  height: 0.55rem;
   border-radius: 0.5rem 0.5rem 0 0;
   background: var(--project-color, var(--border-default));
 }
@@ -1187,7 +1188,7 @@ body {
 
 .project-color-btn {
   position: absolute;
-  top: 0.75rem;
+  top: 0.95rem;
   right: 0.75rem;
   width: 1.05rem;
   height: 1.05rem;
@@ -1204,7 +1205,7 @@ body {
 
 .color-picker-popover {
   position: absolute;
-  top: 2.1rem;
+  top: 2.3rem;
   right: 0.75rem;
   z-index: 5;
   display: grid;
