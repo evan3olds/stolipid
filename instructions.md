@@ -42,10 +42,9 @@ An experiment is a top-level folder representing one experimental run (e.g., "Se
 
 A condition is a treatment group within an experiment (e.g., "6 Hr Starved", "Control").
 
-1. Inside an experiment, click **New slide** to add a condition.
+1. Inside an experiment, click **New Condition** to add a condition.
 2. Fill in:
-   - **Name**
-   - **Starvation length (hours)**
+   - **Name** (e.g. "6 hours starved")
    - **Notes**
 3. Open a condition to see:
    - Its cell count
@@ -82,6 +81,7 @@ A condition is a treatment group within an experiment (e.g., "6 Hr Starved", "Co
    - **FM_edge_overlay (ALDQ)** (`fm_edge_overlay`)
 2. Running one does not overwrite the other — a cell can hold both machine counts at once.
 3. Click **View** next to a result to see the detected markers on the Count screen.
+4. Click the **×** next to a result to delete it and re-run that algorithm later.
 
 ---
 

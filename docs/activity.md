@@ -2248,3 +2248,25 @@ Rather than keep chasing the exact Render key value, redesigned `project_member_
 ## Final step (per project convention)
 
 Updated the existing Phase 18 section in `docs/tasks.md` in place (marked root-cause item `[x]`, added a follow-up `[ ]` for live verification). This entry appended to `docs/activity.md`. Plan appended to `docs/plan.md`.
+
+---
+
+## Auto-count delete button, "Slide" → "Condition" rename, drop Starvation field
+
+**Request:** user asked for three Conditions/Cells-screen UI changes: add a delete button to auto counts (matching hand counts' existing "×"), rename "Slide" to "Condition" throughout the UI, and reduce a condition to just a Name (dropping the Starvation length field), with "e.g. 6 hours starved" shown as hint text under the Name field instead.
+
+### What changed
+
+- `app.js`: each auto-count row on the Cells screen detail panel gained a `.count-delete-btn` (same class the hand-count rows already use) next to its "View" button. No new JS needed — `wireCells`'s existing `.count-delete-btn` wiring calls the already-generic `deleteCount(cell, countId)`, which deletes by `counts.id` regardless of `type`, so it picked up the new button automatically.
+- `SCREENS.conditions.action` renamed `"New slide"` → `"New Condition"`; matching text updated in the Conditions empty-state and the Add Condition modal header.
+- Add/Edit Condition modals: removed the "Starvation length (hours)" number input and stopped sending `starvation` in the POST/PUT payload. Added a new `.modal-field-hint` (`style.css`) reading "e.g. 6 hours starved" under the Name field. Removed the Starvation folder-card meta chip and detail-panel row from the Conditions screen.
+- `instructions.md` and `docs/PRD.md` updated to match (button label, dropped field, added hint text, auto-count delete button).
+- `conditions.starvation` Supabase column left in place but unused — same pattern as the earlier `dye` removal (Phase 5, `docs/tasks.md`); no live Supabase credentials in this environment to run a migration, and the column is nullable so nothing breaks.
+
+### Verification
+
+Reviewed the full diff and confirmed no remaining references to `modal-starvation`/"New slide" in `app.js`. No build step to compile (template-literal/CSS only). Could not launch a browser in this pass — recommend the user click through: Add/Edit Condition (no Starvation field, hint text under Name, save succeeds), and running then deleting an auto-count on a cell (algorithm becomes available to re-run afterward).
+
+## Final step (per project convention)
+
+Added a follow-up bullet to Phase 5 and a follow-up bullet to Phase 11c in `docs/tasks.md`. Plan appended to `docs/plan.md`.

@@ -2869,3 +2869,29 @@ Rather than have the user hunt for the exact right key value on Render (which th
 ## Final step (per project convention)
 
 Updated the existing Phase 18 section of `docs/tasks.md` in place. Matching entry appended to `docs/activity.md`.
+
+---
+
+# Plan — Auto-count delete button, "Slide" → "Condition" rename, drop Starvation field
+
+**Request:** user asked for three UI changes on the Conditions/Cells screens: (1) add a delete button to auto counts, matching the existing hand-count delete affordance; (2) rename "Slide" to "Condition" throughout the UI; (3) conditions should only have a Name (no Starvation length field), but show "e.g. 6 hours starved" as hint text under the Name field.
+
+## Approach
+
+1. **Auto-count delete**: the Cells screen's `wireCells`/`renderDetail` (`app.js`) already wires a generic `.count-delete-btn` click handler across the whole detail panel that calls `deleteCount(cell, countId)` — which deletes by `counts.id` and doesn't care about `type`. So adding a second `<button class="count-delete-btn" data-count-id="${row.id}">` to each auto-count list item (next to its existing "View" button) picks up that wiring for free — no new JS function needed.
+2. **"Slide" → "Condition"**: renamed the Conditions screen's `SCREENS.conditions.action` label, the empty-state text, and the Add Condition modal header, all in `app.js`. Also updated the matching prose in `instructions.md` and `docs/PRD.md`.
+3. **Drop Starvation field**: removed the "Starvation length (hours)" `<input>` from both the Add and Edit Condition modals, stopped sending `starvation` in their POST/PUT payloads, and removed the Starvation folder-card meta chip and detail-panel row from the Conditions screen. Added a `.modal-field-hint` (new small muted-text CSS class in `style.css`) under the Name field reading "e.g. 6 hours starved" so researchers can still encode starvation time in the name itself. Left the `conditions.starvation` Supabase column in place but unused, matching this project's existing convention for removed-but-not-migrated fields (see the `dye` removal in Phase 5 of `docs/tasks.md`) — no live Supabase credentials in this environment to run a migration anyway, and the column is nullable so nothing breaks by no longer writing to it.
+
+## What was built
+
+- `app.js`: `SCREENS.conditions.action` → `"New Condition"`; empty-state text and Add Condition modal header updated to match; Add/Edit Condition modals lost the Starvation `<input>` and its payload field; Conditions folder-card meta and detail-panel lost their Starvation display; each auto-count row in the Cells screen detail panel gained a `.count-delete-btn` next to "View".
+- `style.css`: added `.modal-field-hint`.
+- `instructions.md`, `docs/PRD.md`: updated to match (button label, dropped Starvation field/hint text, auto-count delete button).
+
+## Verification
+
+No build step to compile; changes are template-literal/CSS only. Could not launch a browser in this pass to click through Add/Edit Condition and the Cells auto-count delete — recommend the user (or a follow-up session) exercises: creating/editing a condition (confirm no Starvation field, hint text shows under Name, save succeeds without `starvation` in the request body), and running then deleting an auto-count on a cell (confirm the algorithm becomes available to re-run afterward).
+
+## Final step (per project convention)
+
+Added a new follow-up bullet to Phase 5 (`docs/tasks.md`) for the Starvation-field removal + rename, and a new follow-up bullet to Phase 11c for the auto-count delete button. This entry appended to `docs/plan.md`; matching entry appended to `docs/activity.md`.
