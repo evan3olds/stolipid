@@ -298,6 +298,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] `TEST_CONDITIONS` mock fixture and `finishCount`'s `local:`-mode branch (`app.js`) updated to set `counted_by_email` (rotating through the three `TEST_PROJECTS` members, or `currentUser()` for a freshly-added count) so the feature is demoable without a live backend
 - [x] Verified with Playwright screenshots against the `local:` fixture (no `chromium-cli`/Node in this environment, Python + `playwright` were available): confirmed the shrunk preview, the Source file/Average side-by-side row, and `jsmith`/`rlopez` rendering next to Cell 3's two hand counts. No console errors
 - [ ] Not yet verified against the live backend — needs the `get_project_member_directory` migration run in Supabase's SQL editor (see `CLAUDE.md`) before `counted_by_email` will populate for real (non-`local:`) accounts
+- [x] Follow-up: the auto count's model name moved from a separate `.detail-submeta` line below the count list into the count item itself, in a `.count-meta`/`.count-rater` pair — the same inline treatment the hand count rater username uses — instead of two different layouts for the two "who/what produced this count" cases
 
 ---
 
