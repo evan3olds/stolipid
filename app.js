@@ -736,7 +736,6 @@ const TEST_CONDITIONS = {
     {
       id: 'test-cond-001',
       name: '0 Hr Starved',
-      starvation: 0,
       notes: 'Baseline, fed condition.',
       icc: 0.88,
       cells: [
@@ -760,7 +759,6 @@ const TEST_CONDITIONS = {
     {
       id: 'test-cond-002',
       name: '6 Hr Starved',
-      starvation: 6,
       notes: '',
       icc: 0.93,
       cells: [
@@ -773,7 +771,6 @@ const TEST_CONDITIONS = {
     {
       id: 'test-cond-003',
       name: '24 Hr Starved',
-      starvation: 24,
       notes: 'High variance between raters on Cell 2.',
       icc: 0.61,
       cells: [
@@ -787,7 +784,6 @@ const TEST_CONDITIONS = {
     {
       id: 'test-cond-004',
       name: 'Untreated',
-      starvation: null,
       notes: '',
       icc: 0.79,
       cells: [
@@ -798,7 +794,6 @@ const TEST_CONDITIONS = {
     {
       id: 'test-cond-005',
       name: 'Oleic Acid 24hr',
-      starvation: null,
       notes: 'Robust droplet accumulation observed across all cells.',
       icc: 0.95,
       cells: [

@@ -97,7 +97,7 @@ auth.users (Supabase Auth)
 projects (id, name, invite_code, created_by)
   └─ project_members (project_id, user_id)          — join table; access-control root
   └─ experiments (id, project_id, name, date, dye, notes, created_by)
-        └─ conditions (id, experiment_id, name, starvation, notes, icc)
+        └─ conditions (id, experiment_id, name, notes, icc)
               └─ cells (id, condition_id, name, image_url, source_filename)
                     └─ counts (id, cell_id, value, points, counted_by, created_at, type)
 ```
