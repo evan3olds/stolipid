@@ -2456,3 +2456,21 @@ Not yet verified against the live backend — needs the `get_project_member_dire
 Added a Phase 22 section to `docs/tasks.md`, marked the matching "Named inter-rater workflow" line under Future/Out-of-scope as partially done. Plan appended to `docs/plan.md`.
 
 ---
+
+## Phase 22 follow-up — Auto count model name shown inline like the hand count rater
+
+**Request:** "The model of an auto count can show on the count like how the username of a counter shows on the hand counts" — the auto count's model name (e.g. `FM_edge_overlay (ALDQ)`) was rendering as a separate `.detail-submeta` line below the `<ul class="count-list">`, a different layout from the inline `.count-meta`/`.count-rater` pairing just added for hand counts.
+
+### What changed
+
+`wireCells`'s `renderDetail` (`app.js`): each auto count `<li>` now wraps its value and `autoAlgorithmLabel(algo)` in the same `.count-meta` span the hand counts use, with the model name in a `.count-rater` span (reusing the existing CSS — small monospace, `text-secondary`, truncates with ellipsis). The old `<span class="detail-submeta">Model: ...</span>` line rendered after the `<ul>` is removed; the model name now lives inside the list item itself, matching how the rater's username sits next to a hand count's value.
+
+### Verification
+
+Playwright screenshot against the `local:` fixture (Cell 3, "0 Hr Starved"): the `FM_edge_overlay (ALDQ)` auto count row now shows `5  FM_edge_overlay (ALDQ)` inline, same visual treatment as `3  jsmith` / `2  rlopez` on the hand counts below it. No console errors.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to Phase 22 in `docs/tasks.md`.
+
+---

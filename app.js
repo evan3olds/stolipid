@@ -2304,14 +2304,16 @@ function wireCells(cells) {
           return `
             <ul class="count-list">
               <li class="count-list-item">
-                <span class="count-value">${row.value}</span>
+                <span class="count-meta">
+                  <span class="count-value">${row.value}</span>
+                  <span class="count-rater">${escHtml(autoAlgorithmLabel(algo))}</span>
+                </span>
                 <span class="count-actions">
                   <button class="count-edit-btn auto-count-view-btn" data-algorithm="${algo}" aria-label="View ${escHtml(autoAlgorithmLabel(algo))} auto count grid">View</button>
                   <button class="count-delete-btn" data-count-id="${escHtml(String(row.id))}" aria-label="Delete ${escHtml(autoAlgorithmLabel(algo))} auto count">&times;</button>
                 </span>
               </li>
             </ul>
-            <span class="detail-submeta">Model: ${escHtml(autoAlgorithmLabel(algo))}</span>
           `;
         }).join('')}
         ${pendingAlgorithms.length ? `
