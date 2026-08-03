@@ -4285,7 +4285,7 @@ const RAWDATA_COLUMNS = [
 const RAWDATA_SUMMARY_COLUMNS = [
   { key: 'experimentName', label: 'Experiment' },
   { key: 'conditionName', label: 'Condition' },
-  { key: 'averageCount', label: 'Average count' },
+  { key: 'averageCount', label: 'Average total count' },
   { key: 'averageAutoCount', label: 'Average auto count' },
   { key: 'averageHandCount', label: 'Average hand count' },
 ];
@@ -4339,16 +4339,11 @@ async function initRawData() {
           average: cellAverage(cell),
           sourceFilename: cell.source_filename || null,
         };
-        const counts = handCounts(cell);
-        if (counts.length === 0) {
-          rows.push({ ...base, countType: 'No counts yet', value: null });
-        } else {
-          counts.forEach((count, idx) => {
-            rows.push({ ...base, countType: `Count ${idx + 1}`, value: count.value });
-          });
-        }
+        handCounts(cell).forEach((count, idx) => {
+          rows.push({ ...base, countType: `Hand Count ${idx + 1}`, value: count.value });
+        });
         cellAutoCounts(cell).forEach(row => {
-          rows.push({ ...base, countType: autoAlgorithmLabel(row.type), value: row.value });
+          rows.push({ ...base, countType: `Auto ${autoAlgorithmLabel(row.type)}`, value: row.value });
         });
       });
     });
@@ -4394,7 +4389,8 @@ function visibleRawDataRows() {
     filtered = rows.filter(r =>
       r.experimentName.toLowerCase().includes(needle) ||
       r.conditionName.toLowerCase().includes(needle) ||
-      r.cellName.toLowerCase().includes(needle)
+      r.cellName.toLowerCase().includes(needle) ||
+      r.countType.toLowerCase().includes(needle)
     );
   }
 
@@ -4456,7 +4452,7 @@ function renderRawDataHTML() {
         <h3 class="rawdata-section-title">Raw data</h3>
         <div class="rawdata-toolbar">
           <input type="text" class="rawdata-filter" id="rawdata-filter"
-                 placeholder="Filter by experiment, condition, or cell…"
+                 placeholder="Filter by experiment, condition, cell, or count type…"
                  value="${escHtml(rawDataState.filterText)}">
           <button type="button" class="rawdata-export-btn" id="rawdata-export">Export CSV</button>
         </div>

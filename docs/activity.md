@@ -2539,3 +2539,41 @@ No browser-automation tooling available this session; changes traced by hand aga
 Added follow-up bullets to Phase 24 in `docs/tasks.md`.
 
 ---
+
+## Raw data summary table — column rename
+
+**Request:** "Change the column in the summary table of raw data to Average total count."
+
+### What changed
+
+`RAWDATA_SUMMARY_COLUMNS` in `app.js` — the `averageCount` column's `label` changed from `'Average count'` to `'Average total count'`. This is the Summary table's combined hand+auto metric (per `docs/plan.md`'s Phase 20 follow-up); the column `key` and underlying data (`conditionMeanForMetric`) are unchanged, so CSV export and sorting still work identically — only the visible header and CSV column-label text changed.
+
+### Verification
+
+No browser-automation tooling available this session; single-line label change traced by hand against `RAWDATA_SUMMARY_COLUMNS` usage in both the table header render and `rawDataSummaryToCSV`.
+
+## Final step (per project convention)
+
+Added a bullet to Phase 20 in `docs/tasks.md`.
+
+---
+
+## Raw data table — count type labels and filter
+
+**Request:** "Filter should include count type, and the count types should say Auto or Hand before them depending on which they are. The rows that say No counts yet should also be discluded."
+
+### What changed
+
+`initRawData()` in `app.js`: hand-count rows' `countType` changed from `Count ${idx+1}` to `Hand Count ${idx+1}`; auto-count rows' `countType` changed from `autoAlgorithmLabel(row.type)` to `Auto ${autoAlgorithmLabel(row.type)}` (e.g. "Auto Standard", "Auto FM_edge_overlay (ALDQ)"). The `counts.length === 0` branch that pushed a `{ countType: 'No counts yet', value: null }` placeholder row was removed outright — a cell with zero counts now contributes zero rows to the raw table instead of a row with a dash value.
+
+`visibleRawDataRows()`'s filter predicate gained `r.countType.toLowerCase().includes(needle)` alongside the existing experiment/condition/cell checks, and the filter input's placeholder text was updated to mention count type.
+
+### Verification
+
+No browser-automation tooling available this session; traced by hand against `initRawData`/`visibleRawDataRows`. The existing "No cells recorded yet." empty state (shown when `rawDataState.rows.length === 0`) still reads correctly now that it also covers the case where every cell has zero counts.
+
+## Final step (per project convention)
+
+Added a bullet to Phase 20 in `docs/tasks.md`.
+
+---
