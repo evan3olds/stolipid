@@ -2577,3 +2577,23 @@ No browser-automation tooling available this session; traced by hand against `in
 Added a bullet to Phase 20 in `docs/tasks.md`.
 
 ---
+
+## Restrict signup to an institution email domain
+
+**Request:** "Make it so only emails ending in stolaf.edu can make accounts, but make it so the code is easily editable for other people using it at their own institution and commented well so you can make the string empty if you dont care about a specific email only."
+
+### What changed
+
+**`api/main.py`:** added a module-level `ALLOWED_EMAIL_DOMAIN = "stolaf.edu"` constant (grouped with a comment block right after the CORS middleware setup) and a check at the top of `signup()` that raises `HTTPException(400, ...)` if `body.email` doesn't end in `@{ALLOWED_EMAIL_DOMAIN}` (case-insensitive), before `supabase.auth.sign_up` is ever called. The comment spells out both how to retarget this for another institution (change the string) and how to disable it entirely (set it to `""`). This lives server-side rather than in `app.js` because a client-only check is trivially bypassed by calling the Render API directly (e.g. `curl`) — the API is the only place that actually gates account creation.
+
+**`app.js`:** the signup form's catch block previously discarded the real error and always showed a generic "Could not create account." — which would have hidden the new domain-restriction message from the user. Added `apiErrorDetail(err)`, which parses `api()`'s thrown `Error("API error <status>: <body>")` string, JSON-parses the body, and pulls out FastAPI's `detail` field; the signup handler now shows that (falling back to the generic message if parsing fails, e.g. on a network error with no JSON body).
+
+### Verification
+
+No live signup flow available this session (no Supabase env locally). Verified `api/main.py` still parses (`python -c "import ast; ast.parse(...)"`) after the edit. Traced the new `signup()` branch and `apiErrorDetail()` by hand: a non-`stolaf.edu` email now 400s before touching Supabase Auth, and the login-modal error area shows the server's exact rejection message.
+
+## Final step (per project convention)
+
+Added a bullet to Phase 2 in `docs/tasks.md`.
+
+---

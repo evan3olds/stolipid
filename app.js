@@ -621,9 +621,25 @@ function openSignupModal() {
         messageEl.textContent = 'Check your email to confirm your account, then log in.';
       }
     } catch (err) {
-      errorEl.textContent = 'Could not create account.';
+      // Surface the API's detail message (e.g. the institution-email
+      // restriction from api/main.py's signup()) instead of a generic
+      // error, so the user knows why signup was rejected.
+      errorEl.textContent = apiErrorDetail(err) || 'Could not create account.';
     }
   });
+}
+
+// api() throws `Error("API error <status>: <raw response body>")`; the body
+// is usually FastAPI's `{"detail": "..."}` JSON. Pull that message out when
+// present so callers can show it instead of the generic wrapper text.
+function apiErrorDetail(err) {
+  const match = /^API error \d+: (.*)$/s.exec(err && err.message);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]).detail || null;
+  } catch {
+    return null;
+  }
 }
 
 // ---- Password recovery ----

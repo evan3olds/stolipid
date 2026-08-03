@@ -21,6 +21,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] "Create account" and "Forgot password?" links on the Login screen, each swapping in their own form; wired to new Render `POST /auth/signup` and `POST /auth/reset-password` endpoints
 - [x] Handle Supabase's auth-link redirect (`#access_token=...&type=...` in the URL hash) on boot: `type=recovery` shows a "Set a new password" screen wired to new `POST /auth/update-password`; any other `access_token` (e.g. signup confirmation) logs the user straight in
 - [x] Login shows "Loading..." immediately on submit; if the real `/auth/login` request is still pending 3s later, the message is upgraded to add "Please wait 1-2 minutes while the site boots up." (Render free-tier cold-start notice), cleared on error
+- [x] Follow-up: `POST /auth/signup` (`api/main.py`) now rejects emails that don't end in `ALLOWED_EMAIL_DOMAIN` (a module-level constant, currently `"stolaf.edu"`) before calling `supabase.auth.sign_up`, so account creation is restricted to that institution; set the constant to `""` to allow any domain. Enforced server-side (not in `app.js`) since a client-only check is bypassable by calling the API directly. `app.js`'s signup form gained an `apiErrorDetail()` helper to surface the API's rejection message (e.g. this one) in the error area instead of a generic "Could not create account."
 
 ---
 

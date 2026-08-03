@@ -42,6 +42,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ---- Institution email restriction ----
+# Only addresses ending in this domain are allowed to create accounts (see
+# signup() below). This is enforced here, server-side, rather than in
+# app.js/index.html, because a client-side-only check can be bypassed by
+# calling this API directly (e.g. with curl) — this is the one place that
+# actually gates account creation.
+#
+# To deploy this app for a different institution, just change the string.
+# Set it to "" (empty string) to allow any email domain, disabling this
+# restriction entirely.
+ALLOWED_EMAIL_DOMAIN = "stolaf.edu"
+
 
 # Without this, an unhandled exception surfaces in Render's logs only as
 # "Exception in ASGI application" with no traceback attached — undiagnosable
@@ -92,6 +104,11 @@ class SignupBody(BaseModel):
 
 @app.post("/auth/signup")
 def signup(body: SignupBody):
+    if ALLOWED_EMAIL_DOMAIN and not body.email.lower().endswith(f"@{ALLOWED_EMAIL_DOMAIN.lower()}"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Accounts are only available to @{ALLOWED_EMAIL_DOMAIN} email addresses.",
+        )
     try:
         result = supabase.auth.sign_up({
             "email": body.email,
