@@ -118,6 +118,8 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Filter input (live substring match across Experiment/Condition/Cell name)
 - [x] Follow-up: table re-pivoted from wide (one row per cell, fixed Count 1/2/3 columns) to long (one row per hand count) — per-cell Count 1/2/3 columns were mostly blank for any cell with fewer than 3 hand counts. New `Count type` column labels each row (`Count 1`/`Count 2`/`Count 3`, or `No counts yet` for a cell with none) in place of the removed Count 1/2/3 columns; a single `Value` column replaces them. `Average`/`Auto count`/`Source file` stay cell-level and repeat across a cell's count rows. See `docs/plan.md` for the full plan and verification.
 - [x] Follow-up: added a per-condition Summary table above the long-format raw table — columns Experiment, Condition, Average count (combined hand+auto), Average auto count, Average hand count, each reusing the Graph screen's `conditionMeanForMetric`. Has its own "Export CSV" button, independent of the raw table's filter/sort/export. See `docs/plan.md` for the full plan and verification.
+- [x] Renamed the Summary table's "Average count" column header to "Average total count" for clarity (still the combined hand+auto metric, key `averageCount` unchanged).
+- [x] Raw data table: count type labels now prefixed with "Hand"/"Auto" (e.g. "Hand Count 1", "Auto Standard"); the filter box also matches against count type; rows with no counts at all ("No counts yet") are no longer generated, so cells with zero counts simply don't appear in the raw table.
 
 ---
 
