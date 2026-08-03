@@ -3028,3 +3028,21 @@ For (2), the cause isn't lossy compression — PNG export via `canvas.toBlob` is
 ## Verification
 
 No browser-automation tooling available this session. Recommended manual click-through: open Compare all counts on a cell with ≥2 counts, download, and inspect the PNG at 100% zoom — check both a small crop (exercises the upscale path) and a large one (exercises the native-resolution path) if test data with both sizes is available.
+
+---
+
+# Plan: Restrict signup to an institution email domain
+
+## Context
+
+Request: only allow account creation for `stolaf.edu` emails, but keep the restriction easily retargetable for another institution's deployment (change the domain string) and easily disabled (empty the string). Signup goes through `POST /auth/signup` on the Render API (`api/main.py`'s `signup()`), which calls `supabase.auth.sign_up` — the frontend (`app.js`) never talks to Supabase directly.
+
+## Approach
+
+- Enforce server-side, in `signup()`, not in `app.js`: a browser-only check is bypassable by calling the Render API directly (e.g. `curl`), so the API is the only place that actually gates account creation.
+- Add a single module-level constant, `ALLOWED_EMAIL_DOMAIN = "stolaf.edu"`, with a comment explaining both retargeting (change the string) and disabling (set to `""`). Check it first thing in `signup()`, before the `supabase.auth.sign_up` call, and raise `HTTPException(400, ...)` with a message naming the required domain.
+- Since `api()` in `app.js` throws a generic `Error` wrapping the raw response body, and the signup form's catch block was discarding that and always showing "Could not create account.", add a small `apiErrorDetail()` helper to unwrap FastAPI's `detail` field so the new rejection message (and any other backend error) actually reaches the user.
+
+## Verification
+
+No live Supabase env available this session. Verified `api/main.py` parses (`python -c "import ast; ast.parse(...)"`). Traced the new branch and the `app.js` error-surfacing change by hand.
