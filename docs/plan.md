@@ -3146,3 +3146,37 @@ User: "The dark mode dots should be slightly brighter." Comparing the two prior 
 ## Verification
 
 Re-run the same Playwright harness, screenshot both themes: Paper should be unchanged (multiplier `1`), Sage's dots should read visibly brighter.
+
+---
+
+# Plan: Site icon (favicon) attribution
+
+## Context
+
+User asked to add the site icon attribution: `<a href="https://www.flaticon.com/free-icons/cell" title="cell icons">Cell icons created by Magnific - Flaticon</a>`. `index.html`'s `<link rel="icon">` points at `assets/site_icon.png`, a Flaticon "cell" icon.
+
+## Approach
+
+Append the supplied credit line as a fourth entry in `ABOUT_CONTENT.credits` (`app.js`), alongside the existing three Noun Project Home-box-icon attributions — same array, same unescaped-rendering path (`renderAboutHTML`). Added `target="_blank" rel="noopener"` to match the existing entries' external-link convention (not present in the user's supplied markup).
+
+## Verification
+
+Pure data addition into an already-verified rendering path (credits render unescaped, tested in the Phase 26 work) — no new logic, so no re-screenshot.
+
+---
+
+# Plan: About screen copy — name change, cell-type generality, real hierarchy
+
+## Context
+
+User: "Update the about page to reflect the name change, and be more general for other types of cells, as well as showing the real hierarchy that starts with projects." Checked `CONFIG.appTitle` (`app.js`) — it's `'Cell Archive'` (set in Phase 13), but `ABOUT_CONTENT.purpose` still opened with the hardcoded pre-rename name "Lipid Counter." Checked the schema hierarchy in `CLAUDE.md` — `projects` is the real top-level table, but the About purpose text's stated hierarchy started at `Experiments`, omitting it.
+
+## Approach
+
+- `ABOUT_CONTENT.purpose`: replace the literal "Lipid Counter" with `${CONFIG.appTitle}` (switch the string to a template literal) rather than just swapping in the literal "Cell Archive," so this can't silently drift from the configured title again.
+- Reword Purpose/Origin to stop implying lipid droplets are the only supported feature type — Purpose gets "lipid droplets and beyond," Origin reframes the BODIPY/Nile Red work as the original driving use case and adds a closing generalization sentence, matching `README.md`'s existing "can be forked and easily repurposed for any sorts of analysis" framing.
+- Fix the hierarchy string in Purpose to `Projects → Experiments → Conditions → Cells → Counts`.
+
+## Verification
+
+Copy-only change through an already-verified template-literal interpolation path (`renderAboutHTML`) — no new rendering logic, so no re-screenshot needed.

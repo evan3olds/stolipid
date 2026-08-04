@@ -192,8 +192,8 @@ const HELP_CONTENT = [
 // Static About screen content (PRD 5.10). `links` starts empty — populate
 // with citation/protocol/lab documentation entries as they become available.
 const ABOUT_CONTENT = {
-  purpose: 'Lipid Counter turns manual lipid droplet hand counts from fluorescence microscopy into reproducible, comparable figures. It replaces scattered spreadsheets and folders of unlabeled images with a structured hierarchy: Experiments → Conditions → Cells → Counts.',
-  origin: 'Built for biology researchers and students at St. Olaf College quantifying cellular lipid accumulation (BODIPY, Nile Red staining) under different experimental treatments, where the previous process had no link between counts and source images and no way to check inter-rater reliability.',
+  purpose: `${CONFIG.appTitle} turns manual cell feature counts from fluorescence microscopy — lipid droplets and beyond — into reproducible, comparable figures. It replaces scattered spreadsheets and folders of unlabeled images with a structured hierarchy: Projects → Experiments → Conditions → Cells → Counts.`,
+  origin: 'Built for biology researchers and students at St. Olaf College, originally to quantify cellular lipid droplet accumulation (BODIPY, Nile Red staining) under different experimental treatments, where the previous process had no link between counts and source images and no way to check inter-rater reliability. The same structure generalizes to counting any labeled feature across microscopy images, not just lipid droplets.',
   status: 'Working prototype. Core workflow (shared projects, experiments, conditions, cells, hand counting, auto-count suggestions, graphing, and raw data export) is functional; see the Prototype badge in the top bar.',
   links: [],
   creators: ["Brooke Barenz, '27", "Evan Olds, '27"],
@@ -205,6 +205,7 @@ const ABOUT_CONTENT = {
     'Project by Alzam from <a href="https://thenounproject.com/browse/icons/term/project/" target="_blank" rel="noopener" title="Project Icons">Noun Project</a> (CC BY 3.0)',
     'help by Larea from <a href="https://thenounproject.com/browse/icons/term/help/" target="_blank" rel="noopener" title="help Icons">Noun Project</a> (CC BY 3.0)',
     'about by nangicon from <a href="https://thenounproject.com/browse/icons/term/about/" target="_blank" rel="noopener" title="about Icons">Noun Project</a> (CC BY 3.0)',
+    '<a href="https://www.flaticon.com/free-icons/cell" title="cell icons" target="_blank" rel="noopener">Cell icons created by Magnific - Flaticon</a>',
   ],
 };
 

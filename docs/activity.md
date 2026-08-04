@@ -2707,3 +2707,41 @@ Same Playwright + `local:`-token harness as the prior two Home screen changes. R
 Added a follow-up bullet to Phase 27 in `docs/tasks.md`.
 
 ---
+
+## Site icon (favicon) attribution
+
+**Request:** Add the site icon attribution: `<a href="https://www.flaticon.com/free-icons/cell" title="cell icons">Cell icons created by Magnific - Flaticon</a>`.
+
+### What changed
+
+`index.html`'s `<link rel="icon">` points at `assets/site_icon.png`, a Flaticon "cell" icon requiring attribution. Added the supplied credit line to `ABOUT_CONTENT.credits` (`app.js`), the same array already holding the Home screen box icons' Noun Project attributions — appended as a fourth entry, `target="_blank" rel="noopener"` added to match the existing entries' external-link convention (not in the user's supplied markup).
+
+### Verification
+
+Read-only array addition following an established, already-verified rendering path (`renderAboutHTML` renders `credits` unescaped) — no new rendering logic introduced, so no re-screenshot taken.
+
+## Final step (per project convention)
+
+Added a bullet as Phase 28 in `docs/tasks.md`.
+
+---
+
+## About screen copy: name change, cell-type generality, real hierarchy
+
+**Request:** "Update the about page to reflect the name change, and be more general for other types of cells, as well as showing the real hierarchy that starts with projects."
+
+### What changed
+
+- `app.js` `ABOUT_CONTENT.purpose`: the leading sentence hardcoded "Lipid Counter" (the app's pre-rename working title — `CONFIG.appTitle` has read `'Cell Archive'` since Phase 13, but this string was never updated to match). Switched it to a template literal interpolating `${CONFIG.appTitle}` instead of a second hardcoded name, so About copy can't drift from the configured title again.
+- `ABOUT_CONTENT.purpose`/`origin`: reworded away from lipid-droplet-exclusive framing. Purpose now reads "...cell feature counts from fluorescence microscopy — lipid droplets and beyond..."; Origin now frames the BODIPY/Nile Red lipid droplet work as the tool's original driving use case ("originally to quantify...") and adds a closing sentence noting the same structure generalizes to counting any labeled feature, not just lipid droplets — consistent with `README.md`'s existing framing that the repo "can be forked and easily repurposed for any sorts of analysis."
+- `ABOUT_CONTENT.purpose`'s stated hierarchy: was `Experiments → Conditions → Cells → Counts`, missing `projects` entirely even though Phase 14 made `projects` the actual top-level table (`projects → project_members`/`experiments`, per `CLAUDE.md`'s schema diagram) well before this copy was last touched. Corrected to `Projects → Experiments → Conditions → Cells → Counts`.
+
+### Verification
+
+Read-only copy edit in an already-verified rendering path (`renderAboutHTML` interpolates `c.purpose`/`c.origin` directly as `${...}` into a `<p>` — no escaping change, no new markup) — no re-screenshot taken.
+
+## Final step (per project convention)
+
+Added a bullet as Phase 29 in `docs/tasks.md`.
+
+---
