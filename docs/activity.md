@@ -2688,3 +2688,22 @@ Same Playwright + `python -m http.server` + `local:`-token harness as the Phase 
 Added a bullet as Phase 27 in `docs/tasks.md`.
 
 ---
+
+## Follow-up: brighten the Home background dots in dark mode
+
+**Report:** "The dark mode dots should be slightly brighter." Confirmed by comparing the Paper/Sage screenshots from the previous step side by side — the dots were legible in Paper but nearly disappeared into Sage's dark background at the same raw alpha, since a fixed low alpha over a dark page shifts the blended pixel only slightly, while the same alpha over a light page reads as a clearly darker faint circle.
+
+### What changed
+
+- `style.css`: added `--home-dot-alpha-mult: 1;` next to `--accent` in `:root` (Paper default) and `--home-dot-alpha-mult: 1.8;` in the `:root[data-theme="sage"]` override, alongside that block's other explicit dark-theme lightness targets
+- Rewrote every alpha literal in `.home-bg-pattern`'s dozen `radial-gradient`s from a fixed number (e.g. `/ 0.16`) to `/ calc(0.16 * var(--home-dot-alpha-mult))`, so brightening dark mode only required tuning the one multiplier rather than hand-doubling every circle's alpha separately
+
+### Verification
+
+Same Playwright + `local:`-token harness as the prior two Home screen changes. Re-screenshotted both themes: Paper is pixel-identical (multiplier is `1`, so `calc(x * 1) = x`); Sage's dots are visibly brighter/more legible against the dark background while Paper is unaffected.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to Phase 27 in `docs/tasks.md`.
+
+---
