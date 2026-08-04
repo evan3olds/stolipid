@@ -348,6 +348,20 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] `aria-hidden="true"` and `pointer-events: none`; positioned behind `.home-content` (`z-index: 0` vs `1`) so it never intercepts clicks or gets announced to screen readers
 - [x] Follow-up: the dots were too faint in Sage — the same raw alpha reads noticeably fainter against a dark page than a light one. Added `--home-dot-alpha-mult` (1 in Paper, 1.8 in the Sage override), and every dot's alpha in `.home-bg-pattern` now reads `calc(<base> * var(--home-dot-alpha-mult))` instead of a fixed number, so only the one variable needed a per-theme value
 
+---
+
+## Phase 28 — Site icon (favicon) attribution
+
+- [x] `assets/site_icon.png`, referenced by `index.html`'s `<link rel="icon">`, is a Flaticon "cell" icon requiring attribution; added the required credit line to `ABOUT_CONTENT.credits` (`app.js`), matching the existing Home screen box icon entries' unescaped-HTML pattern: `Cell icons created by Magnific - Flaticon`, linking to `https://www.flaticon.com/free-icons/cell`
+
+---
+
+## Phase 29 — About screen copy: name change, cell-type generality, real hierarchy
+
+- [x] `ABOUT_CONTENT.purpose` (`app.js`) — replaced the hardcoded "Lipid Counter" name with `${CONFIG.appTitle}` (currently "Cell Archive") so the copy tracks the app's actual configured name instead of drifting from it
+- [x] `ABOUT_CONTENT.purpose`/`origin` — reworded to stop reading as lipid-droplet-exclusive ("lipid droplets and beyond" in Purpose; Origin now frames BODIPY/Nile Red lipid droplet counting as the tool's original use case rather than its only one, closing with "the same structure generalizes to counting any labeled feature across microscopy images, not just lipid droplets")
+- [x] `ABOUT_CONTENT.purpose`'s stated hierarchy corrected from `Experiments → Conditions → Cells → Counts` to `Projects → Experiments → Conditions → Cells → Counts`, matching the real Phase 14 schema (`projects` is the actual top-level parent, not `experiments`)
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table
