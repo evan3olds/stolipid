@@ -197,7 +197,15 @@ const ABOUT_CONTENT = {
   status: 'Working prototype. Core workflow (shared projects, experiments, conditions, cells, hand counting, auto-count suggestions, graphing, and raw data export) is functional; see the Prototype badge in the top bar.',
   links: [],
   creators: ["Brooke Barenz, '27", "Evan Olds, '27"],
-  credits: [],
+  // Home screen box icons (assets/project-icon.png, help-icon.png,
+  // about-icon.png) — Noun Project attribution required by their CC BY 3.0
+  // license. Rendered unescaped (see credits list below) since these are
+  // static trusted strings, not user input, and need the <a> tags to work.
+  credits: [
+    'Project by Alzam from <a href="https://thenounproject.com/browse/icons/term/project/" target="_blank" rel="noopener" title="Project Icons">Noun Project</a> (CC BY 3.0)',
+    'help by Larea from <a href="https://thenounproject.com/browse/icons/term/help/" target="_blank" rel="noopener" title="help Icons">Noun Project</a> (CC BY 3.0)',
+    'about by nangicon from <a href="https://thenounproject.com/browse/icons/term/about/" target="_blank" rel="noopener" title="about Icons">Noun Project</a> (CC BY 3.0)',
+  ],
 };
 
 // Navigation state — persists across the authenticated shell
@@ -388,7 +396,7 @@ function renderAboutHTML() {
         </div>
         <div class="about-mini-box">
           <h4 class="about-mini-title">Credits</h4>
-          ${c.credits.length ? `<ul class="about-mini-list">${c.credits.map(name => `<li>${escHtml(name)}</li>`).join('')}</ul>` : ''}
+          ${c.credits.length ? `<ul class="about-mini-list">${c.credits.map(name => `<li>${name}</li>`).join('')}</ul>` : ''}
         </div>
       </div>
     </div>
@@ -1213,14 +1221,17 @@ function renderHome() {
         <div class="home-boxes-wrap">
           <div class="home-boxes">
             <button type="button" class="home-box" id="home-box-projects">
+              <img class="home-box-icon" src="assets/project-icon.png" alt="" aria-hidden="true">
               <span class="home-box-title">Projects</span>
               <span class="home-box-desc">Add/view cells, Graph data, Raw data</span>
             </button>
             <button type="button" class="home-box" id="home-box-help">
+              <img class="home-box-icon" src="assets/help-icon.png" alt="" aria-hidden="true">
               <span class="home-box-title">Help</span>
               <span class="home-box-desc">Tutorial and Page explanations</span>
             </button>
             <button type="button" class="home-box" id="home-box-about">
+              <img class="home-box-icon" src="assets/about-icon.png" alt="" aria-hidden="true">
               <span class="home-box-title">About</span>
               <span class="home-box-desc">Maintainers, Background, and History</span>
             </button>

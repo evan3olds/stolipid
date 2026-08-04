@@ -2643,3 +2643,28 @@ Re-ran the same Playwright harness at the straddling viewport height (1366×840)
 Added a follow-up bullet to Phase 25 in `docs/tasks.md`.
 
 ---
+
+## Home screen box icons
+
+**Request:** "For the home screen menu, put icons in the top right of each button. The three icons are stored in assets, and make sure to attribute them in the credits section of about," with the exact attribution HTML/text for `project`/`help`/`about` icons supplied by the user.
+
+### What changed
+
+- `app.js` `renderHome()`: added an `<img class="home-box-icon">` to each of the three home boxes (Projects → `assets/project-icon.png`, Help → `assets/help-icon.png`, About → `assets/about-icon.png`), `alt=""`/`aria-hidden="true"` since the button's own title/description already convey the meaning
+- `style.css`: `.home-box` gained `position: relative`; new `.home-box-icon` rule absolutely positions the icon in the top-right corner (`top`/`right: 0.9rem`, `1.75rem` square) and applies `filter: brightness(0) invert(1)` — the source PNGs are black glyphs on a transparent background, and the button's accent background needs a white icon to match the existing white title/description text
+- `app.js` `ABOUT_CONTENT.credits`: populated with the three attribution strings the user supplied verbatim (Alzam/project, Larea/help, nangicon/about — all CC BY 3.0, linking to their respective Noun Project term pages), with `rel="noopener"` added to each `target="_blank"` link since the user's supplied markup didn't include it and omitting it on an external link is a reverse-tabnabbing risk
+- `renderAboutHTML`'s Credits list previously ran each entry through `escHtml()` (fine when credits was empty/unused); changed to render `name` raw so the attribution `<a>` tags actually work, matching how the adjacent Citations list (`c.links`) already renders unescaped
+
+### Pre-existing asset issue found and fixed
+
+The three PNGs already checked into `assets/` (`project-icon.png`, `help-icon.png`, `about-icon.png`) turned out to be the unmodified Noun Project free-download files — each has a "Created by X from Noun Project" watermark baked into the image itself, occupying roughly the bottom sixth of a 700×700 canvas below a clean gap. Used a short Python/Pillow script to crop each to just the icon glyph (row-gap detection to find the split, then trim to the glyph's alpha bounding box with a small pad, centered onto a transparent square) and overwrote the three files in place — this only removes the watermark from the placed icon, it doesn't remove the legally-required attribution, which is why the About/Credits addition above is still necessary per CC BY 3.0.
+
+### Verification
+
+No `chromium-cli`/Node in this environment; used Python + `playwright` (already installed) against a disposable `python -m http.server` static server. Bypassed login by setting `localStorage['token'] = 'local:test'` directly (the app's existing `local:`-prefixed-token dev path) and reloading, landing on the Home screen without needing Supabase/Render. Screenshotted the Home screen — confirmed all three icons render correctly cropped (no watermark) in the top-right corner of their buttons, white against the accent background. Clicked into About and screenshotted the Credits box — confirmed all three attribution lines render with working-looking blue underlined links and no console errors.
+
+## Final step (per project convention)
+
+Added a bullet as Phase 26 in `docs/tasks.md`.
+
+---
