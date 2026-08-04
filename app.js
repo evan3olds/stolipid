@@ -1213,6 +1213,7 @@ function formatDate(dateStr) {
 function renderHome() {
   app.innerHTML = `
     <div class="shell home-shell">
+      <div class="home-bg-pattern" aria-hidden="true"></div>
       <div class="home-profile-corner">${profileMenuHTML()}</div>
       <main class="content home-content">
         <div class="home-title-wrap">
