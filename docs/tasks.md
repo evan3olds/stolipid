@@ -346,6 +346,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Home screen (`renderHome` in `app.js`) had a large empty gap between the title and the three boxes; added a purely decorative `.home-bg-pattern` layer — a scatter of small filled dots and a few larger hollow rings (evoking lipid droplets under a microscope) built entirely from CSS `radial-gradient`s, no new image assets
 - [x] Colors derive from `var(--accent)` via `oklch(from var(--accent) l c h / <alpha>)`, the same relative-color pattern the Sage theme already uses, so the pattern stays correct in both Paper and Sage without hand-tuned per-theme values
 - [x] `aria-hidden="true"` and `pointer-events: none`; positioned behind `.home-content` (`z-index: 0` vs `1`) so it never intercepts clicks or gets announced to screen readers
+- [x] Follow-up: the dots were too faint in Sage — the same raw alpha reads noticeably fainter against a dark page than a light one. Added `--home-dot-alpha-mult` (1 in Paper, 1.8 in the Sage override), and every dot's alpha in `.home-bg-pattern` now reads `calc(<base> * var(--home-dot-alpha-mult))` instead of a fixed number, so only the one variable needed a per-theme value
 
 ## Future (Out of Scope for v1)
 

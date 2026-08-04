@@ -90,6 +90,11 @@
   --accent-tint-soft:   var(--accent-tint-soft-paper);
   --accent-tint-strong: var(--accent-tint-strong-paper);
 
+  /* Multiplies the alpha of every .home-bg-pattern dot/ring (see below) —
+     bumped in the Sage override since the same alpha reads noticeably
+     fainter against a dark page background than a light one. */
+  --home-dot-alpha-mult: 1;
+
   /* Semantic status — hue is fixed across themes (danger stays red, success
      stays green); only lightness inverts for dark-surface contrast. */
   --danger-paper:         oklch(0.48 0.14 30);
@@ -161,6 +166,8 @@
   --accent:             oklch(from var(--accent-paper) 0.64 c 132);
   --accent-tint-soft:   oklch(from var(--accent-tint-soft-paper) 0.5 c 132);
   --accent-tint-strong: oklch(from var(--accent-tint-strong-paper) 0.5 c 132);
+
+  --home-dot-alpha-mult: 1.8;
 
   --danger:         oklch(from var(--danger-paper) calc(1 - l) c h);
   --danger-strong:  oklch(from var(--danger-strong-paper) calc(1 - l) c h);
@@ -371,26 +378,28 @@ body {
    plus a few larger hollow rings, evoking lipid droplets under a
    microscope. Purely visual: no pointer events, faint enough not to
    compete with the title/boxes on top. Uses the same oklch(from ...)
-   relative-color syntax as the Sage theme derivation, so it stays correct
-   in both themes without hand-tuned per-theme opacity. */
+   relative-color syntax as the Sage theme derivation. Each dot's alpha is
+   `calc()`d against --home-dot-alpha-mult (defined per-theme above) rather
+   than a fixed number, since the same raw alpha reads visibly fainter
+   against Sage's dark page background than Paper's light one. */
 .home-bg-pattern {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(circle at 10% 18%, oklch(from var(--accent) l c h / 0.16) 0%, oklch(from var(--accent) l c h / 0.16) 1.1%, transparent 1.2%),
-    radial-gradient(circle at 22% 62%, oklch(from var(--accent) l c h / 0.12) 0%, oklch(from var(--accent) l c h / 0.12) 0.7%, transparent 0.8%),
-    radial-gradient(circle at 16% 40%, transparent 0%, transparent 3.6%, oklch(from var(--accent) l c h / 0.14) 3.7%, oklch(from var(--accent) l c h / 0.14) 3.9%, transparent 4%),
-    radial-gradient(circle at 8% 82%, oklch(from var(--accent) l c h / 0.14) 0%, oklch(from var(--accent) l c h / 0.14) 0.9%, transparent 1%),
-    radial-gradient(circle at 88% 14%, oklch(from var(--accent) l c h / 0.13) 0%, oklch(from var(--accent) l c h / 0.13) 1%, transparent 1.1%),
-    radial-gradient(circle at 92% 46%, transparent 0%, transparent 2.8%, oklch(from var(--accent) l c h / 0.15) 2.9%, oklch(from var(--accent) l c h / 0.15) 3.1%, transparent 3.2%),
-    radial-gradient(circle at 80% 70%, oklch(from var(--accent) l c h / 0.11) 0%, oklch(from var(--accent) l c h / 0.11) 0.6%, transparent 0.7%),
-    radial-gradient(circle at 90% 86%, oklch(from var(--accent) l c h / 0.14) 0%, oklch(from var(--accent) l c h / 0.14) 1%, transparent 1.1%),
-    radial-gradient(circle at 50% 12%, oklch(from var(--accent) l c h / 0.1) 0%, oklch(from var(--accent) l c h / 0.1) 0.6%, transparent 0.7%),
-    radial-gradient(circle at 40% 88%, transparent 0%, transparent 2.2%, oklch(from var(--accent) l c h / 0.13) 2.3%, oklch(from var(--accent) l c h / 0.13) 2.5%, transparent 2.6%),
-    radial-gradient(circle at 60% 92%, oklch(from var(--accent) l c h / 0.12) 0%, oklch(from var(--accent) l c h / 0.12) 0.8%, transparent 0.9%),
-    radial-gradient(circle at 30% 8%, oklch(from var(--accent) l c h / 0.1) 0%, oklch(from var(--accent) l c h / 0.1) 0.5%, transparent 0.6%);
+    radial-gradient(circle at 10% 18%, oklch(from var(--accent) l c h / calc(0.16 * var(--home-dot-alpha-mult))) 0%, oklch(from var(--accent) l c h / calc(0.16 * var(--home-dot-alpha-mult))) 1.1%, transparent 1.2%),
+    radial-gradient(circle at 22% 62%, oklch(from var(--accent) l c h / calc(0.12 * var(--home-dot-alpha-mult))) 0%, oklch(from var(--accent) l c h / calc(0.12 * var(--home-dot-alpha-mult))) 0.7%, transparent 0.8%),
+    radial-gradient(circle at 16% 40%, transparent 0%, transparent 3.6%, oklch(from var(--accent) l c h / calc(0.14 * var(--home-dot-alpha-mult))) 3.7%, oklch(from var(--accent) l c h / calc(0.14 * var(--home-dot-alpha-mult))) 3.9%, transparent 4%),
+    radial-gradient(circle at 8% 82%, oklch(from var(--accent) l c h / calc(0.14 * var(--home-dot-alpha-mult))) 0%, oklch(from var(--accent) l c h / calc(0.14 * var(--home-dot-alpha-mult))) 0.9%, transparent 1%),
+    radial-gradient(circle at 88% 14%, oklch(from var(--accent) l c h / calc(0.13 * var(--home-dot-alpha-mult))) 0%, oklch(from var(--accent) l c h / calc(0.13 * var(--home-dot-alpha-mult))) 1%, transparent 1.1%),
+    radial-gradient(circle at 92% 46%, transparent 0%, transparent 2.8%, oklch(from var(--accent) l c h / calc(0.15 * var(--home-dot-alpha-mult))) 2.9%, oklch(from var(--accent) l c h / calc(0.15 * var(--home-dot-alpha-mult))) 3.1%, transparent 3.2%),
+    radial-gradient(circle at 80% 70%, oklch(from var(--accent) l c h / calc(0.11 * var(--home-dot-alpha-mult))) 0%, oklch(from var(--accent) l c h / calc(0.11 * var(--home-dot-alpha-mult))) 0.6%, transparent 0.7%),
+    radial-gradient(circle at 90% 86%, oklch(from var(--accent) l c h / calc(0.14 * var(--home-dot-alpha-mult))) 0%, oklch(from var(--accent) l c h / calc(0.14 * var(--home-dot-alpha-mult))) 1%, transparent 1.1%),
+    radial-gradient(circle at 50% 12%, oklch(from var(--accent) l c h / calc(0.1 * var(--home-dot-alpha-mult))) 0%, oklch(from var(--accent) l c h / calc(0.1 * var(--home-dot-alpha-mult))) 0.6%, transparent 0.7%),
+    radial-gradient(circle at 40% 88%, transparent 0%, transparent 2.2%, oklch(from var(--accent) l c h / calc(0.13 * var(--home-dot-alpha-mult))) 2.3%, oklch(from var(--accent) l c h / calc(0.13 * var(--home-dot-alpha-mult))) 2.5%, transparent 2.6%),
+    radial-gradient(circle at 60% 92%, oklch(from var(--accent) l c h / calc(0.12 * var(--home-dot-alpha-mult))) 0%, oklch(from var(--accent) l c h / calc(0.12 * var(--home-dot-alpha-mult))) 0.8%, transparent 0.9%),
+    radial-gradient(circle at 30% 8%, oklch(from var(--accent) l c h / calc(0.1 * var(--home-dot-alpha-mult))) 0%, oklch(from var(--accent) l c h / calc(0.1 * var(--home-dot-alpha-mult))) 0.5%, transparent 0.6%);
 }
 
 .home-content {

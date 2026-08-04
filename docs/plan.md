@@ -3129,3 +3129,20 @@ User felt the Home screen's middle (between the title and the three boxes) was "
 ## Verification
 
 Reuse the Phase 26 Playwright + local static server + `local:`-token harness. Screenshot Home in both Paper and Sage to confirm the pattern reads at a low, non-competing opacity and derives the correct color in each theme.
+
+---
+
+# Plan (follow-up): brighten Home background dots in dark mode
+
+## Context
+
+User: "The dark mode dots should be slightly brighter." Comparing the two prior screenshots confirmed it — same raw alpha value, but the dots barely registered against Sage's dark background while reading clearly against Paper's light one.
+
+## Approach
+
+- Rather than hardcode a second, brighter set of alpha values for Sage (duplicating all 12 gradients), introduce one variable — `--home-dot-alpha-mult` — defaulted to `1` in `:root` and overridden to `1.8` in the existing `:root[data-theme="sage"]` block.
+- Change each gradient's alpha from a literal number to `calc(<base> * var(--home-dot-alpha-mult))`, so the multiplier is the only thing that needs a per-theme value.
+
+## Verification
+
+Re-run the same Playwright harness, screenshot both themes: Paper should be unchanged (multiplier `1`), Sage's dots should read visibly brighter.
