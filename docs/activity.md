@@ -2597,3 +2597,23 @@ No live signup flow available this session (no Supabase env locally). Verified `
 Added a bullet to Phase 2 in `docs/tasks.md`.
 
 ---
+
+## Fix: Cells detail panel growing wider after a count was added, resizing the card grid
+
+**Request:** "The cell detail panel gets bigger after you add any count, which makes the grid of cells change size too."
+
+### What changed
+
+Root cause: `.detail-panel` (`style.css`) is a flex item of `.folder-layout` (`display: flex`) with an explicit `width` (`260px`/`360px`/`480px` depending on modifier) but no `min-width: 0`. Flex items default to `min-width: auto`, which floors their rendered size at their content's min-content width regardless of the declared `width`. Adding a hand count renders a nested flex chain — `.count-list-item` → `.count-meta` → `.count-rater` (the rater name span, `white-space: nowrap`) — and that unbreakable content's min-content width propagated up through the chain, pushing `.detail-panel`'s actual rendered width past its declared value. Since `.folder-grid` is the sibling `flex: 1` item in the same row, the extra width the panel took shrank the grid's available space, changing how many columns its `auto-fill` track sizing fit and making the remaining cards bigger.
+
+Fix: added `min-width: 0;` to the base `.detail-panel` rule in `style.css`, which is shared by all three size variants (default 260px, `--medium` 360px, `--large` 480px used on Cells). This hard-caps the panel at its declared width no matter what child content renders. `.count-meta` already had `min-width: 0` (clearly intended to let `.count-rater`'s `overflow: hidden; text-overflow: ellipsis` actually truncate long rater names) but that had no effect until the panel itself stopped being pushed wider — so this also makes the pre-existing ellipsis truncation work as originally intended.
+
+### Verification
+
+No browser-automation tooling available this session. Traced the flexbox min-content/min-width:auto behavior by hand against the DOM structure in `wireCells`'s `renderDetail()` (`app.js`) and the `.detail-panel`/`.count-list-item`/`.count-meta`/`.count-rater` rules in `style.css`; confirmed `.count-meta`'s existing `min-width: 0` was otherwise inert without a cap on the outer flex item.
+
+## Final step (per project convention)
+
+Added a bullet as Phase 25 in `docs/tasks.md`.
+
+---
