@@ -3067,3 +3067,23 @@ Report: "The cell detail panel gets bigger after you add any count, which makes 
 ## Verification
 
 No browser-automation tooling available this session. Traced the flexbox min-content/min-width:auto mechanics by hand against the DOM structure and CSS rules involved.
+
+---
+
+# Plan (follow-up): grid still resizing after the min-width fix
+
+## Context
+
+User reported the resize was still happening after the `min-width: 0` fix above. Rather than trace CSS by hand again, set up a real (if disposable) browser check this time — a Playwright headless-Chromium script against a local `python -m http.server`, driven through the app's built-in Preview mode (`#login-preview-btn`, backed by `TEST_CONDITIONS` fixture data, no Supabase/Render needed) down to the Cells screen.
+
+## Diagnosis
+
+Confirmed via bounding-box measurements and a synthetic stress test (injecting 15 long-username count rows) that the previous fix holds — `.detail-panel` stays pinned at 480px regardless of content. So the resize had a second, independent cause: `.folder-layout` fills the page, and a taller `.detail-panel` (more counts) can push total page height past the viewport, toggling the page's vertical scrollbar. On Windows Chrome/Edge that scrollbar is classic/space-reserving, shrinking the page's usable width and reflowing `.folder-grid`'s `auto-fill` columns — this session's headless Linux Chromium uses overlay scrollbars so didn't show the symptom directly, but the underlying `scrollHeight` vs `clientHeight` crossover was directly measured and confirmed to depend purely on count content.
+
+## Approach
+
+- Add `scrollbar-gutter: stable;` to the `html` rule in `style.css`, reserving the scrollbar's width unconditionally instead of only when the page happens to overflow — removes the dependency between panel content height and available page width entirely, rather than trying to prevent the panel from ever growing tall (which is normal, expected behavior for more counts).
+
+## Verification
+
+Re-ran the Playwright harness at a viewport height straddling the two panel heights (0-count cell's page fits exactly; 3-count cell's page overflows). `#folder-grid`'s width is now identical between the two selections. Confirmed `scrollbar-gutter: stable` is actually applied via `getComputedStyle`.

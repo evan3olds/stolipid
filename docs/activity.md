@@ -2617,3 +2617,29 @@ No browser-automation tooling available this session. Traced the flexbox min-con
 Added a bullet as Phase 25 in `docs/tasks.md`.
 
 ---
+
+## Follow-up: grid still resizing after the min-width fix — actual root cause was scrollbar reservation
+
+**Report:** "Its still having different sizes depending on if a cell has counts."
+
+### Investigation
+
+This time verified visually/measurably instead of by hand, per past feedback that a DOM/CSS trace alone had missed a real layout bug before. Set up a disposable local static server (`python -m http.server`) and drove the app with a Playwright headless-Chromium script through Preview mode (`#login-preview-btn`, no Supabase needed — uses `TEST_CONDITIONS` fixture data) → Projects → open project → open experiment → open condition → Cells screen, reading `#folder-grid`/`#detail-panel` bounding boxes via `element.bounding_box()`.
+
+First checked whether the previous fix (`min-width: 0` on `.detail-panel`) actually held: selected cells with varying counts (0 hand/2 auto, 1 hand, 2 hand+1 auto, 3 hand) and even synthetically injected 15 long-username count rows directly into the panel via `page.evaluate`. In every case `.detail-panel`'s width stayed pinned at exactly 480px and `#folder-grid`'s width was unchanged — so that fix is correct and holding, but wasn't the (or the only) cause of what's being seen.
+
+Next hypothesis: page-level vertical scrollbar reservation. `.folder-layout` is a flex row filling the page; a taller `.detail-panel` (more counts) can push total page height past the viewport, toggling the browser's vertical scrollbar on. On Windows Chrome/Edge, that scrollbar is classic (non-overlay) and reserves ~15–17px of horizontal space, shrinking the page's usable width — which reflows `.folder-grid`'s `auto-fill` column count and resizes the cards. This session's headless Linux Chromium uses overlay scrollbars that don't reserve space, so it wouldn't show the symptom directly, but the underlying toggle condition was directly measurable: at a viewport height (1366×840) chosen so a 0-count cell's page (`scrollHeight` 840) exactly fits while a 3-count cell's page (`scrollHeight` 867) overflows, `document.documentElement.scrollHeight` crossed `clientHeight` only for the taller-panel cell — confirming the scrollbar-toggle condition exists purely from count content, independent of the earlier flex-width bug.
+
+### What changed
+
+Added `scrollbar-gutter: stable;` to the `html` rule in `style.css` (next to the existing `scroll-behavior: smooth;`), so the scrollbar's width is reserved unconditionally rather than only when content overflows. This makes the page's usable width — and therefore `.folder-grid`'s available space and card sizing — independent of how tall the currently selected cell's detail panel happens to be.
+
+### Verification
+
+Re-ran the same Playwright harness at the straddling viewport height (1366×840): `#folder-grid`'s bounding-box width is now identical (807px, down from the previous inconsistent 822px/streaks-based value, but critically now the *same* in both cases) whether the selected cell has 0 hand counts (page doesn't need to scroll) or 3 hand counts (page does need to scroll). Also confirmed via `getComputedStyle(document.documentElement).scrollbarGutter === 'stable'` that the property is actually applied. Screenshots taken at each step (`cells_screen.png`, `stress_test.png`, etc., in the scratch directory) to visually sanity-check nothing else shifted.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to Phase 25 in `docs/tasks.md`.
+
+---
