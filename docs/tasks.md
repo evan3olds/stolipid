@@ -339,6 +339,14 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Downloaded free Noun Project PNGs come with a baked-in "Created by X from Noun Project" watermark under the glyph — cropped each to just the icon (trimmed to content bounding box, padded to a square) so the corner icon shows only the glyph, not the watermark text
 - [x] Added required CC BY 3.0 attribution for all three icons to the About screen's Credits list (`ABOUT_CONTENT.credits` in `app.js`), rendered unescaped (like the existing Citations list) since it needs working `<a target="_blank" rel="noopener">` links back to Noun Project
 
+---
+
+## Phase 27 — Home screen decorative background
+
+- [x] Home screen (`renderHome` in `app.js`) had a large empty gap between the title and the three boxes; added a purely decorative `.home-bg-pattern` layer — a scatter of small filled dots and a few larger hollow rings (evoking lipid droplets under a microscope) built entirely from CSS `radial-gradient`s, no new image assets
+- [x] Colors derive from `var(--accent)` via `oklch(from var(--accent) l c h / <alpha>)`, the same relative-color pattern the Sage theme already uses, so the pattern stays correct in both Paper and Sage without hand-tuned per-theme values
+- [x] `aria-hidden="true"` and `pointer-events: none`; positioned behind `.home-content` (`z-index: 0` vs `1`) so it never intercepts clicks or gets announced to screen readers
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table

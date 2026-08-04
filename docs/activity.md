@@ -2668,3 +2668,23 @@ No `chromium-cli`/Node in this environment; used Python + `playwright` (already 
 Added a bullet as Phase 26 in `docs/tasks.md`.
 
 ---
+
+## Home screen decorative background
+
+**Request:** User flagged that "the middle of the home screen seems kinda dead" — the gap between the title and the three boxes. Discussed a few options (tagline text, decorative graphic, data-driven recent-activity strip) and recommended a subtle decorative pattern over the data-driven option to avoid adding fetches/loading/empty states to what's meant to be a lightweight launcher screen. User picked "try the circle pattern in the background."
+
+### What changed
+
+- `app.js` `renderHome()`: added a `<div class="home-bg-pattern" aria-hidden="true">` as the first child of `.home-shell`, before the profile corner and main content
+- `style.css`: new `.home-bg-pattern` rule — `position: absolute; inset: 0; pointer-events: none;` with a dozen `radial-gradient` circles as its `background-image`: small filled dots and a few larger hollow rings (built as a transparent-color-transparent ring stop sequence) scattered across the canvas, evoking lipid droplets under a microscope. `.home-content` gained `position: relative; z-index: 1` (pattern sits at `z-index: 0`) so the pattern paints behind the title/boxes/profile menu regardless of DOM/paint-order quirks with positioned vs. static siblings
+- Every circle's color is `oklch(from var(--accent) l c h / <alpha>)` — the same relative-color derivation the Sage theme itself uses to stay in sync with Paper — so the pattern needed no separate dark-theme tuning; it was correct in both themes on the first pass
+
+### Verification
+
+Same Playwright + `python -m http.server` + `local:`-token harness as the Phase 26 work. Screenshotted the Home screen in both Paper and Sage (`localStorage['theme'] = 'sage'`) — circles render at a low, non-competing opacity in both, correctly tinted to each theme's accent color, filling the previously-empty middle band without crowding the title or boxes.
+
+## Final step (per project convention)
+
+Added a bullet as Phase 27 in `docs/tasks.md`.
+
+---

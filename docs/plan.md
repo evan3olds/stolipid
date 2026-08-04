@@ -3110,3 +3110,22 @@ Read the three asset PNGs before wiring them in (per this session's asset-review
 ## Verification
 
 No `chromium-cli` in this environment; drive with Python + Playwright (available) against `python -m http.server`. The app requires a Supabase login normally, but `app.js` already special-cases any `localStorage['token']` starting with `local:` for local dev/testing — set that directly instead of building a login flow, then screenshot the Home screen and the About screen's Credits box.
+
+---
+
+# Plan: Home screen decorative background pattern
+
+## Context
+
+User felt the Home screen's middle (between the title and the three boxes) was "kinda dead." Discussed a few options and recommended a subtle decorative pattern over a data-driven strip (recent projects/stats), since the latter adds fetches/loading/empty-state complexity to a screen meant to be a lightweight launcher. User chose the circle-pattern direction.
+
+## Approach
+
+- Build the pattern entirely in CSS (`radial-gradient`s on a new `.home-bg-pattern` layer) rather than an image asset — scales cleanly, themes automatically, no extra file to ship.
+- Mix of small filled dots and a few larger hollow rings, scattered across the whole `.home-shell` canvas, loosely evoking lipid droplets under a microscope (on-brand for a lipid droplet counting tool).
+- Derive every circle's color from `var(--accent)` via `oklch(from var(--accent) l c h / <alpha>)` — the same relative-color technique the Sage theme uses for its own token derivation — so it doesn't need separate light/dark tuning.
+- `position: absolute; inset: 0; pointer-events: none; aria-hidden="true"`, stacked behind `.home-content` via explicit `z-index` (0 vs 1) rather than relying on DOM order, since a positioned sibling with `z-index: auto` can otherwise paint above static in-flow content.
+
+## Verification
+
+Reuse the Phase 26 Playwright + local static server + `local:`-token harness. Screenshot Home in both Paper and Sage to confirm the pattern reads at a low, non-competing opacity and derives the correct color in each theme.
