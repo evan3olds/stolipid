@@ -179,6 +179,13 @@
 
 html {
   scroll-behavior: smooth;
+  /* Reserve the vertical scrollbar's width at all times, scrolling or not.
+     Without this, taller detail-panel content (e.g. more counts on a cell)
+     crosses the viewport height threshold and toggles the scrollbar on,
+     which on non-overlay scrollbars (Windows Chrome/Edge) shrinks the
+     available page width and reflows .folder-grid's auto-fill columns —
+     making the cards visibly resize based on unrelated content height. */
+  scrollbar-gutter: stable;
 }
 
 body {
