@@ -409,6 +409,7 @@ body {
 }
 
 .home-box {
+  position: relative;
   flex: 1 1 16rem;
   max-width: 20rem;
   display: flex;
@@ -422,6 +423,18 @@ body {
   color: oklch(0.98 0.005 75);
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.home-box-icon {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  /* Source PNGs are black-on-transparent; force white to match the
+     button's light text on the accent background. */
+  filter: brightness(0) invert(1);
+  opacity: 0.85;
 }
 
 .home-box:hover {

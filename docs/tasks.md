@@ -331,6 +331,14 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Follow-up: the grid still resized after the above fix. Verified with a Playwright-driven headless-browser check (`goto_cells` walk through Preview mode → project → experiment → condition → Cells) that `.detail-panel`'s own width was in fact now pinned at 480px in every case, including a synthetic stress test injecting 15 long unbreakable count rows — so the real remaining cause was one level up: on Windows Chrome/Edge (classic, space-reserving scrollbars, unlike this session's headless/overlay-scrollbar test environment), a cell with more counts makes `.detail-panel` tall enough to push the page past the viewport height, toggling the page's vertical scrollbar on; that scrollbar shrinks the usable page width by ~15–17px, which reflows `.folder-grid`'s `auto-fill` column count. Confirmed the mechanism directly: at a viewport height straddling the two panel heights, `document.documentElement.clientWidth` stayed constant (headless/overlay scrollbar) while `scrollHeight` crossed `clientHeight` only for the taller panel — the exact toggle condition, just not visible in this browser's scrollbar rendering mode
 - [x] Fix: added `scrollbar-gutter: stable;` to the `html` rule in `style.css`, reserving the scrollbar's width at all times regardless of whether the page actually needs to scroll, so `.folder-grid`'s available width — and its card sizing — no longer depends on how tall the selected cell's detail panel happens to be. Re-verified with the same Playwright harness: `#folder-grid`'s bounding-box width is now identical (807px) whether the selected cell has 0 or 3 hand counts, at a viewport height where the taller panel does overflow and the shorter one doesn't
 
+---
+
+## Phase 26 — Home screen box icons
+
+- [x] Each Home screen box (Projects, Help, About — `renderHome` in `app.js`) got a small icon in its top-right corner: `assets/project-icon.png`, `assets/help-icon.png`, `assets/about-icon.png` (Noun Project, CC BY 3.0). Positioned via a new `.home-box-icon` rule in `style.css` (`position: absolute; top/right`), with `filter: brightness(0) invert(1)` since the source PNGs are black-on-transparent and need to read as white against the accent-colored button background
+- [x] Downloaded free Noun Project PNGs come with a baked-in "Created by X from Noun Project" watermark under the glyph — cropped each to just the icon (trimmed to content bounding box, padded to a square) so the corner icon shows only the glyph, not the watermark text
+- [x] Added required CC BY 3.0 attribution for all three icons to the About screen's Credits list (`ABOUT_CONTENT.credits` in `app.js`), rendered unescaped (like the existing Citations list) since it needs working `<a target="_blank" rel="noopener">` links back to Noun Project
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table

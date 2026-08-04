@@ -3087,3 +3087,26 @@ Confirmed via bounding-box measurements and a synthetic stress test (injecting 1
 ## Verification
 
 Re-ran the Playwright harness at a viewport height straddling the two panel heights (0-count cell's page fits exactly; 3-count cell's page overflows). `#folder-grid`'s width is now identical between the two selections. Confirmed `scrollbar-gutter: stable` is actually applied via `getComputedStyle`.
+
+---
+
+# Plan: Home screen box icons + About credits attribution
+
+## Context
+
+User request: add a small icon to the top-right corner of each of the three Home screen boxes (Projects/Help/About), using the PNGs already sitting in `assets/` (`project-icon.png`, `help-icon.png`, `about-icon.png`), and add the required Noun Project CC BY 3.0 attribution to the About screen's Credits section, with the exact attribution text/HTML supplied by the user.
+
+## Approach
+
+- `app.js` `renderHome()`: add an `<img class="home-box-icon">` per box, pointing at the existing asset paths.
+- `style.css`: `position: relative` on `.home-box`, new `.home-box-icon` absolutely positioned top-right, `filter: brightness(0) invert(1)` to turn the black source glyphs white against the accent button background.
+- `app.js` `ABOUT_CONTENT.credits`: fill with the three supplied attribution strings; add `rel="noopener"` to their `target="_blank"` links (not in the user's supplied markup, but omitting it is a security smell on external links).
+- `renderAboutHTML`'s credits `<li>` mapping currently runs through `escHtml()` — switch to raw so the `<a>` tags in the attribution strings actually render as links, consistent with how the neighboring Citations list already handles trusted static HTML.
+
+## Discovered mid-task
+
+Read the three asset PNGs before wiring them in (per this session's asset-review habit) and found they're unmodified Noun Project downloads with a "Created by X from Noun Project" watermark baked into the bottom of the image — unusable as a small corner icon as-is. Added a step: crop each PNG to just the glyph (Pillow script — detect the row-gap between glyph and watermark text, trim to the glyph's alpha bounding box, pad to a transparent square) and overwrite the files in place before wiring them into `renderHome()`.
+
+## Verification
+
+No `chromium-cli` in this environment; drive with Python + Playwright (available) against `python -m http.server`. The app requires a Supabase login normally, but `app.js` already special-cases any `localStorage['token']` starting with `local:` for local dev/testing — set that directly instead of building a login flow, then screenshot the Home screen and the About screen's Credits box.
