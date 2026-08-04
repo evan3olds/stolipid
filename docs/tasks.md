@@ -322,6 +322,13 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] Follow-up: marker circles shrunk (radius formula `width * 0.01`/min `4` → `width * 0.003`/min `2`, stroke scaled to match) after they were too large to tell apart
 - [x] Follow-up: the exported PNG looked low quality because cell crops are often small in raw pixels — the on-screen `<img>` masks this with smooth CSS upscaling, but the export previously rendered at raw native size with no such smoothing. `downloadCountOverlay()` now upscales sources smaller than `DOWNLOAD_TARGET_DIMENSION` (1600px on the long edge) with `ctx.imageSmoothingQuality = 'high'`, leaving already-large sources at native resolution rather than downscaling them; marker radius scales off the final (post-upscale) canvas width so circle size stays consistent
 
+---
+
+## Phase 25 — Fix: Cells detail panel growing wider after a count was added, resizing the card grid
+
+- [x] Root cause: `.detail-panel` (`style.css`) is a flex item of `.folder-layout` with an explicit `width`, but no `min-width: 0`. Flex items default to `min-width: auto`, which floors their size at their content's min-content width — so once a count row was added (nested flex chain `.count-list-item` → `.count-meta` → `.count-rater`, the latter `white-space: nowrap`), the panel's true rendered width exceeded its declared `480px`/`360px`/`260px`, stealing space from the sibling `.folder-grid` (`flex: 1`) and forcing its `auto-fill` track sizing to recompute with fewer, larger cards
+- [x] Fix: added `min-width: 0;` to the base `.detail-panel` rule so it stays hard-capped at its declared width across all three size variants (default/`--medium`/`--large`); `.count-meta` already had `min-width: 0` for its intended ellipsis-truncation on the rater name, but that only takes effect now that the panel itself can't be pushed wider
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table

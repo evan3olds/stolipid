@@ -3046,3 +3046,24 @@ Request: only allow account creation for `stolaf.edu` emails, but keep the restr
 ## Verification
 
 No live Supabase env available this session. Verified `api/main.py` parses (`python -c "import ast; ast.parse(...)"`). Traced the new branch and the `app.js` error-surfacing change by hand.
+
+---
+
+# Plan: Fix Cells detail panel growing wider after a count was added
+
+## Context
+
+Report: "The cell detail panel gets bigger after you add any count, which makes the grid of cells change size too." The Cells screen (`renderCellsHTML`/`wireCells` in `app.js`) lays out `.folder-grid` (cards, `flex: 1`) and `.detail-panel.detail-panel--large` (480px) side by side inside `.folder-layout` (`display: flex`).
+
+## Diagnosis
+
+`.detail-panel` sets an explicit `width` but not `min-width: 0`. As a flex item, its default `min-width: auto` floors its rendered size at its content's min-content width. Adding a hand count renders a nested flex chain (`.count-list-item` → `.count-meta` → `.count-rater`, the last with `white-space: nowrap`) whose unbreakable content pushes the panel's true width past its declared value, stealing space from the sibling `.folder-grid` and changing its `auto-fill` column count/card size.
+
+## Approach
+
+- Add `min-width: 0;` to the base `.detail-panel` rule (`style.css`), shared by all three size variants, hard-capping it at its declared width.
+- No other changes needed: `.count-meta` already carries `min-width: 0`, intended to let `.count-rater`'s existing `overflow: hidden; text-overflow: ellipsis` truncate long names — it was just inert without the cap on the outer panel, so fixing the panel also fixes that truncation.
+
+## Verification
+
+No browser-automation tooling available this session. Traced the flexbox min-content/min-width:auto mechanics by hand against the DOM structure and CSS rules involved.
