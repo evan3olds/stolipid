@@ -2857,3 +2857,23 @@ Same Playwright + local-static-server + "Preview app" harness. Confirmed the `.g
 Added a follow-up bullet to Phase 30 in `docs/tasks.md`.
 
 ---
+
+## Graph screen bug fix: stray axis-label edit boxes leaking across screen navigation
+
+**Request:** "The condition and experiment edit buttons are persistent on the screen and cover the graph and raw data buttons a little bit."
+
+### What changed
+
+- Root-caused with Playwright before touching anything: turned on the Graph screen's edit mode (opening the floating condition/experiment label `<input>`s via `openAllGraphAxisLabelEditors`), then clicked the "Raw data" bottom-bar button *without* switching edit mode off first. The 6 floating inputs from the Graph screen were still present afterward, visibly floating over the Raw Data table right above the bottom bar's Graph/Raw data buttons.
+- Cause: those inputs are appended directly to `document.body` (not inside `.content`) so they can be positioned with viewport-relative `position: fixed` coordinates taken from `getBoundingClientRect()`. `navigate()`'s screen switch only replaces `.content`'s innerHTML via `renderShell()`, which never touches nodes living outside it — so the editors survived indefinitely across screen changes once opened, until the user happened to return to the Graph screen and toggle edit mode off again.
+- Fix: added a single `closeAllGraphAxisLabelEditors()` call at the very top of `navigate()` (`app.js`), before any of the screen-switching logic runs. This guarantees any stray editors are removed on *every* navigation, regardless of which UI path triggered it (bottom bar, breadcrumb, Back button, opening Settings, etc.) — the router itself is the one place all of those funnel through, whereas patching each caller individually would've been fragile.
+
+### Verification
+
+Re-ran the exact repro from the root-cause step (edit mode on with 3 conditions' labels open, then navigate to Raw Data) with Playwright: confirmed 0 stray `.graph-axis-label-editor` elements remained, and a screenshot of the Raw Data screen came back clean. Also checked navigating Home via the breadcrumb after re-entering the Graph screen and re-enabling edit mode. Zero console errors throughout.
+
+## Final step (per project convention)
+
+Added a bug-fix bullet to Phase 30 in `docs/tasks.md`.
+
+---

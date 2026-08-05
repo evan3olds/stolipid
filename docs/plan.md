@@ -3281,3 +3281,20 @@ User: "Keep the arrows on the sides of the conditions but get rid of their actua
 ## Verification
 
 Confirm via Playwright that the elements are now `<span>`s; that clicking one does nothing; and that starting a drag with the mouse positioned exactly over an arrow glyph still moves the whole row (sidebar and chart column order end up matching). Screenshot to confirm no visual regression. Zero console errors expected.
+
+---
+
+# Plan (bug fix): stray axis-label edit boxes leak across screen navigation
+
+## Context
+
+User: "The condition and experiment edit buttons are persistent on the screen and cover the graph and raw data buttons a little bit." Reproduced first, before proposing a fix: turned edit mode on in the Graph screen (opening the floating condition/experiment label inputs), then navigated to Raw Data via the bottom bar without switching edit mode off — the floating inputs were still there afterward, sitting on top of the Raw Data screen right above the bottom bar.
+
+## Approach
+
+- Root cause: `openAllGraphAxisLabelEditors` appends its `<input>`s straight to `document.body` (needed for viewport-relative `position: fixed` coordinates from `getBoundingClientRect()`), not inside `.content`. `navigate()`'s screen switch (`renderShell()`) only replaces `.content`'s innerHTML, so those body-level nodes are never touched by a normal screen change.
+- Fix: call the existing `closeAllGraphAxisLabelEditors()` once, unconditionally, at the very top of `navigate()` — before any screen-specific logic runs. Since every navigation path (bottom bar, breadcrumb, Back, Settings, etc.) funnels through this one function, a single call here covers all of them, rather than needing to patch each call site that can navigate away from the Graph screen.
+
+## Verification
+
+Reproduce the exact repro with Playwright (edit mode on, labels open, navigate to Raw Data) and confirm zero stray `.graph-axis-label-editor` elements remain, with a clean screenshot. Also check navigating Home via the breadcrumb. Zero console errors expected.

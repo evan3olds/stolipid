@@ -244,6 +244,14 @@ const PROJECT_SCREENS = ['experiments', 'conditions', 'cells', 'graph', 'rawdata
 
 // Screen router
 function navigate(screen, params = {}) {
+  // The Graph screen's axis-label edit-mode inputs are position:fixed
+  // elements appended straight to document.body (see
+  // openAllGraphAxisLabelEditors), not inside .content — so they survive
+  // renderShell()'s content swap and leak onto whatever screen comes next
+  // if the user navigates away without first switching edit mode off.
+  // Guaranteed cleanup here, not just on the Graph screen's own toggle.
+  closeAllGraphAxisLabelEditors();
+
   if ('project' in params) state.project = params.project;
   if ('experiment' in params) state.experiment = params.experiment;
   if ('condition' in params) state.condition = params.condition;
