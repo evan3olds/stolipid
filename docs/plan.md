@@ -3315,3 +3315,20 @@ User: "In the about screen add a link for our website on how to make a website u
 ## Verification
 
 No browser automation run this session; traced by hand against `renderAboutHTML` and the CSS cascade in both theme blocks. Manual follow-up: open the About screen in both Light and Dark, confirm the new link appears, is styled as a link, and reads as a distinct blue (not the accent orange/green) only in Dark.
+
+---
+
+# Plan (follow-up): credits-box links still default blue/purple
+
+## Context
+
+User: "The links in the credits section are still an obnoxious dark blue and purple." The prior `--about-link` fix only touched `.about-link` (the citations list); `ABOUT_CONTENT.credits`' Noun Project/Flaticon attributions are raw unclassed `<a>` tags inside `.about-mini-list` and had no color rule, so they fell back to the browser's default link/visited colors.
+
+## Approach
+
+- Add `.about-mini-list a` / `.about-mini-list a:visited` in `style.css`, both `var(--about-link)`, so credits links match the citations list and theme correctly.
+- Add `.about-link:visited` too, closing the same latent gap on the citations link before it gets reported separately.
+
+## Verification
+
+Traced by hand; no browser automation this session. Manual follow-up: open About in both themes, confirm no default blue/purple remains on either the citations or credits links, visited or not.
