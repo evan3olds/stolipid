@@ -2599,23 +2599,6 @@ body {
   border-radius: 0.375rem;
 }
 
-.graph-edit-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 0.125rem;
-  border-radius: 0.25rem;
-  flex-shrink: 0;
-}
-
-.graph-edit-btn:hover {
-  color: var(--accent);
-}
-
 .graph-axis-edit-btn {
   color: var(--text-secondary);
   cursor: pointer;
@@ -2667,11 +2650,12 @@ body {
   margin-bottom: 1rem;
 }
 
-.graph-title-row {
+.graph-title-block {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.375rem;
   min-width: 0;
+  flex: 1;
 }
 
 .graph-chart-title {
@@ -2680,7 +2664,14 @@ body {
   font-weight: 600;
 }
 
-.graph-title-input {
+.graph-caption {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.graph-title-input,
+.graph-caption-input {
   font-family: var(--font-heading);
   font-size: 1.25rem;
   font-weight: 600;
@@ -2690,6 +2681,43 @@ body {
   background: var(--surface-input);
   color: inherit;
   width: min(28rem, 100%);
+}
+
+.graph-caption-input {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.graph-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.graph-edit-toggle-btn {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.375rem;
+  background: var(--surface-card);
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.graph-edit-toggle-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.graph-edit-toggle-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .graph-export-btn {

@@ -3386,11 +3386,10 @@ function wireCount() {
 // the rest of the screen's session (graphState.colorAssignments persists
 // across add/remove within one visit; a full reset only happens on remount).
 
-let graphState = null; // { conditionsCache, selectedExperimentId, selected, colorAssignments, metric, title, editingTitle }
+let graphState = null; // { conditionsCache, selectedExperimentId, selected, colorAssignments, metric, title, caption, editMode }
 
 const GRAPH_DEFAULT_TITLE = 'Lipid droplet counts by condition';
-
-const GRAPH_PENCIL_ICON = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+const GRAPH_DEFAULT_CAPTION = '';
 
 // Metric shown on the y-axis: 'auto' (machine-suggested auto count, default
 // — averaged across whichever algorithm(s) have a counts row for that cell,
@@ -3485,7 +3484,7 @@ async function initGraph() {
   graphState = {
     conditionsCache: {}, selectedExperimentId: null, selected: [], colorAssignments: {},
     metric: 'combined', chartType: 'scatter',
-    title: GRAPH_DEFAULT_TITLE, editingTitle: false,
+    title: GRAPH_DEFAULT_TITLE, caption: GRAPH_DEFAULT_CAPTION, editMode: false,
   };
   content.innerHTML = renderGraphHTML(experiments);
   wireGraph(experiments);
@@ -3543,8 +3542,11 @@ function renderGraphHTML(experiments) {
       </aside>
       <div class="graph-main">
         <div class="graph-header">
-          <div class="graph-title-row" id="graph-title-row">${renderGraphTitleRowHTML()}</div>
-          <button type="button" class="graph-export-btn" id="graph-export-btn">Download graph</button>
+          <div class="graph-title-block" id="graph-title-block">${renderGraphTitleBlockHTML()}</div>
+          <div class="graph-header-actions">
+            <button type="button" class="graph-edit-toggle-btn${graphState.editMode ? ' active' : ''}" id="graph-edit-toggle-btn" aria-pressed="${graphState.editMode}">${graphState.editMode ? 'Done editing' : 'Edit'}</button>
+            <button type="button" class="graph-export-btn" id="graph-export-btn">Download graph</button>
+          </div>
         </div>
         <div id="graph-chart-area">${renderGraphChartArea()}</div>
         <div class="graph-tooltip" id="graph-tooltip" hidden></div>
@@ -3553,44 +3555,49 @@ function renderGraphHTML(experiments) {
   `;
 }
 
-function renderGraphTitleRowHTML() {
-  if (graphState.editingTitle) {
-    return `<input type="text" class="graph-title-input" id="graph-title-input" value="${escHtml(graphState.title)}" maxlength="120" />`;
+// Title and caption share one "Edit" toggle (graph-edit-toggle-btn, next to
+// Download graph) instead of each having its own pencil-click affordance —
+// flipping the toggle shows both as plain text inputs at once. Either field
+// can be left blank; a blank field just renders nothing in display mode
+// (GRAPH_DEFAULT_TITLE is only the initial value, not a floor it snaps back
+// to), which is also why downloadGraphImage checks .trim() before drawing
+// either line instead of assuming the title is always present.
+function renderGraphTitleBlockHTML() {
+  if (graphState.editMode) {
+    return `
+      <input type="text" class="graph-title-input" id="graph-title-input" value="${escHtml(graphState.title)}" maxlength="120" placeholder="Graph title" />
+      <input type="text" class="graph-caption-input" id="graph-caption-input" value="${escHtml(graphState.caption)}" maxlength="200" placeholder="Add a caption…" />
+    `;
   }
   return `
-    <h2 class="graph-chart-title">${escHtml(graphState.title)}</h2>
-    <button type="button" class="graph-edit-btn" id="graph-title-edit-btn" aria-label="Edit graph title" title="Edit graph title">${GRAPH_PENCIL_ICON}</button>
+    ${graphState.title.trim() ? `<h2 class="graph-chart-title">${escHtml(graphState.title)}</h2>` : ''}
+    ${graphState.caption.trim() ? `<p class="graph-caption">${escHtml(graphState.caption)}</p>` : ''}
   `;
 }
 
-function refreshGraphTitleRow() {
-  document.getElementById('graph-title-row').innerHTML = renderGraphTitleRowHTML();
-  wireGraphTitleRow();
+function refreshGraphTitleBlock() {
+  document.getElementById('graph-title-block').innerHTML = renderGraphTitleBlockHTML();
+  wireGraphTitleBlock();
 }
 
-function wireGraphTitleRow() {
-  if (graphState.editingTitle) {
-    const input = document.getElementById('graph-title-input');
-    input.focus();
-    input.select();
-    let cancelled = false;
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') input.blur();
-      else if (e.key === 'Escape') { cancelled = true; input.blur(); }
-    });
-    input.addEventListener('blur', () => {
-      if (!cancelled) {
-        const value = input.value.trim();
-        if (value) graphState.title = value;
-      }
-      graphState.editingTitle = false;
-      refreshGraphTitleRow();
-    });
-    return;
-  }
-  document.getElementById('graph-title-edit-btn').addEventListener('click', () => {
-    graphState.editingTitle = true;
-    refreshGraphTitleRow();
+function wireGraphTitleBlock() {
+  if (!graphState.editMode) return;
+  document.getElementById('graph-title-input').addEventListener('input', (e) => {
+    graphState.title = e.target.value;
+  });
+  document.getElementById('graph-caption-input').addEventListener('input', (e) => {
+    graphState.caption = e.target.value;
+  });
+}
+
+function wireGraphEditToggle() {
+  document.getElementById('graph-edit-toggle-btn').addEventListener('click', () => {
+    graphState.editMode = !graphState.editMode;
+    refreshGraphTitleBlock();
+    const btn = document.getElementById('graph-edit-toggle-btn');
+    btn.classList.toggle('active', graphState.editMode);
+    btn.setAttribute('aria-pressed', String(graphState.editMode));
+    btn.textContent = graphState.editMode ? 'Done editing' : 'Edit';
   });
 }
 
@@ -3630,9 +3637,9 @@ function wireGraphSelectedList() {
 }
 
 // A small pencil <svg> nested inside the chart's own <svg> (valid SVG,
-// scaled/positioned via its own x/y/width/height like an <image>), reusing
-// GRAPH_PENCIL_ICON's path data. Stripped out of the clone in
-// downloadGraphImage before rasterizing, so it never appears in the export.
+// scaled/positioned via its own x/y/width/height like an <image>). Stripped
+// out of the clone in downloadGraphImage before rasterizing, so it never
+// appears in the export.
 function graphAxisEditIconSVG(x, y, conditionId, field) {
   return `<svg x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="11" height="11" viewBox="0 0 24 24" class="graph-axis-edit-btn" data-condition-id="${escHtml(String(conditionId))}" data-field="${field}" role="button" tabindex="0" aria-label="Edit label"><rect width="24" height="24" fill="transparent"/><path d="M12 20h9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
@@ -4153,7 +4160,8 @@ function wireGraph(experiments) {
   });
 
   wireGraphSelectedList();
-  wireGraphTitleRow();
+  wireGraphTitleBlock();
+  wireGraphEditToggle();
   wireGraphTooltip();
 
   document.getElementById('graph-export-btn').addEventListener('click', downloadGraphImage);
@@ -4236,23 +4244,34 @@ async function downloadGraphImage() {
         }))
       : [];
 
+    const title = graphState.title.trim();
+    const caption = graphState.caption.trim();
     const pad = 24;
-    const titleHeight = 36;
+    const titleHeight = title ? 28 : 0;
+    const captionHeight = caption ? 20 : 0;
     const legendHeight = legendItems.length ? 28 : 0;
     const canvas = document.createElement('canvas');
     canvas.width = GRAPH_CHART_WIDTH + pad * 2;
-    canvas.height = titleHeight + legendHeight + GRAPH_CHART_HEIGHT + pad * 2;
+    canvas.height = titleHeight + captionHeight + legendHeight + GRAPH_CHART_HEIGHT + pad * 2;
     const ctx = canvas.getContext('2d');
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.textBaseline = 'top';
-    ctx.fillStyle = '#3f3529';
-    ctx.font = '600 20px "Newsreader", serif';
-    ctx.fillText(graphState.title, pad, pad);
-
-    let y = pad + titleHeight;
+    let y = pad;
+    if (title) {
+      ctx.fillStyle = '#3f3529';
+      ctx.font = '600 20px "Newsreader", serif';
+      ctx.fillText(title, pad, y);
+      y += titleHeight;
+    }
+    if (caption) {
+      ctx.fillStyle = '#7a6f5f';
+      ctx.font = '13px "IBM Plex Sans", sans-serif';
+      ctx.fillText(caption, pad, y);
+      y += captionHeight;
+    }
     if (legendItems.length) {
       ctx.font = '11px "IBM Plex Mono", monospace';
       let x = pad;
@@ -4274,7 +4293,7 @@ async function downloadGraphImage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${graphState.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'graph'}.jpg`;
+    a.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'graph'}.jpg`;
     document.body.appendChild(a);
     a.click();
     a.remove();
