@@ -3396,9 +3396,9 @@ const GRAPH_DEFAULT_CAPTION = '';
 // see cellAutoCount), 'hand' (average of hand counts), or 'combined'
 // (average of the two).
 const GRAPH_METRICS = {
-  auto: { label: 'Auto count', axisLabel: 'Lipid droplets / cell (auto count)' },
-  hand: { label: 'Average hand count', axisLabel: 'Lipid droplets / cell (hand count avg)' },
-  combined: { label: 'Average of both', axisLabel: 'Lipid droplets / cell (combined avg)' },
+  auto: { label: 'Auto count', axisLabel: 'Counts / cell (auto count)' },
+  hand: { label: 'Average hand count', axisLabel: 'Counts / cell (hand count avg)' },
+  combined: { label: 'Average of both', axisLabel: 'Counts / cell (combined avg)' },
 };
 
 // Chart type shown in the main panel: 'scatter' (per-cell dots + mean tick,
