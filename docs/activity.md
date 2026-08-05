@@ -2897,3 +2897,23 @@ No browser-automation tooling available this session; traced by hand against `re
 Added a bullet to Phase 29 in `docs/tasks.md`.
 
 ---
+
+## About screen follow-up: credits-box links still browser-default blue/purple
+
+**Request:** "The links in the credits section are still an obnoxious dark blue and purple."
+
+### What changed
+
+The previous `--about-link` fix only styled `.about-link` (the "Citations & protocols" list). `ABOUT_CONTENT.credits` (Noun Project / Flaticon attributions in `app.js`) is rendered as raw, unclassed `<a>` tags (`renderAboutHTML`'s `${name}` interpolation, since `credits` entries are trusted HTML strings, not escaped) inside `.about-mini-list` — those had no color rule at all, so they fell all the way back to the browser's default link blue and `:visited` purple.
+
+**`style.css`:** added `.about-mini-list a` and `.about-mini-list a:visited`, both set to `var(--about-link)` — same token `.about-link` already uses, so citations and credits links match each other and both theme correctly. Also added `.about-link:visited` alongside the existing rule, since a visited citation link had the same latent default-purple risk even though it hadn't been reported yet.
+
+### Verification
+
+No browser-automation tooling available this session; traced by hand against `renderAboutHTML`'s credits markup and the new CSS selectors. Manual follow-up: open About in both themes and confirm none of the credits or citation links show default/visited blue-purple.
+
+## Final step (per project convention)
+
+Added a bullet to Phase 29 in `docs/tasks.md`.
+
+---
