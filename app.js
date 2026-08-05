@@ -3620,13 +3620,13 @@ function renderGraphSelectedListHTML() {
   return `
     <ul class="graph-selected-list-items">
       ${graphState.selected.map((s, i) => `
-        <li class="graph-selected-item">
+        <li class="graph-selected-item" draggable="true" data-condition-id="${escHtml(String(s.conditionId))}">
           <div class="graph-selected-reorder">
-            <button type="button" class="graph-selected-move" data-condition-id="${escHtml(String(s.conditionId))}" data-direction="up" aria-label="Move ${escHtml(s.conditionLabel)} up in the graph"${i === 0 ? ' disabled' : ''}>&#9650;</button>
-            <button type="button" class="graph-selected-move" data-condition-id="${escHtml(String(s.conditionId))}" data-direction="down" aria-label="Move ${escHtml(s.conditionLabel)} down in the graph"${i === lastIndex ? ' disabled' : ''}>&#9660;</button>
+            <button type="button" class="graph-selected-move" draggable="false" data-condition-id="${escHtml(String(s.conditionId))}" data-direction="up" aria-label="Move ${escHtml(s.conditionLabel)} up in the graph"${i === 0 ? ' disabled' : ''}>&#9650;</button>
+            <button type="button" class="graph-selected-move" draggable="false" data-condition-id="${escHtml(String(s.conditionId))}" data-direction="down" aria-label="Move ${escHtml(s.conditionLabel)} down in the graph"${i === lastIndex ? ' disabled' : ''}>&#9660;</button>
           </div>
           <span>${escHtml(s.experimentLabel)} &rsaquo; ${escHtml(s.conditionLabel)}</span>
-          <button class="graph-selected-remove" data-condition-id="${escHtml(String(s.conditionId))}" aria-label="Remove ${escHtml(s.conditionLabel)} from graph">&times;</button>
+          <button class="graph-selected-remove" draggable="false" data-condition-id="${escHtml(String(s.conditionId))}" aria-label="Remove ${escHtml(s.conditionLabel)} from graph">&times;</button>
         </li>
       `).join('')}
     </ul>
@@ -3636,6 +3636,25 @@ function renderGraphSelectedListHTML() {
 function refreshGraphSelectedList() {
   document.getElementById('graph-selected-list').innerHTML = renderGraphSelectedListHTML();
   wireGraphSelectedList();
+}
+
+// Native HTML5 drag-and-drop, click-and-hold on anywhere in the row except
+// the buttons (which opt out via draggable="false" — otherwise a mousedown
+// there can hijack drag initiation instead of firing the button's click).
+// dragover moves the actual dragged <li> node live via insertBefore, rather
+// than re-rendering the list on every event — replacing the dragged node
+// mid-drag would cancel the browser's native drag session. Once the drag
+// ends, commitGraphSelectedOrderFromDOM reads the now-reordered DOM back
+// into graphState.selected (the real source of truth for column order) and
+// only then re-renders, so the list's HTML/listeners are back in a clean
+// state. The up/down buttons stay as a non-drag fallback alongside this.
+let graphDragEl = null;
+
+function commitGraphSelectedOrderFromDOM() {
+  const orderedIds = [...document.querySelectorAll('.graph-selected-item')].map(li => li.dataset.conditionId);
+  graphState.selected.sort((a, b) => orderedIds.indexOf(String(a.conditionId)) - orderedIds.indexOf(String(b.conditionId)));
+  refreshGraphSelectedList();
+  refreshGraphChartArea();
 }
 
 function wireGraphSelectedList() {
@@ -3656,6 +3675,24 @@ function wireGraphSelectedList() {
         [graphState.selected[toIndex], graphState.selected[fromIndex]];
       refreshGraphSelectedList();
       refreshGraphChartArea();
+    });
+  });
+  document.querySelectorAll('.graph-selected-item').forEach(li => {
+    li.addEventListener('dragstart', () => {
+      graphDragEl = li;
+      requestAnimationFrame(() => li.classList.add('dragging'));
+    });
+    li.addEventListener('dragend', () => {
+      li.classList.remove('dragging');
+      graphDragEl = null;
+      commitGraphSelectedOrderFromDOM();
+    });
+    li.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (!graphDragEl || graphDragEl === li) return;
+      const rect = li.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      li.parentNode.insertBefore(graphDragEl, before ? li : li.nextSibling);
     });
   });
 }

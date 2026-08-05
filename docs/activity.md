@@ -2813,3 +2813,25 @@ Same Playwright + local-static-server + "Preview app" harness as the prior Graph
 Added follow-up bullets to Phase 30 in `docs/tasks.md`.
 
 ---
+
+## Graph screen follow-up: click-and-hold draggable reordering
+
+**Request:** "could they be click and hold draggable?"
+
+### What changed
+
+- Added native HTML5 drag-and-drop to the sidebar's added-conditions list (`app.js`), alongside the up/down buttons from the prior change rather than replacing them.
+- `renderGraphSelectedListHTML`: each `<li>` now has `draggable="true"` and its `data-condition-id` moved from just the child buttons onto the `<li>` itself (needed to identify rows during drag). The remove and up/down buttons got `draggable="false"` so a mousedown on them starts a click, not a row drag — without this, the browser can hijack the button's mousedown to initiate dragging the whole `<li>` instead.
+- New `dragstart`/`dragover`/`dragend` handlers in `wireGraphSelectedList`: `dragover` on another row calls `e.preventDefault()` and moves the actual dragged `<li>` DOM node via `insertBefore` (before/after the hovered row depending on which half of it the cursor is over) — live visual reordering while the drag is in progress. This intentionally does *not* re-render the list on every `dragover` (that would replace the dragged node mid-drag and cancel the browser's native drag session); the array itself isn't touched until the drag actually ends.
+- New `commitGraphSelectedOrderFromDOM`, called from `dragend`: reads the now-reordered `<li>` elements' `data-condition-id`s back into `graphState.selected` (sorting the array to match DOM order), then calls the existing `refreshGraphSelectedList`/`refreshGraphChartArea` — at that point it's safe to fully re-render since the drag session is already over.
+- New CSS: `.graph-selected-item` gets `cursor: grab` (`:active` → `grabbing`) for the "click and hold" affordance, and a `.dragging` class (`opacity: 0.4`, added on `dragstart` via the existing `dragging` classList toggle) for feedback on the row currently being moved.
+
+### Verification
+
+Used Playwright's `locator.drag_to()`, which simulates a full native drag sequence (mousedown → multiple dragover events along the path → drop) in Chromium — a closer match to real click-and-hold dragging than dispatching one synthetic event. Dragged the first added condition onto the third and confirmed the sidebar list and the chart's `.graph-col-label` text ended up reordered identically to each other (the exact resulting order can vary slightly with the drag path, since `dragover` fires — and reorders — multiple times along the way, but sidebar/chart agreement is the property that actually matters). Re-ran the up/down-button reorder test from the prior change afterward to confirm `draggable="false"` didn't regress their click handling. Zero console errors in either pass.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to Phase 30 in `docs/tasks.md`.
+
+---
