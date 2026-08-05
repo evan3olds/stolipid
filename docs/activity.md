@@ -2877,3 +2877,23 @@ Re-ran the exact repro from the root-cause step (edit mode on with 3 conditions'
 Added a bug-fix bullet to Phase 30 in `docs/tasks.md`.
 
 ---
+
+## About screen: "How to make a website using Claude" link + distinct dark-theme link color
+
+**Request:** "In the about screen add a link for our website on how to make a website using claude, and also make the colors of all the links different for the dark theme."
+
+### What changed
+
+**Link (`app.js`):** `ABOUT_CONTENT.links` (previously empty, so the "Citations & protocols" section never rendered) now has one entry — `{ label: 'How to make a website using Claude', url: 'https://barenz1-dev.github.io/web_how_to/' }` — which surfaces that section on the About screen via the existing `renderAboutHTML` `c.links.length ? ... : ''` branch.
+
+**Link color (`style.css`):** scoped to just `.about-link` (confirmed with the user, not site-wide — `.login-link`/`.wiki-toc-link` are unchanged and still use `var(--accent)`). Added a new `--about-link` token: `var(--accent-paper)` in the `:root` (Paper) block, so it looks identical to before in the light theme, but re-hued to blue (`oklch(from var(--accent-paper) 0.72 c 230)`, vs. accent's sage-green hue 132) in the `:root[data-theme="sage"]` block, following the same `oklch(from ... c 132)` relative-color pattern the rest of the dark theme's tokens use. `.about-link`'s `color` switched from `var(--accent)` to `var(--about-link)`.
+
+### Verification
+
+No browser-automation tooling available this session; traced by hand against `renderAboutHTML`/`ABOUT_CONTENT.links` (section now renders since the array is non-empty) and the CSS token cascade in both `:root` and `:root[data-theme="sage"]`. Worth a manual check that the About screen's link reads as a distinguishable blue in the Dark theme and matches the existing accent-orange in Light.
+
+## Final step (per project convention)
+
+Added a bullet to Phase 29 in `docs/tasks.md`.
+
+---

@@ -195,7 +195,9 @@ const ABOUT_CONTENT = {
   purpose: `${CONFIG.appTitle} turns manual cell feature counts from fluorescence microscopy — lipid droplets and beyond — into reproducible, comparable figures. It replaces scattered spreadsheets and folders of unlabeled images with a structured hierarchy: Projects → Experiments → Conditions → Cells → Counts.`,
   origin: 'Built for biology researchers and students at St. Olaf College, originally to quantify cellular lipid droplet accumulation (BODIPY, Nile Red staining) under different experimental treatments, where the previous process had no link between counts and source images and no way to check inter-rater reliability. The same structure generalizes to counting any labeled feature across microscopy images, not just lipid droplets.',
   status: 'Working prototype. Core workflow (shared projects, experiments, conditions, cells, hand counting, auto-count suggestions, graphing, and raw data export) is functional; see the Prototype badge in the top bar.',
-  links: [],
+  links: [
+    { label: 'How to make a website using Claude', url: 'https://barenz1-dev.github.io/web_how_to/' },
+  ],
   creators: ["Brooke Barenz, '27", "Evan Olds, '27"],
   // Home screen box icons (assets/project-icon.png, help-icon.png,
   // about-icon.png) — Noun Project attribution required by their CC BY 3.0

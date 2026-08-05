@@ -3298,3 +3298,20 @@ User: "The condition and experiment edit buttons are persistent on the screen an
 ## Verification
 
 Reproduce the exact repro with Playwright (edit mode on, labels open, navigate to Raw Data) and confirm zero stray `.graph-axis-label-editor` elements remain, with a clean screenshot. Also check navigating Home via the breadcrumb. Zero console errors expected.
+
+---
+
+# Plan: About screen link + distinct dark-theme link color
+
+## Context
+
+User: "In the about screen add a link for our website on how to make a website using claude, and also make the colors of all the links different for the dark theme." Clarified with the user: the link target is `https://barenz1-dev.github.io/web_how_to/`, and the color change is scoped to About-screen links only (not `.login-link`/`.wiki-toc-link` site-wide).
+
+## Approach
+
+- Add a `{ label: 'How to make a website using Claude', url: 'https://barenz1-dev.github.io/web_how_to/' }` entry to `ABOUT_CONTENT.links` (`app.js`) — currently empty, so this is also what makes the "Citations & protocols" section appear on the About screen for the first time (`renderAboutHTML`'s existing `c.links.length ? ... : ''` guard).
+- `.about-link` currently uses `var(--accent)`, which already differs between Paper/Sage but shares its color with buttons, borders, and headings. Add a dedicated `--about-link` token instead: `var(--accent-paper)` in `:root` (unchanged appearance in Light), re-hued to blue (`oklch(from var(--accent-paper) 0.72 c 230)`, vs. accent's sage hue 132) in `:root[data-theme="sage"]`, matching the existing relative-color derivation pattern. Point `.about-link`'s `color` at the new token.
+
+## Verification
+
+No browser automation run this session; traced by hand against `renderAboutHTML` and the CSS cascade in both theme blocks. Manual follow-up: open the About screen in both Light and Dark, confirm the new link appears, is styled as a link, and reads as a distinct blue (not the accent orange/green) only in Dark.
