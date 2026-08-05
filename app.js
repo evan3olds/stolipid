@@ -3609,12 +3609,22 @@ function wireGraphEditToggle() {
 // edit-mode switch is on (see openAllGraphAxisLabelEditors below) — a
 // display-only rename that feeds these list rows, the column labels, and the
 // legend without touching the underlying experiment/condition records.
+//
+// List order doubles as column order: renderGraphScatterSVG/BarSVG/BoxSVG
+// all lay columns out via `selected.map((s, i) => cx = ... * i ...)`, so the
+// up/down buttons below just reorder this same array and a chart redraw
+// picks the new order up for free — no separate "column position" field.
 function renderGraphSelectedListHTML() {
   if (graphState.selected.length === 0) return '';
+  const lastIndex = graphState.selected.length - 1;
   return `
     <ul class="graph-selected-list-items">
-      ${graphState.selected.map(s => `
+      ${graphState.selected.map((s, i) => `
         <li class="graph-selected-item">
+          <div class="graph-selected-reorder">
+            <button type="button" class="graph-selected-move" data-condition-id="${escHtml(String(s.conditionId))}" data-direction="up" aria-label="Move ${escHtml(s.conditionLabel)} up in the graph"${i === 0 ? ' disabled' : ''}>&#9650;</button>
+            <button type="button" class="graph-selected-move" data-condition-id="${escHtml(String(s.conditionId))}" data-direction="down" aria-label="Move ${escHtml(s.conditionLabel)} down in the graph"${i === lastIndex ? ' disabled' : ''}>&#9660;</button>
+          </div>
           <span>${escHtml(s.experimentLabel)} &rsaquo; ${escHtml(s.conditionLabel)}</span>
           <button class="graph-selected-remove" data-condition-id="${escHtml(String(s.conditionId))}" aria-label="Remove ${escHtml(s.conditionLabel)} from graph">&times;</button>
         </li>
@@ -3632,6 +3642,18 @@ function wireGraphSelectedList() {
   document.querySelectorAll('.graph-selected-remove').forEach(btn => {
     btn.addEventListener('click', () => {
       graphState.selected = graphState.selected.filter(s => String(s.conditionId) !== btn.dataset.conditionId);
+      refreshGraphSelectedList();
+      refreshGraphChartArea();
+    });
+  });
+  document.querySelectorAll('.graph-selected-move').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fromIndex = graphState.selected.findIndex(s => String(s.conditionId) === btn.dataset.conditionId);
+      if (fromIndex === -1) return;
+      const toIndex = fromIndex + (btn.dataset.direction === 'up' ? -1 : 1);
+      if (toIndex < 0 || toIndex >= graphState.selected.length) return;
+      [graphState.selected[fromIndex], graphState.selected[toIndex]] =
+        [graphState.selected[toIndex], graphState.selected[fromIndex]];
       refreshGraphSelectedList();
       refreshGraphChartArea();
     });
