@@ -2597,6 +2597,15 @@ body {
   padding: 0.375rem 0.5rem;
   background: var(--surface-chip);
   border-radius: 0.375rem;
+  cursor: grab;
+}
+
+.graph-selected-item:active {
+  cursor: grabbing;
+}
+
+.graph-selected-item.dragging {
+  opacity: 0.4;
 }
 
 .graph-selected-item span {

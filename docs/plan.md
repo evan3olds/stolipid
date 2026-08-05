@@ -3241,3 +3241,23 @@ User: "Make the conditions on the left moveable up and down so that they are reo
 ## Verification
 
 Same Playwright harness as prior Graph screen work: add three conditions, move one via the arrow buttons, confirm both the sidebar list and the chart's SVG column-label text reorder identically, and confirm the disabled state tracks the current first/last position. Zero console errors expected.
+
+---
+
+# Plan (follow-up): click-and-hold draggable reordering for the Graph sidebar list
+
+## Context
+
+User: "could they be click and hold draggable?" — following up on the up/down reorder buttons just added, asking for native drag-and-drop as well (not necessarily a replacement for the buttons).
+
+## Approach
+
+- Add `draggable="true"` to each `renderGraphSelectedListHTML` `<li>`, moving `data-condition-id` onto the `<li>` itself; set `draggable="false"` on the child remove/move buttons so clicking them doesn't accidentally start a row drag.
+- `dragover` handler moves the actual dragged `<li>` node in the live DOM via `insertBefore` for visual feedback while dragging — must not re-render the list mid-drag, since replacing the dragged node would cancel the browser's native drag session.
+- `dragend` handler reads the final DOM order back into `graphState.selected` (the two need to be reconciled exactly once, after the drag session ends, not per `dragover` event) and only then calls the existing `refreshGraphSelectedList`/`refreshGraphChartArea`.
+- Keep the up/down buttons from the prior change as-is — drag-and-drop is additive, not a replacement (native HTML5 DnD isn't keyboard-accessible).
+- New CSS: grab/grabbing cursor on the row, a `.dragging` opacity state for the row being moved.
+
+## Verification
+
+Use Playwright's `locator.drag_to()` (simulates a real multi-step native drag, unlike a single synthetic event) to drag one sidebar row onto another, and confirm the sidebar list and the chart's column labels end up reordered identically to each other. Re-run the existing up/down-button test afterward to confirm no regression from the added `draggable="false"` attributes. Zero console errors expected.
