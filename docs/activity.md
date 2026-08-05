@@ -2835,3 +2835,25 @@ Used Playwright's `locator.drag_to()`, which simulates a full native drag sequen
 Added a follow-up bullet to Phase 30 in `docs/tasks.md`.
 
 ---
+
+## Graph screen follow-up: arrows kept as decoration, dragging becomes the only reorder mechanism
+
+**Request:** "Keep the arrows on the sides of the conditions but get rid of their actual functionality so its just the dragging."
+
+### What changed
+
+- `renderGraphSelectedListHTML` (`app.js`): the `▲`/`▼` `<button>`s became plain `<span class="graph-selected-move">` elements — no `data-condition-id`, `data-direction`, or `disabled` state, since nothing reads them anymore. The wrapping `.graph-selected-reorder` got `aria-hidden="true"` (it's decoration now, not a control).
+- `wireGraphSelectedList`: deleted the entire click-handling block for `.graph-selected-move` — reordering is now exclusively via the drag-and-drop added in the prior change.
+- The label span needed its own class (`graph-selected-label`) because the old bare `.graph-selected-item span` CSS rule (`flex: 1; min-width: 0`) would otherwise have also matched the arrow glyphs now that they're `<span>`s too, stretching them to fill the row.
+- `.graph-selected-reorder` got `pointer-events: none` so a click or a drag-start with the cursor positioned directly over an arrow glyph passes through to the row underneath rather than being absorbed by the now-inert span — dragging still works no matter where on the row you grab it.
+- Removed the now-dead `.graph-selected-move:hover:not(:disabled)`/`:disabled` CSS rules (nothing to hover or disable on a plain span).
+
+### Verification
+
+Same Playwright + local-static-server + "Preview app" harness. Confirmed the `.graph-selected-move` elements are `<span>`s, not `<button>`s; clicking one directly leaves the sidebar order unchanged; and — the case `pointer-events: none` was specifically added for — starting a mouse-down/drag sequence with the cursor exactly on top of an arrow glyph still drags the whole row, ending with the sidebar list and the chart's column labels reordered identically to each other. Screenshotted the list to confirm it's visually unchanged from before (arrows still present in the same spot) despite no longer doing anything on click. Zero console errors.
+
+## Final step (per project convention)
+
+Added a follow-up bullet to Phase 30 in `docs/tasks.md`.
+
+---

@@ -3261,3 +3261,23 @@ User: "could they be click and hold draggable?" — following up on the up/down 
 ## Verification
 
 Use Playwright's `locator.drag_to()` (simulates a real multi-step native drag, unlike a single synthetic event) to drag one sidebar row onto another, and confirm the sidebar list and the chart's column labels end up reordered identically to each other. Re-run the existing up/down-button test afterward to confirm no regression from the added `draggable="false"` attributes. Zero console errors expected.
+
+---
+
+# Plan (follow-up): make the reorder arrows purely decorative
+
+## Context
+
+User: "Keep the arrows on the sides of the conditions but get rid of their actual functionality so its just the dragging." Now that drag-and-drop reordering works, the `▲`/`▼` buttons from two changes ago are redundant as a second reorder mechanism — but the user wants to keep them visible as a UI element, just non-functional.
+
+## Approach
+
+- Change the `▲`/`▼` `renderGraphSelectedListHTML` elements from `<button>` to plain `aria-hidden` `<span>`, dropping `data-condition-id`/`data-direction`/`disabled` since nothing reads them once the click handler is gone.
+- Delete `wireGraphSelectedList`'s `.graph-selected-move` click-handling block entirely.
+- Give the row's label its own class (`graph-selected-label`) since the old bare `.graph-selected-item span` selector would now also catch the arrow spans.
+- Add `pointer-events: none` to `.graph-selected-reorder` so clicking or starting a drag directly over an arrow glyph still reaches the row underneath instead of the inert span swallowing the event.
+- Remove the dead hover/disabled CSS for the old button state.
+
+## Verification
+
+Confirm via Playwright that the elements are now `<span>`s; that clicking one does nothing; and that starting a drag with the mouse positioned exactly over an arrow glyph still moves the whole row (sidebar and chart column order end up matching). Screenshot to confirm no visual regression. Zero console errors expected.

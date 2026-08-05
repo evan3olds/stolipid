@@ -3611,21 +3611,21 @@ function wireGraphEditToggle() {
 // legend without touching the underlying experiment/condition records.
 //
 // List order doubles as column order: renderGraphScatterSVG/BarSVG/BoxSVG
-// all lay columns out via `selected.map((s, i) => cx = ... * i ...)`, so the
-// up/down buttons below just reorder this same array and a chart redraw
-// picks the new order up for free — no separate "column position" field.
+// all lay columns out via `selected.map((s, i) => cx = ... * i ...)`, so
+// dragging a row here (see wireGraphSelectedList below) just reorders this
+// same array and a chart redraw picks the new order up for free — no
+// separate "column position" field.
 function renderGraphSelectedListHTML() {
   if (graphState.selected.length === 0) return '';
-  const lastIndex = graphState.selected.length - 1;
   return `
     <ul class="graph-selected-list-items">
-      ${graphState.selected.map((s, i) => `
+      ${graphState.selected.map(s => `
         <li class="graph-selected-item" draggable="true" data-condition-id="${escHtml(String(s.conditionId))}">
-          <div class="graph-selected-reorder">
-            <button type="button" class="graph-selected-move" draggable="false" data-condition-id="${escHtml(String(s.conditionId))}" data-direction="up" aria-label="Move ${escHtml(s.conditionLabel)} up in the graph"${i === 0 ? ' disabled' : ''}>&#9650;</button>
-            <button type="button" class="graph-selected-move" draggable="false" data-condition-id="${escHtml(String(s.conditionId))}" data-direction="down" aria-label="Move ${escHtml(s.conditionLabel)} down in the graph"${i === lastIndex ? ' disabled' : ''}>&#9660;</button>
+          <div class="graph-selected-reorder" aria-hidden="true">
+            <span class="graph-selected-move">&#9650;</span>
+            <span class="graph-selected-move">&#9660;</span>
           </div>
-          <span>${escHtml(s.experimentLabel)} &rsaquo; ${escHtml(s.conditionLabel)}</span>
+          <span class="graph-selected-label">${escHtml(s.experimentLabel)} &rsaquo; ${escHtml(s.conditionLabel)}</span>
           <button class="graph-selected-remove" draggable="false" data-condition-id="${escHtml(String(s.conditionId))}" aria-label="Remove ${escHtml(s.conditionLabel)} from graph">&times;</button>
         </li>
       `).join('')}
@@ -3639,15 +3639,18 @@ function refreshGraphSelectedList() {
 }
 
 // Native HTML5 drag-and-drop, click-and-hold on anywhere in the row except
-// the buttons (which opt out via draggable="false" — otherwise a mousedown
-// there can hijack drag initiation instead of firing the button's click).
+// the remove button (which opts out via draggable="false" — otherwise a
+// mousedown there can hijack drag initiation instead of firing its click).
+// The ▲▼ glyphs in .graph-selected-reorder are decorative only (plain
+// aria-hidden <span>s, not buttons) — reordering happens exclusively via
+// drag now; they're just a visual affordance hinting that rows can move.
 // dragover moves the actual dragged <li> node live via insertBefore, rather
 // than re-rendering the list on every event — replacing the dragged node
 // mid-drag would cancel the browser's native drag session. Once the drag
 // ends, commitGraphSelectedOrderFromDOM reads the now-reordered DOM back
 // into graphState.selected (the real source of truth for column order) and
 // only then re-renders, so the list's HTML/listeners are back in a clean
-// state. The up/down buttons stay as a non-drag fallback alongside this.
+// state.
 let graphDragEl = null;
 
 function commitGraphSelectedOrderFromDOM() {
@@ -3661,18 +3664,6 @@ function wireGraphSelectedList() {
   document.querySelectorAll('.graph-selected-remove').forEach(btn => {
     btn.addEventListener('click', () => {
       graphState.selected = graphState.selected.filter(s => String(s.conditionId) !== btn.dataset.conditionId);
-      refreshGraphSelectedList();
-      refreshGraphChartArea();
-    });
-  });
-  document.querySelectorAll('.graph-selected-move').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fromIndex = graphState.selected.findIndex(s => String(s.conditionId) === btn.dataset.conditionId);
-      if (fromIndex === -1) return;
-      const toIndex = fromIndex + (btn.dataset.direction === 'up' ? -1 : 1);
-      if (toIndex < 0 || toIndex >= graphState.selected.length) return;
-      [graphState.selected[fromIndex], graphState.selected[toIndex]] =
-        [graphState.selected[toIndex], graphState.selected[fromIndex]];
       refreshGraphSelectedList();
       refreshGraphChartArea();
     });
