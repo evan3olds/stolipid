@@ -362,6 +362,17 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] `ABOUT_CONTENT.purpose`/`origin` — reworded to stop reading as lipid-droplet-exclusive ("lipid droplets and beyond" in Purpose; Origin now frames BODIPY/Nile Red lipid droplet counting as the tool's original use case rather than its only one, closing with "the same structure generalizes to counting any labeled feature across microscopy images, not just lipid droplets")
 - [x] `ABOUT_CONTENT.purpose`'s stated hierarchy corrected from `Experiments → Conditions → Cells → Counts` to `Projects → Experiments → Conditions → Cells → Counts`, matching the real Phase 14 schema (`projects` is the actual top-level parent, not `experiments`)
 
+---
+
+## Phase 30 — Graph screen: editable caption + unified edit toggle
+
+- [x] Added an optional caption line under the Graph screen's title: `graphState.caption` (`app.js`, defaults to `''`/`GRAPH_DEFAULT_CAPTION`, shown as `.graph-caption` beneath `.graph-chart-title` when non-empty)
+- [x] Replaced the title's old per-field pencil-click editing (`graphState.editingTitle`, a lone pencil icon next to the title) with one `graphState.editMode` toggle: a new "Edit" / "Done editing" button (`graph-edit-toggle-btn`, `.active` state styled like `.settings-theme-btn.active`) placed to the left of "Download graph" in `.graph-header-actions`. Flipping it swaps `renderGraphTitleBlockHTML`'s output between plain display text and two always-visible `<input>` boxes (title + caption) — no more click-one-field-at-a-time
+- [x] Both fields accept empty strings: unlike the old title editor (which silently discarded a blank commit and kept the previous title), leaving either box empty and toggling edit mode off now hides that field entirely in display mode (`.trim()` check in `renderGraphTitleBlockHTML`) instead of falling back to a default
+- [x] `downloadGraphImage` updated to match: draws the caption under the title on the exported canvas (only if non-empty), skips reserving title/caption height when either is blank, and the exported filename (still derived from the title) falls back to `graph.jpg` when the title is empty rather than producing a blank/malformed name
+- [x] Removed now-dead code: the `GRAPH_PENCIL_ICON` constant and `.graph-edit-btn`/`.graph-edit-btn:hover` CSS (only ever used by the old per-field title pencil, which no longer exists). The per-axis-label pencil-click editing (`graphAxisEditIconSVG`/`openGraphAxisLabelEditor`) is unrelated and untouched — it already lets each column's experiment/condition label be renamed independently and wasn't part of this change
+- [x] Verified via a headless-browser (Playwright) pass against a local static server: added conditions to the chart, toggled edit mode on (both boxes appear together, toggle button shows active/accent styling and label flips to "Done editing"), typed a caption, toggled off (caption renders under the title), blanked both title and caption and toggled off again (both disappear from display with no residual empty elements), and downloaded the graph image in both the captioned and blank-title states (caption appears on the exported JPG; filename falls back to `graph.jpg` when title is blank). Zero console errors throughout
+
 ## Future (Out of Scope for v1)
 
 - [x] CSV export of Raw Data table

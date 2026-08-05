@@ -3180,3 +3180,24 @@ User: "Update the about page to reflect the name change, and be more general for
 ## Verification
 
 Copy-only change through an already-verified template-literal interpolation path (`renderAboutHTML`) — no new rendering logic, so no re-screenshot needed.
+
+---
+
+# Plan: Graph screen — editable caption + unified edit toggle
+
+## Context
+
+User: "Add an editable caption to the graph screen, add an edit toggle to the left of download graph, and when in edit mode you can see all the text boxes and change them. They should allow empty strings so that they are basically deleted when you arent in edit mode." The Graph screen already had one editable text field — the chart title — via a lone pencil icon (`graph-title-edit-btn`) that swapped the `<h2>` for a single `<input>` on click and silently rejected a blank commit (`if (value) graphState.title = value`), reverting to whatever the title was before.
+
+## Approach
+
+- Add `graphState.caption` (default `''`) rendered as `.graph-caption` under the title when non-empty.
+- Replace the per-field pencil-click model with one `graphState.editMode` toggle button (labeled "Edit" / "Done editing", `.active` styling matching `.settings-theme-btn.active`), placed to the left of the existing "Download graph" button in a new `.graph-header-actions` wrapper.
+- `renderGraphTitleBlockHTML` branches once on `editMode`: true renders both title and caption as always-visible `<input>` boxes (no per-field click needed); false renders each as plain text, entirely omitted (not just blanked) when `.trim()` is empty — so leaving a box empty and exiting edit mode genuinely deletes that field from view instead of falling back to a default.
+- Inputs commit on every keystroke (`input` event) rather than only on blur-with-a-non-empty-check, since blank is now a valid, meaningful value.
+- Update `downloadGraphImage` to draw the caption under the title on the exported canvas (skipped if blank), skip reserving vertical space for either line when empty, and fall back the exported filename to `graph.jpg` when the title is blank.
+- Remove now-dead code from the old model: `GRAPH_PENCIL_ICON` constant, `.graph-edit-btn`/`.graph-edit-btn:hover` CSS. Leave the unrelated per-axis-label pencil editing (`graphAxisEditIconSVG`/`openGraphAxisLabelEditor`) untouched — not part of this request.
+
+## Verification
+
+No project skill covers running this app. Used the Python `playwright` package already present in this environment to drive headless Chromium against `python3 -m http.server` serving the repo root, logging in via the existing "Preview app" test-data path, and navigating to the Graph screen. Screenshotted display mode, edit mode (both boxes visible at once, toggle active-styled), post-caption display, and the fully-blanked state (both fields vanish cleanly). Also exercised `downloadGraphImage` in both the captioned and blank-title states and inspected the resulting JPGs. Zero console errors throughout.

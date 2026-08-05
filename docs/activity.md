@@ -2745,3 +2745,26 @@ Read-only copy edit in an already-verified rendering path (`renderAboutHTML` int
 Added a bullet as Phase 29 in `docs/tasks.md`.
 
 ---
+
+## Graph screen: editable caption + unified edit toggle
+
+**Request:** "Add an editable caption to the graph screen, add an edit toggle to the left of download graph, and when in edit mode you can see all the text boxes and change them. They should allow empty strings so that they are basically deleted when you arent in edit mode."
+
+### What changed
+
+- `app.js`: added `graphState.caption` (defaults to `''` via new `GRAPH_DEFAULT_CAPTION`), rendered as `.graph-caption` under the chart title when non-empty.
+- Replaced the old title-only editing model — a lone pencil icon (`graph-title-edit-btn`) that swapped just the `<h2>` for an `<input>` on click, discarding the input's own state once you clicked away — with a single `graphState.editMode` toggle. `renderGraphTitleBlockHTML` now branches once on `editMode` to render *both* the title and caption as plain text (hidden entirely if blank, via `.trim()`) or *both* as always-visible `<input>` boxes at once. `renderGraphTitleRowHTML`/`refreshGraphTitleRow`/`wireGraphTitleRow` were renamed and rewritten to the block versions (`renderGraphTitleBlockHTML`/`refreshGraphTitleBlock`/`wireGraphTitleBlock`), plus a new `wireGraphEditToggle` for the toggle button itself.
+- The toggle button (`graph-edit-toggle-btn`, id `graph-edit-toggle-btn`) sits in a new `.graph-header-actions` wrapper to the left of the existing "Download graph" button, labeled "Edit" / "Done editing" and styled with an `.active` state (accent border + `box-shadow`, matching the existing `.settings-theme-btn.active` convention) when edit mode is on.
+- Both text boxes now genuinely allow empty strings: the old title editor's blur handler only committed `if (value) graphState.title = value` (silently reverting a blanked title back to whatever it was before), so nothing could ever actually be deleted. The new inputs commit on every keystroke (`input` event, no trim-and-reject), and the *display*-mode check (`graphState.title.trim() ? ... : ''`) is what decides whether the field renders at all — leaving a box empty and flipping edit mode off makes that field disappear rather than falling back to a default.
+- `downloadGraphImage`: draws the caption on its own line under the title on the exported canvas (skipped if blank), no longer reserves title/caption vertical space when either is empty, and the exported filename (slugified from the title) now falls back to `graph.jpg` when the title is blank instead of assuming a title is always present.
+- Removed dead code left behind by the old editor: the `GRAPH_PENCIL_ICON` constant and the `.graph-edit-btn`/`.graph-edit-btn:hover` CSS rules (nothing else referenced either). Left the per-axis-label pencil-click editing (`graphAxisEditIconSVG`/`openGraphAxisLabelEditor`, which lets each column's experiment/condition name be renamed independently) untouched — it's a separate, already-working mechanism the request didn't ask to change.
+
+### Verification
+
+No project skill covers running this app, so used a Python `playwright` install (already present in this environment) driving headless Chromium against `python3 -m http.server` serving the repo root, logging in via the existing "Preview app" test-data path. Screenshotted the Graph screen: display mode (Edit button correctly left of Download graph, no caption line since it starts empty) → edit mode (title + caption both shown as boxes simultaneously, toggle button flips to "Done editing" with active/accent styling) → typed a caption and exited edit mode (caption renders under the title in secondary text color) → blanked both title and caption and exited edit mode again (both vanish from the header with no leftover empty elements). Also downloaded the graph image in the captioned state and again with a blank title — the caption shows up on the exported JPG beneath the title, and the blank-title export correctly falls back to the `graph.jpg` filename. Zero console errors across the whole run.
+
+## Final step (per project convention)
+
+Added a bullet as Phase 30 in `docs/tasks.md`.
+
+---
