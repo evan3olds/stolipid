@@ -90,6 +90,11 @@
   --accent-tint-soft:   var(--accent-tint-soft-paper);
   --accent-tint-strong: var(--accent-tint-strong-paper);
 
+  /* About-screen citation/protocol links only — same hue as accent in
+     Paper, but re-hued in Sage (see below) so links read as links rather
+     than blending into the accent-colored headings around them. */
+  --about-link: var(--accent-paper);
+
   /* Multiplies the alpha of every .home-bg-pattern dot/ring (see below) —
      bumped in the Sage override since the same alpha reads noticeably
      fainter against a dark page background than a light one. */
@@ -166,6 +171,11 @@
   --accent:             oklch(from var(--accent-paper) 0.64 c 132);
   --accent-tint-soft:   oklch(from var(--accent-tint-soft-paper) 0.5 c 132);
   --accent-tint-strong: oklch(from var(--accent-tint-strong-paper) 0.5 c 132);
+
+  /* Distinct blue hue (230) instead of the sage-green accent hue, so
+     About-screen links are visually distinguishable from accent-colored
+     chrome in the dark theme. */
+  --about-link: oklch(from var(--accent-paper) 0.72 c 230);
 
   --home-dot-alpha-mult: 1.8;
 
@@ -917,7 +927,7 @@ body {
 
 .about-link {
   font-size: 0.9375rem;
-  color: var(--accent);
+  color: var(--about-link);
 }
 
 .about-footer-row {

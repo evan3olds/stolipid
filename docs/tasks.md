@@ -361,6 +361,7 @@ Organized by phase (MVP-first). Each item is one screen, component, or system ar
 - [x] `ABOUT_CONTENT.purpose` (`app.js`) — replaced the hardcoded "Lipid Counter" name with `${CONFIG.appTitle}` (currently "Cell Archive") so the copy tracks the app's actual configured name instead of drifting from it
 - [x] `ABOUT_CONTENT.purpose`/`origin` — reworded to stop reading as lipid-droplet-exclusive ("lipid droplets and beyond" in Purpose; Origin now frames BODIPY/Nile Red lipid droplet counting as the tool's original use case rather than its only one, closing with "the same structure generalizes to counting any labeled feature across microscopy images, not just lipid droplets")
 - [x] `ABOUT_CONTENT.purpose`'s stated hierarchy corrected from `Experiments → Conditions → Cells → Counts` to `Projects → Experiments → Conditions → Cells → Counts`, matching the real Phase 14 schema (`projects` is the actual top-level parent, not `experiments`)
+- [x] Follow-up: added a "How to make a website using Claude" entry to `ABOUT_CONTENT.links` (`app.js`), which had been empty and so never rendered the "Citations & protocols" section. Also gave `.about-link` (`style.css`) its own `--about-link` color token, identical to `--accent` in Paper but re-hued blue in Sage (dark theme), so About-screen links read as distinguishable from accent-colored chrome in dark mode; scoped to About only, not `.login-link`/`.wiki-toc-link`
 
 ---
 
