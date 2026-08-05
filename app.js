@@ -3544,7 +3544,10 @@ function renderGraphHTML(experiments) {
         <div class="graph-header">
           <div class="graph-title-block" id="graph-title-block">${renderGraphTitleBlockHTML()}</div>
           <div class="graph-header-actions">
-            <button type="button" class="graph-edit-toggle-btn${graphState.editMode ? ' active' : ''}" id="graph-edit-toggle-btn" aria-pressed="${graphState.editMode}">${graphState.editMode ? 'Done editing' : 'Edit'}</button>
+            <button type="button" class="graph-edit-switch" id="graph-edit-toggle-btn" role="switch" aria-checked="${graphState.editMode}" aria-label="Edit graph text">
+              <span class="graph-edit-switch-label">Edit</span>
+              <span class="graph-edit-switch-track"><span class="graph-edit-switch-thumb"></span></span>
+            </button>
             <button type="button" class="graph-export-btn" id="graph-export-btn">Download graph</button>
           </div>
         </div>
@@ -3593,20 +3596,19 @@ function wireGraphTitleBlock() {
 function wireGraphEditToggle() {
   document.getElementById('graph-edit-toggle-btn').addEventListener('click', () => {
     graphState.editMode = !graphState.editMode;
+    document.getElementById('graph-edit-toggle-btn').setAttribute('aria-checked', String(graphState.editMode));
     refreshGraphTitleBlock();
-    const btn = document.getElementById('graph-edit-toggle-btn');
-    btn.classList.toggle('active', graphState.editMode);
-    btn.setAttribute('aria-pressed', String(graphState.editMode));
-    btn.textContent = graphState.editMode ? 'Done editing' : 'Edit';
+    refreshGraphSelectedList();
+    refreshGraphChartArea();
   });
 }
 
 // Each selected item's experiment/condition display labels (experimentLabel/
 // conditionLabel) start out equal to the real names but can be edited
-// independently per item via the pencil icons on the chart's x-axis (see
-// graphAxisEditIconSVG/openGraphAxisLabelEditor below) — a display-only
-// rename that feeds these list rows, the column labels, and the legend
-// without touching the underlying experiment/condition records.
+// independently per item — like the title/caption, only while the graph's
+// edit-mode switch is on (see openAllGraphAxisLabelEditors below) — a
+// display-only rename that feeds these list rows, the column labels, and the
+// legend without touching the underlying experiment/condition records.
 function renderGraphSelectedListHTML() {
   if (graphState.selected.length === 0) return '';
   return `
@@ -3636,64 +3638,47 @@ function wireGraphSelectedList() {
   });
 }
 
-// A small pencil <svg> nested inside the chart's own <svg> (valid SVG,
-// scaled/positioned via its own x/y/width/height like an <image>). Stripped
-// out of the clone in downloadGraphImage before rasterizing, so it never
-// appears in the export.
-function graphAxisEditIconSVG(x, y, conditionId, field) {
-  return `<svg x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="11" height="11" viewBox="0 0 24 24" class="graph-axis-edit-btn" data-condition-id="${escHtml(String(conditionId))}" data-field="${field}" role="button" tabindex="0" aria-label="Edit label"><rect width="24" height="24" fill="transparent"/><path d="M12 20h9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+// While edit mode is on, every column's condition/experiment label gets its
+// own floating <input>, anchored over its (opacity-hidden, not display:none
+// — so its rect stays valid) SVG <text> the same way the graph tooltip
+// anchors to the element under the pointer. Unlike the old single-label
+// pencil-click popup, these open as soon as edit mode turns on (no click
+// needed) and commit live on every keystroke, matching the title/caption
+// boxes; the hidden <text> only reflects the new value once edit mode is
+// switched back off and refreshGraphChartArea redraws it.
+function closeAllGraphAxisLabelEditors() {
+  document.querySelectorAll('.graph-axis-label-editor').forEach(el => el.remove());
 }
 
-// Positions a floating <input> under whichever axis pencil was clicked
-// (same "anchor to the clicked element's own rect" approach the graph
-// tooltip uses for its own positioning, just anchored instead of following
-// the mouse) and commits the edited label back onto the matching selected
-// item on blur/Enter.
-function openGraphAxisLabelEditor(btn) {
-  const { conditionId, field } = btn.dataset;
-  const item = graphState.selected.find(s => String(s.conditionId) === String(conditionId));
-  if (!item) return;
+function openAllGraphAxisLabelEditors() {
+  closeAllGraphAxisLabelEditors();
+  document.querySelectorAll('#graph-chart-area [data-axis-field]').forEach(el => {
+    const { conditionId, axisField } = el.dataset;
+    const item = graphState.selected.find(s => String(s.conditionId) === String(conditionId));
+    if (!item) return;
 
-  document.querySelector('.graph-axis-label-editor')?.remove();
-
-  const rect = btn.getBoundingClientRect();
-  const editor = document.createElement('input');
-  editor.type = 'text';
-  editor.className = 'graph-axis-label-editor';
-  editor.maxLength = 60;
-  editor.value = item[field];
-  editor.style.left = `${rect.left}px`;
-  editor.style.top = `${rect.bottom + 4}px`;
-  document.body.appendChild(editor);
-  editor.focus();
-  editor.select();
-
-  let cancelled = false;
-  editor.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') editor.blur();
-    else if (e.key === 'Escape') { cancelled = true; editor.blur(); }
-  });
-  editor.addEventListener('blur', () => {
-    if (!cancelled) {
-      const value = editor.value.trim();
-      if (value) item[field] = value;
-    }
-    editor.remove();
-    refreshGraphSelectedList();
-    refreshGraphChartArea();
-  });
-}
-
-function wireGraphAxisEdit() {
-  document.querySelectorAll('.graph-axis-edit-btn').forEach(btn => {
-    btn.addEventListener('click', () => openGraphAxisLabelEditor(btn));
+    const rect = el.getBoundingClientRect();
+    const width = 120;
+    const editor = document.createElement('input');
+    editor.type = 'text';
+    editor.className = 'graph-axis-label-editor';
+    editor.maxLength = 60;
+    editor.value = item[axisField];
+    editor.style.left = `${(rect.left + rect.width / 2 - width / 2).toFixed(1)}px`;
+    editor.style.top = `${(rect.top - 2).toFixed(1)}px`;
+    editor.style.width = `${width}px`;
+    editor.addEventListener('input', () => {
+      item[axisField] = editor.value;
+    });
+    document.body.appendChild(editor);
   });
 }
 
 function refreshGraphChartArea() {
   document.getElementById('graph-chart-area').innerHTML = renderGraphChartArea();
   wireGraphTooltip();
-  wireGraphAxisEdit();
+  if (graphState.editMode) openAllGraphAxisLabelEditors();
+  else closeAllGraphAxisLabelEditors();
 }
 
 // Series = experiment. A single represented experiment stays in the plain
@@ -3777,11 +3762,13 @@ function renderGraphGridlinesSVG(niceMax, tickStep, yFor, padLeft, plotWidth) {
 function renderGraphColumnLabelSVG(cx, height, conditionLabel, experimentLabel, conditionId) {
   const mainY = height - 34;
   const subY = height - 18;
+  // Hidden (not display:none — openAllGraphAxisLabelEditors needs a valid
+  // rect to anchor its floating <input> to) rather than omitted, so the
+  // column keeps its layout while edit mode's overlay stands in for it.
+  const editingClass = graphState.editMode ? ' graph-axis-label-editing' : '';
   return `
-    <text x="${cx.toFixed(1)}" y="${mainY}" class="graph-col-label" text-anchor="middle">${escHtml(truncateLabel(conditionLabel, 14))}</text>
-    ${graphAxisEditIconSVG(cx + 46, mainY - 9, conditionId, 'conditionLabel')}
-    <text x="${cx.toFixed(1)}" y="${subY}" class="graph-col-sublabel" text-anchor="middle">${escHtml(truncateLabel(experimentLabel, 16))}</text>
-    ${graphAxisEditIconSVG(cx + 48, subY - 8, conditionId, 'experimentLabel')}
+    <text x="${cx.toFixed(1)}" y="${mainY}" class="graph-col-label${editingClass}" text-anchor="middle" data-condition-id="${escHtml(String(conditionId))}" data-axis-field="conditionLabel">${escHtml(truncateLabel(conditionLabel, 14))}</text>
+    <text x="${cx.toFixed(1)}" y="${subY}" class="graph-col-sublabel${editingClass}" text-anchor="middle" data-condition-id="${escHtml(String(conditionId))}" data-axis-field="experimentLabel">${escHtml(truncateLabel(experimentLabel, 16))}</text>
   `;
 }
 
@@ -4206,9 +4193,9 @@ const GRAPH_EXPORT_SVG_STYLE = `
 `;
 
 // Rebuilds the title + legend + chart as a fresh canvas drawing (not a DOM
-// screenshot), so the pencil/edit-label icons — which only ever exist in the
-// sidebar and title-row HTML, never in this drawing code — can't end up in
-// the exported file.
+// screenshot), so the floating title/caption/axis-label edit boxes — which
+// only ever exist as separate title-row HTML or document.body overlays,
+// never in this drawing code — can't end up in the exported file.
 async function downloadGraphImage() {
   const liveSvg = document.querySelector('#graph-chart-area .graph-scatter-svg');
   if (!liveSvg) return;
@@ -4219,10 +4206,11 @@ async function downloadGraphImage() {
     const svgClone = liveSvg.cloneNode(true);
     svgClone.setAttribute('width', String(GRAPH_CHART_WIDTH));
     svgClone.setAttribute('height', String(GRAPH_CHART_HEIGHT));
-    // The axis-label pencils are real elements inside the live chart SVG
-    // (unlike the title pencil, which lives in separate title-row HTML) —
-    // strip them from the clone so they never reach the rasterized export.
-    svgClone.querySelectorAll('.graph-axis-edit-btn').forEach(el => el.remove());
+    // If edit mode is on, the live column labels are opacity-hidden in favor
+    // of the floating <input> overlays (see openAllGraphAxisLabelEditors) —
+    // drop that class from the clone so the export always shows the actual
+    // label text regardless of whether edit mode happens to be on.
+    svgClone.querySelectorAll('.graph-axis-label-editing').forEach(el => el.classList.remove('graph-axis-label-editing'));
     svgClone.insertAdjacentHTML('afterbegin',
       `<rect x="0" y="0" width="${GRAPH_CHART_WIDTH}" height="${GRAPH_CHART_HEIGHT}" fill="#ffffff"/><style>${GRAPH_EXPORT_SVG_STYLE}</style>`);
     const svgString = new XMLSerializer().serializeToString(svgClone);
