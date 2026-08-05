@@ -2792,3 +2792,24 @@ Re-ran the same Playwright + local-static-server + "Preview app" harness as the 
 Added follow-up bullets to Phase 30 in `docs/tasks.md`.
 
 ---
+
+## Graph screen follow-up: reorderable sidebar list drives column order
+
+**Request:** "Make the conditions on the left moveable up and down so that they are reordered on the graph."
+
+### What changed
+
+- Confirmed the chart already takes its column order straight from `graphState.selected` array order — `renderGraphScatterSVG`/`renderGraphBarSVG`/`renderGraphBoxSVG` all compute each column's x position via `selected.map((s, i) => cx = padLeft + colWidth * (i + 0.5))`. So reordering the sidebar list just means reordering that one array; no separate "position" field or chart-side change was needed.
+- `renderGraphSelectedListHTML` (`app.js`): each `<li>` gained a `▲`/`▼` button pair (`.graph-selected-move`, `data-condition-id` + `data-direction`), disabled on the first item's up button and the last item's down button.
+- `wireGraphSelectedList`: a new click handler finds the clicked item's index in `graphState.selected`, computes the swap target (`fromIndex ± 1`), swaps the two array entries in place, then calls the existing `refreshGraphSelectedList()`/`refreshGraphChartArea()` — the same two functions already used after add/remove, so no new redraw path was needed.
+- New CSS: `.graph-selected-reorder` (stacks the two arrow buttons vertically, to the left of the experiment/condition text), `.graph-selected-move`/`:hover:not(:disabled)`/`:disabled`. Gave `.graph-selected-item span` `flex: 1; min-width: 0` so the label still truncates/wraps sensibly with the new column taking up space on the left.
+
+### Verification
+
+Same Playwright + local-static-server + "Preview app" harness as the prior Graph screen changes. Added three conditions (0/6/24 Hr Starved), clicked the third item's up arrow twice, and confirmed via `textContent` on both the sidebar list and the chart's `.graph-col-label` SVG text nodes that both reordered identically to `24 Hr → 0 Hr → 6 Hr`. Screenshotted before/after and a zoomed crop of the arrow buttons — confirmed the first item's up arrow and the last item's down arrow render visibly disabled (dimmed) while every other arrow stays clickable. Zero console errors.
+
+## Final step (per project convention)
+
+Added follow-up bullets to Phase 30 in `docs/tasks.md`.
+
+---

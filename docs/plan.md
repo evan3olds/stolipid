@@ -3223,3 +3223,21 @@ User: "The text at the bottom should also be editable only in the edit mode, not
 ## Verification
 
 Re-use the same Playwright + local static server + "Preview app" harness. Confirm: switch renders correctly off/on (track color, thumb position); turning edit mode on opens one floating input per label with no click; typing updates only that box; turning edit mode off updates the chart's labels and the sidebar list and removes all floating inputs; downloading mid-edit-mode still shows real label text on the exported JPG. Zero console errors.
+
+---
+
+# Plan (follow-up): reorderable sidebar list drives Graph column order
+
+## Context
+
+User: "Make the conditions on the left moveable up and down so that they are reordered on the graph." Checked how columns get their x-position — `renderGraphScatterSVG`/`renderGraphBarSVG`/`renderGraphBoxSVG` all derive it from `selected.map((s, i) => cx = ... * i ...)`, i.e. plain array order. So the sidebar's `graphState.selected` array is already the single source of truth for column order; nothing on the chart-rendering side needs to change.
+
+## Approach
+
+- Add a `▲`/`▼` button pair to each `renderGraphSelectedListHTML` row (disabled at the top/bottom of the list).
+- `wireGraphSelectedList`'s new handler finds the clicked item's array index, swaps it with the adjacent index, and calls the already-existing `refreshGraphSelectedList()`/`refreshGraphChartArea()` (the same pair used after add/remove) — no new state and no drag-and-drop implementation needed, since a plain array swap plus the existing redraw path is sufficient.
+- New CSS for the button pair (`.graph-selected-reorder`, `.graph-selected-move`) and a small `flex: 1; min-width: 0` on the item's label span so it still wraps/truncates correctly with less horizontal room.
+
+## Verification
+
+Same Playwright harness as prior Graph screen work: add three conditions, move one via the arrow buttons, confirm both the sidebar list and the chart's SVG column-label text reorder identically, and confirm the disabled state tracks the current first/last position. Zero console errors expected.
