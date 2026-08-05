@@ -3201,3 +3201,25 @@ User: "Add an editable caption to the graph screen, add an edit toggle to the le
 ## Verification
 
 No project skill covers running this app. Used the Python `playwright` package already present in this environment to drive headless Chromium against `python3 -m http.server` serving the repo root, logging in via the existing "Preview app" test-data path, and navigating to the Graph screen. Screenshotted display mode, edit mode (both boxes visible at once, toggle active-styled), post-caption display, and the fully-blanked state (both fields vanish cleanly). Also exercised `downloadGraphImage` in both the captioned and blank-title states and inspected the resulting JPGs. Zero console errors throughout.
+
+---
+
+# Plan (follow-up): Graph screen axis labels edit-mode-only, edit control as a real switch
+
+## Context
+
+User: "The text at the bottom should also be editable only in the edit mode, not with the pencil icon. Also make the edit button a on off switch toggle." The per-column axis labels (condition/experiment name under each chart column) were still on the old, separate pencil-click-to-open-one-input model (`graphAxisEditIconSVG`/`openGraphAxisLabelEditor`) that predated this session's `graphState.editMode` toggle; the toggle itself was a plain labeled button with an `.active` border, not an actual switch control.
+
+## Approach
+
+- Remove `graphAxisEditIconSVG`/`openGraphAxisLabelEditor`/`wireGraphAxisEdit` entirely (the pencil-click popup).
+- `renderGraphColumnLabelSVG`'s condition/experiment `<text>` elements gain `data-condition-id`/`data-axis-field` and a `.graph-axis-label-editing` class (CSS `opacity: 0`, not `display:none` — the rect is still needed for anchoring) whenever `graphState.editMode` is on.
+- New `openAllGraphAxisLabelEditors`/`closeAllGraphAxisLabelEditors`, called from the existing `refreshGraphChartArea`: when edit mode is on, open one floating `<input>` per hidden label (anchored to that label's own `getBoundingClientRect()`, same trick the old popup and the tooltip use) — all at once, no click needed. Each commits to the matching `graphState.selected` item live on `input`.
+- `wireGraphEditToggle` additionally calls `refreshGraphSelectedList()` so the sidebar list picks up renamed labels once edit mode toggles off (the old popup did this from its own blur handler, which no longer exists).
+- `downloadGraphImage` strips `.graph-axis-label-editing` from its SVG clone before rasterizing, so exporting while edit mode is still on doesn't produce blank (opacity-0) column labels.
+- Replace the labeled toggle button with a real switch: `.graph-edit-switch`, `role="switch"` + `aria-checked`, sliding track/thumb (`transform: translateX`, background flips to `var(--accent)` when on). Label text next to it stays static ("Edit") — only the switch state changes, matching the common fixed-label-plus-moving-control idiom. No existing switch component in the codebase, so build one from scratch using the app's existing CSS custom properties.
+- Remove now-dead `.graph-axis-edit-btn`/`.graph-axis-edit-btn:hover` CSS.
+
+## Verification
+
+Re-use the same Playwright + local static server + "Preview app" harness. Confirm: switch renders correctly off/on (track color, thumb position); turning edit mode on opens one floating input per label with no click; typing updates only that box; turning edit mode off updates the chart's labels and the sidebar list and removes all floating inputs; downloading mid-edit-mode still shows real label text on the exported JPG. Zero console errors.

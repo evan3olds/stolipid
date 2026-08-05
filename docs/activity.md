@@ -2768,3 +2768,27 @@ No project skill covers running this app, so used a Python `playwright` install 
 Added a bullet as Phase 30 in `docs/tasks.md`.
 
 ---
+
+## Graph screen follow-up: axis labels edit-mode-only, edit button as an on/off switch
+
+**Request:** "The text at the bottom should also be editable only in the edit mode, not with the pencil icon. Also make the edit button a on off switch toggle."
+
+### What changed
+
+- The per-column axis labels (condition name / experiment name under each column, previously edited one-at-a-time by clicking a pencil icon next to each — `graphAxisEditIconSVG`/`openGraphAxisLabelEditor`/`wireGraphAxisEdit`) now follow the same rule as the title/caption from the prior change: editable only while `graphState.editMode` is on, no click required. Removed the three pencil functions entirely.
+- `renderGraphColumnLabelSVG`'s two `<text>` elements (condition label, experiment label) now carry `data-condition-id`/`data-axis-field` and pick up a `.graph-axis-label-editing` class (new CSS: `opacity: 0` — not `display:none`, since the element's bounding rect is still needed) whenever `graphState.editMode` is true.
+- New `openAllGraphAxisLabelEditors`/`closeAllGraphAxisLabelEditors` (called from `refreshGraphChartArea`, which already re-renders on every metric/chart-type/selection change) open a floating `<input>` over *every* hidden label at once as soon as edit mode turns on — reusing the "anchor a floating input to the real rendered element's own `getBoundingClientRect()`" trick the old pencil-click popup and the tooltip both already relied on, just applied in bulk instead of behind a per-label click. Each input commits its value to the matching `graphState.selected` item live on `input`, same as the title/caption boxes.
+- `wireGraphEditToggle` now also calls `refreshGraphSelectedList()` on toggle, so the sidebar's "Experiment › Condition" list picks up renamed labels once edit mode is switched back off (previously this only happened via the old popup's blur handler, which no longer exists).
+- `downloadGraphImage` strips the `.graph-axis-label-editing` class from its cloned SVG before rasterizing — otherwise exporting while edit mode was still on would produce a JPG with blank (opacity-0) column labels, since the live chart hides them in favor of the floating inputs.
+- Edit toggle changed from a labeled button (text "Edit"/"Done editing", `.active` border) to an actual switch: `.graph-edit-switch`, a `role="switch"` element driven by `aria-checked`, with a sliding track/thumb (`.graph-edit-switch-track`/`-thumb`) that moves via `transform: translateX` and turns `var(--accent)` when on. The "Edit" text label next to it stays static — only the switch itself changes state — since no toggle-switch component existed elsewhere in the codebase to reuse, this one was built from scratch following the app's existing CSS-variable-driven theming conventions.
+- Removed the now-unused `.graph-axis-edit-btn`/`.graph-axis-edit-btn:hover` CSS (only ever styled the removed pencil icons).
+
+### Verification
+
+Re-ran the same Playwright + local-static-server + "Preview app" harness as the prior Graph screen change. Confirmed: display mode shows the switch off (gray track, thumb left) with no pencil icons anywhere on the chart; switching edit mode on produces exactly one floating input per label (six for three added conditions) with no click needed; typing into one only updates that box; switching edit mode off updates both the chart's column labels and the sidebar list to the typed names and removes all floating inputs; downloading the graph while edit mode was still on produced a JPG with the real, non-blank column labels. Zero console errors throughout.
+
+## Final step (per project convention)
+
+Added follow-up bullets to Phase 30 in `docs/tasks.md`.
+
+---
