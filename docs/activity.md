@@ -2917,3 +2917,29 @@ No browser-automation tooling available this session; traced by hand against `re
 Added a bullet to Phase 29 in `docs/tasks.md`.
 
 ---
+
+## Add Photos canvas preview no longer stored in Supabase Storage
+
+**Request:** "The preview images on the add cells screens is being stored, but we never need it past that screen. Make it so it just shows the image on the screen but doesnt store it in supabase"
+
+### Root cause
+
+`POST /conditions/{id}/tif-preview` (`api/main.py`) rendered the contrast-normalized PNG and called `upload_png(f"previews/{condition_id}/{uuid.uuid4()}.png", ...)`, writing it into the public `cell-images` Supabase Storage bucket just to hand back a public URL for the Add Photos canvas `<img>`. Nothing ever referenced that object again — no `cells` row points at a `previews/...` path — and nothing ever deleted it, so every `.tif` selected on that screen (including ones the researcher never actually saved as a cell) left a permanent, unreferenced PNG behind in storage.
+
+### What changed
+
+**`api/main.py`:** `tif_preview` no longer calls `upload_png`. It PNG-encodes the rendered image and base64-encodes it inline, returning `{"preview_url": "data:image/png;base64,..."}` instead of a Storage public URL. Added the `base64` import.
+
+**`app.js`:** no changes needed — `uploadPhotoPreview` already treats `preview_url` as an opaque string it hands straight to an `<img src>` and to a scratch `Image()` (to read `naturalWidth`/`naturalHeight` for the canvas aspect ratio); a `data:` URL satisfies both the same way a Storage URL did.
+
+`cells/from-tif`'s own `upload_png` call (the permanent per-cell crop, `cells/{condition_id}/{uuid}.png`) is unchanged — only the ephemeral preview step stopped writing to Storage.
+
+### Verification
+
+Traced `uploadPhotoPreview`/`queuePhotoFiles` in `app.js` by hand: both call sites of `preview_url` (the `<img>` markup and the `img.src` aspect-ratio probe) accept any URL scheme, so no frontend change was required. Did not run the Python API locally this session (no Supabase credentials in this dev environment); worth a manual check after deploy that selecting a `.tif` on the Add Photos screen still shows the rendered preview and that no new objects appear under `cell-images/previews/` afterward.
+
+## Final step (per project convention)
+
+Added a bullet to Phase 11's `tif-preview` line in `docs/tasks.md`.
+
+---
