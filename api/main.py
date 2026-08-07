@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import os
@@ -656,8 +657,11 @@ def compute_auto_count(cell_id: str, body: AutoCountBody, user=Depends(get_curre
 # ---- .tif image pipeline ----
 # Loads a raw microscopy .tif, contrast-normalizes it, and renders it as
 # grayscale (see api/imaging.py). tif-preview is a render-only step for the
-# Add Photos canvas (no DB writes); cells/from-tif crops the same render per
-# annotated box and creates one `cells` row per box.
+# Add Photos canvas (no DB writes, no storage writes — the rendered PNG is
+# only ever needed on that screen, so it's returned inline as a data URL
+# rather than uploaded to Supabase Storage where nothing would ever clean
+# it up); cells/from-tif crops the same render per annotated box and creates
+# one `cells` row per box.
 
 @app.post("/conditions/{condition_id}/tif-preview")
 def tif_preview(condition_id: str, file: UploadFile = File(...), user=Depends(get_current_user)):
@@ -667,8 +671,8 @@ def tif_preview(condition_id: str, file: UploadFile = File(...), user=Depends(ge
         image = render_tif_to_image(tif_bytes)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    url = upload_png(f"previews/{condition_id}/{uuid.uuid4()}.png", encode_png(image))
-    return {"preview_url": url}
+    png_b64 = base64.b64encode(encode_png(image)).decode("ascii")
+    return {"preview_url": f"data:image/png;base64,{png_b64}"}
 
 
 class BoxPct(BaseModel):

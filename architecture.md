@@ -112,7 +112,7 @@ projects (id, name, invite_code, created_by)
 
 ### Storage
 - Bucket `cell-images`, **public** — both `image_url` and rendered display images are loaded via plain `<img src>`, which can't carry an auth header, so URLs must be publicly fetchable without a bearer token.
-- Two path prefixes: `previews/{condition_id}/{uuid}.png` (Add Photos canvas render, ephemeral/display-only) and `cells/{condition_id}/{uuid}.png` (the permanent per-cell crop referenced by `cells.image_url`).
+- One path prefix in use: `cells/{condition_id}/{uuid}.png` (the permanent per-cell crop referenced by `cells.image_url`). The Add Photos canvas render is never stored — `tif-preview` returns the PNG inline as a `data:` URL instead, since nothing ever needed it past that screen and nothing cleaned up the old `previews/{condition_id}/{uuid}.png` objects it used to leave behind.
 
 ### Auth
 - Supabase Auth issues JWTs. The frontend never calls Supabase Auth directly — it POSTs credentials to Render (`/auth/login`, `/auth/signup`, etc.), which proxies to `supabase.auth.*` and returns just the access token.
